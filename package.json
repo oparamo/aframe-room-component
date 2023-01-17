@@ -1,9 +1,13 @@
 {
   "name": "aframe-room-component",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "description": "An A-Frame component for quickly creating rooms connected by doors.",
-  "main": "index.js",
-  "cdn": "dist/aframe-room-component.min.js",
+  "main": "./index.js",
+  "cdn": "./dist/aframe-room-component.min.js",
+  "engines": {
+    "node": "^18.13.0",
+    "yarn": "^1.22.0"
+  },
   "scripts": {
     "dev": "budo index.js:dist/aframe-room-component.min.js --port 7000 --live --open",
     "dist": "webpack index.js dist/aframe-room-component.js && webpack -p index.js dist/aframe-room-component.min.js",
@@ -17,7 +21,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/omgitsraven/aframe-room-component.git"
+    "url": "git+https://github.com/oparamo/aframe-room-component.git"
   },
   "keywords": [
     "aframe",
@@ -28,39 +32,50 @@
     "webvr",
     "room"
   ],
-  "author": "Hazel Fraticelli <omgitsraven@gmail.com>",
+  "contributors": [
+    {
+      "name": "Hazel Fraticelli",
+      "email": "omgitsraven@gmail.com"
+    },
+    {
+      "name": "Oscar Paramo",
+      "email": "oscar@paramo.dev"
+    }
+  ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/omgitsraven/aframe-room-component/issues"
+    "url": "https://github.com/oparamo/aframe-room-component/issues"
   },
-  "homepage": "https://github.com/omgitsraven/aframe-room-component#readme",
+  "homepage": "https://github.com/oparamo/aframe-room-component#readme",
   "devDependencies": {
-    "aframe": "^1.3.0",
-    "babel-loader": "^7.1.2",
-    "babel-preset-es2015": "^6.24.1",
-    "browserify": "^13.0.0",
-    "budo": "^8.2.2",
-    "chai": "^3.4.1",
-    "chai-shallow-deep-equal": "^1.3.0",
-    "ghpages": "^0.0.8",
-    "karma": "^0.13.15",
-    "karma-browserify": "^4.4.2",
+    "@babel/core": "7.20.12",
+    "@babel/preset-env": "7.20.2",
+    "aframe": "1.4.1",
+    "babel-loader": "9.1.2",
+    "browserify": "17.0.0",
+    "budo": "11.8.4",
+    "chai": "4.3.7",
+    "chai-shallow-deep-equal": "1.4.6",
+    "ghpages": "0.0.10",
+    "karma": "6.4.1",
+    "karma-browserify": "8.1.0",
     "karma-chai-shallow-deep-equal": "0.0.4",
-    "karma-chrome-launcher": "2.0.0",
-    "karma-env-preprocessor": "^0.1.1",
-    "karma-firefox-launcher": "^0.1.7",
-    "karma-mocha": "^0.2.1",
-    "karma-mocha-reporter": "^1.1.3",
-    "karma-sinon-chai": "^1.1.0",
-    "mocha": "^2.3.4",
-    "randomcolor": "^0.4.4",
-    "semistandard": "^8.0.0",
-    "shelljs": "^0.7.0",
-    "shx": "^0.1.1",
-    "sinon": "^1.17.7",
-    "sinon-chai": "^2.8.0",
-    "snazzy": "^4.0.0",
-    "webpack": "^1.15.0"
+    "karma-chrome-launcher": "3.1.1",
+    "karma-env-preprocessor": "0.1.1",
+    "karma-firefox-launcher": "2.1.2",
+    "karma-mocha": "2.0.1",
+    "karma-mocha-reporter": "2.2.5",
+    "karma-sinon-chai": "2.0.2",
+    "mocha": "10.2.0",
+    "randomcolor": "0.6.2",
+    "semistandard": "16.0.1",
+    "shelljs": "0.8.5",
+    "shx": "0.3.4",
+    "sinon": "15.0.1",
+    "sinon-chai": "3.7.0",
+    "snazzy": "9.0.0",
+    "webpack": "5.75.0",
+    "webpack-cli": "5.0.1"
   },
   "semistandard": {
     "globals": [
