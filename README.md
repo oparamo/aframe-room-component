@@ -5,7 +5,7 @@
 
 A set of [A-Frame](https://aframe.io) components for quickly creating rooms connected by doors.
 
-[Click here to see an example](https://omgitsraven.github.io/aframe-room-component/examples/basic/)
+[Click here to see an example](https://oparamo.github.io/aframe-room-component/examples/basic/)
 
 ### Installation
 
@@ -16,7 +16,7 @@ Install and use by directly including the [browser files](dist):
 ```html
 <head>
   <title>My A-Frame Scene</title>
-  <script src="https://aframe.io/releases/1.3.0/aframe.min.js"></script>
+  <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-room-component/dist/aframe-room-component.min.js"></script>
 </head>
 
@@ -110,7 +110,7 @@ If an `rw-room` has a `width` attribute **and** a `length` attribute, and four `
 
 #### Tips
 
-Have a look at the source to [this example](https://omgitsraven.github.io/aframe-room-component/examples/basic/) to see some ways that this system can be used.
+Have a look at the source to [this example](https://oparamo.github.io/aframe-room-component/examples/basic/) to see some ways that this system can be used.
 
 You may find it helpful to use a mixin for a commonly-occuring material (such as a floor material).
 
