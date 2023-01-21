@@ -5,21 +5,24 @@
     <title>A-Frame Room Component - Basic</title>
     <meta name="description" content="Basic example for Room component."></meta>
     <script src="https://aframe.io/releases/1.4.1/aframe.js"></script>
-    <script src="../../dist/aframe-room-component.min.js"></script>
+    <script src="../../dist/aframe-room-component.js"></script>
   </head>
   <body>
     <a-scene>
 
       <a-assets>
-
+        <img id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg">
+        <img id="skyTexture" src="https://cdn.aframe.io/a-painter/images/sky.jpg">
         <img id="testTex" src="test.png">
 
         <a-mixin id="floorMat" material="color:#BBB"></a-mixin>
-
-        <img crossorigin="anonymous" id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg">
-        <img crossorigin="anonymous" id="skyTexture" src="https://cdn.aframe.io/a-painter/images/sky.jpg">
-
       </a-assets>
+
+      <a-entity
+        camera="active: true"
+        look-controls="reverseMouseDrag: true"
+        wasd-controls position="0 1.6 0">
+      </a-entity>
 
       <a-sky height="2048" radius="30" src="#skyTexture" theta-length="90" width="2048" segments-height="5" segments-width="8"></a-sky>
       <a-plane src="#groundTexture" rotation="-90 0 0" position="0 -0.01 0" height="100" width="100"></a-plane>

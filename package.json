@@ -10,8 +10,9 @@
   },
   "scripts": {
     "build": "webpack index.js dist/aframe-room-component.js && webpack -p index.js dist/aframe-room-component.min.js",
-    "lint": "semistandard -v | snazzy",
-    "start": "budo index.js:dist/aframe-room-component.min.js --port 7000 --live --open"
+    "lint": "eslint --fix .",
+    "postinstall": "husky install",
+    "start": "budo index.js:dist/aframe-room-component.js --port 7000 --live --open"
   },
   "repository": {
     "type": "git",
@@ -44,23 +45,18 @@
   "devDependencies": {
     "@babel/core": "7.20.12",
     "@babel/preset-env": "7.20.2",
-    "aframe": "1.4.1",
     "babel-loader": "9.1.2",
     "browserify": "17.0.0",
     "budo": "11.8.4",
-    "semistandard": "16.0.1",
-    "snazzy": "9.0.0",
-    "webpack": "5.75.0",
-    "webpack-cli": "5.0.1"
+    "eslint": "8.32.0",
+    "husky": "8.0.3",
+    "webpack-cli": "5.0.1",
+    "webpack": "5.75.0"
   },
-  "semistandard": {
-    "globals": [
-      "AFRAME",
-      "THREE"
-    ],
-    "ignore": [
-      "examples/build.js",
-      "dist/**"
-    ]
-  }
+  "dependencies": {
+    "aframe": "1.4.1"
+  },
+  "eslintIgnore": [
+    "dist/"
+  ]
 }
