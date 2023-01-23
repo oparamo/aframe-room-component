@@ -58,5 +58,4 @@ typings/
 .env
 
 .husky
-
-build
+.DS_Store

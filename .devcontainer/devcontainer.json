@@ -1,9 +1,9 @@
 {
-    "name": "aframe-room-component",
-    "image": "mcr.microsoft.com/devcontainers/javascript-node:18-bullseye",
-    "features": {
-        "ghcr.io/devcontainers/features/common-utils:2": {
-            "configureZshAsDefaultShell": true
-        }
+  "name": "aframe-room-component",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:18-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "configureZshAsDefaultShell": true
     }
+  }
 }

@@ -9,23 +9,31 @@
     "yarn": ">=1.22.0"
   },
   "scripts": {
-    "build": "webpack index.js dist/aframe-room-component.js && webpack -p index.js dist/aframe-room-component.min.js",
-    "lint": "eslint --fix .",
-    "postinstall": "husky install",
-    "start": "budo index.js:dist/aframe-room-component.js --port 7000 --live --open"
+    "dist:dev": "webpack --config webpack.config.js",
+    "dist:prd": "webpack --config webpack.prod.config.js",
+    "dist": "npm run dist:prd && npm run dist:dev",
+    "lint:fix": "semistandard --fix",
+    "lint": "semistandard -v | snazzy",
+    "precommit": "npm run lint",
+    "start:https": "webpack serve --open --progress --server-type https",
+    "start": "webpack serve --open --progress"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/oparamo/aframe-room-component.git"
   },
   "keywords": [
-    "aframe",
+    "3d",
     "aframe-component",
     "aframe-vr",
+    "aframe",
+    "components",
+    "room",
+    "three.js",
+    "three",
     "vr",
-    "mozvr",
     "webvr",
-    "room"
+    "webxr"
   ],
   "contributors": [
     {
@@ -46,17 +54,21 @@
     "@babel/core": "7.20.12",
     "@babel/preset-env": "7.20.2",
     "babel-loader": "9.1.2",
-    "browserify": "17.0.0",
-    "budo": "11.8.4",
     "eslint": "8.32.0",
     "husky": "8.0.3",
+    "semistandard": "16.0.1",
+    "snazzy": "9.0.0",
+    "terser-webpack-plugin": "5.3.6",
+    "webpack": "5.75.0",
     "webpack-cli": "5.0.1",
-    "webpack": "5.75.0"
+    "webpack-dev-server": "4.11.1"
   },
   "dependencies": {
     "aframe": "1.4.1"
   },
-  "eslintIgnore": [
-    "dist/"
-  ]
+  "semistandard": {
+    "ignore": [
+      "dist/**"
+    ]
+  }
 }
