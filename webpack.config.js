@@ -12,7 +12,7 @@ module.exports = [
       publicPath: '/dist/'
     },
     mode: 'development',
-    devtool: 'eval',
+    devtool: 'eval-source-map',
     stats: { colors: true },
     devServer: {
       port: process.env.PORT || 8000,

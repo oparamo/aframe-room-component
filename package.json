@@ -12,11 +12,11 @@
     "dist:dev": "webpack --config webpack.config.js",
     "dist:prd": "webpack --config webpack.prod.config.js",
     "dist": "npm run dist:prd && npm run dist:dev",
-    "lint:fix": "semistandard --fix",
+    "lint:fix": "semistandard --fix | snazzy",
     "lint": "semistandard -v | snazzy",
     "precommit": "npm run lint",
-    "start:https": "webpack serve --open --progress --server-type https",
-    "start": "webpack serve --open --progress"
+    "start:https": "webpack serve --progress --open --server-type https",
+    "start": "webpack serve --progress --open"
   },
   "repository": {
     "type": "git",
@@ -67,6 +67,10 @@
     "aframe": "1.4.1"
   },
   "semistandard": {
+    "globals": [
+      "AFRAME",
+      "THREE"
+    ],
     "ignore": [
       "dist/**"
     ]
