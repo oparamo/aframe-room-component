@@ -9,5 +9,5 @@
       "version": "lts/hydrogen"
     }
   },
-  "postCreateCommand": ". ${NVM_DIR}/nvm.sh && nvm alias default lts/hydrogen"
+  "postCreateCommand": ". ${NVM_DIR}/nvm.sh alias default lts/hydrogen"
 }
