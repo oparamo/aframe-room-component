@@ -153,8 +153,8 @@ AFRAME.registerSystem('building', {
       const doorlinks = buildingSelf.el.querySelectorAll('[doorlink]');
       for (let curLinkIndex = 0; curLinkIndex < doorlinks.length; curLinkIndex++) {
         const curLink = doorlinks[curLinkIndex];
-        if (curLink.components.doorlink.data.from == doorholeEl) { return curLink; }
-        if (curLink.components.doorlink.data.to == doorholeEl) { return curLink; }
+        if (curLink.components.doorlink.data.from === doorholeEl) { return curLink; }
+        if (curLink.components.doorlink.data.to === doorholeEl) { return curLink; }
       }
     }
 
@@ -173,8 +173,8 @@ AFRAME.registerSystem('building', {
 
       // lay out walls' angles:
 
-      for (var sceneChildNodeIndex = 0; sceneChildNodeIndex < buildingSelf.el.children.length; sceneChildNodeIndex++) {
-        var sceneChildNode = buildingSelf.el.children[sceneChildNodeIndex];
+      for (let sceneChildNodeIndex = 0; sceneChildNodeIndex < buildingSelf.el.children.length; sceneChildNodeIndex++) {
+        const sceneChildNode = buildingSelf.el.children[sceneChildNodeIndex];
         if (sceneChildNode.components && sceneChildNode.components.room) {
           const w = sceneChildNode.components.room.data.width;
           const l = sceneChildNode.components.room.data.length;
@@ -195,15 +195,15 @@ AFRAME.registerSystem('building', {
             }
           }
 
-          var walls = getRoomWallArray(sceneChildNode);
+          const walls = getRoomWallArray(sceneChildNode);
           if (walls.length > 2) {
-            for (var wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-              var curWallNode = walls[wallIndex];
-              var nextWallNode = walls[(wallIndex + 1) % walls.length];
+            for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
+              const curWallNode = walls[wallIndex];
+              const nextWallNode = walls[(wallIndex + 1) % walls.length];
 
-              var wallGapX = nextWallNode.components.position.data.x - curWallNode.components.position.data.x;
-              var wallGapZ = nextWallNode.components.position.data.z - curWallNode.components.position.data.z;
-              var wallAng = Math.atan2(wallGapZ, wallGapX);
+              const wallGapX = nextWallNode.components.position.data.x - curWallNode.components.position.data.x;
+              const wallGapZ = nextWallNode.components.position.data.z - curWallNode.components.position.data.z;
+              const wallAng = Math.atan2(wallGapZ, wallGapX);
 
               curWallNode.setAttribute('rotation', { x: 0, y: -wallAng / Math.PI * 180, z: 0 });
               curWallNode.object3D.updateMatrixWorld();
@@ -215,9 +215,9 @@ AFRAME.registerSystem('building', {
       // position the door holes:
 
       const doorlinks = buildingSelf.el.querySelectorAll('[doorlink]');
-      for (var curDoorlinkElIndex = 0; curDoorlinkElIndex < doorlinks.length; curDoorlinkElIndex++) {
-        var curDoorlinkEl = doorlinks[curDoorlinkElIndex];
-        var curDoorlink = curDoorlinkEl.components.doorlink;
+      for (let curDoorlinkElIndex = 0; curDoorlinkElIndex < doorlinks.length; curDoorlinkElIndex++) {
+        const curDoorlinkEl = doorlinks[curDoorlinkElIndex];
+        const curDoorlink = curDoorlinkEl.components.doorlink;
         if (!curDoorlink) { return; }// still setting up, try again later
 
         moveForLink(curDoorlink.data.from, curDoorlink.el);
@@ -226,21 +226,21 @@ AFRAME.registerSystem('building', {
 
       // generate the walls' geometry:
 
-      for (var sceneChildNodeIndex = 0; sceneChildNodeIndex < buildingSelf.el.children.length; sceneChildNodeIndex++) {
-        var sceneChildNode = buildingSelf.el.children[sceneChildNodeIndex];
+      for (let sceneChildNodeIndex = 0; sceneChildNodeIndex < buildingSelf.el.children.length; sceneChildNodeIndex++) {
+        const sceneChildNode = buildingSelf.el.children[sceneChildNodeIndex];
         if (sceneChildNode.components && sceneChildNode.components.room) {
           const isOutside = sceneChildNode.components.room.data.outside;
-          var walls = getRoomWallArray(sceneChildNode);
+          const walls = getRoomWallArray(sceneChildNode);
 
           if (walls.length > 2) {
-            for (var wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-              var curWallNode = walls[wallIndex];
-              var nextWallNode = walls[(wallIndex + 1) % walls.length];
+            for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
+              const curWallNode = walls[wallIndex];
+              const nextWallNode = walls[(wallIndex + 1) % walls.length];
 
-              var wallGapX = nextWallNode.components.position.data.x - curWallNode.components.position.data.x;
-              var wallGapZ = nextWallNode.components.position.data.z - curWallNode.components.position.data.z;
+              const wallGapX = nextWallNode.components.position.data.x - curWallNode.components.position.data.x;
+              const wallGapZ = nextWallNode.components.position.data.z - curWallNode.components.position.data.z;
               const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
-              var wallAng = Math.atan2(wallGapZ, wallGapX);
+              // var wallAng = Math.atan2(wallGapZ, wallGapX);
 
               const wallGapY = nextWallNode.components.position.data.y - curWallNode.components.position.data.y;
               const heightGap = getWallHeight(nextWallNode) - getWallHeight(curWallNode);
@@ -267,7 +267,7 @@ AFRAME.registerSystem('building', {
               );
 
               for (let holeIndex = 0; holeIndex < orderedHoles.length; holeIndex++) {
-                var holeEl = orderedHoles[holeIndex];
+                const holeEl = orderedHoles[holeIndex];
                 if (!holeEl.myVerts) { holeEl.myVerts = []; }
                 holeEl.myVerts.length = 0;
 
@@ -278,7 +278,7 @@ AFRAME.registerSystem('building', {
                 const linkInfo = linkEl.components;
 
                 for (let holeSide = -1; holeSide <= 1; holeSide += 2) {
-                  var ptX = holeInfo.position.data.x + linkInfo.doorlink.data.width / 2 * holeSide;
+                  const ptX = holeInfo.position.data.x + linkInfo.doorlink.data.width / 2 * holeSide;
                   const floorY = (ptX / wallLength) * wallGapY;
                   let topY = floorY + linkInfo.doorlink.data.height;
 
@@ -316,7 +316,7 @@ AFRAME.registerSystem('building', {
               const wallGeom = new THREE.ShapeGeometry(wallShape);
               makePlaneUvs(wallGeom, 'x', 'y', 1, 1);
               finishGeom(wallGeom);
-              var myMat = curWallNode.components.material ? curWallNode.components.material.material : curWallNode.parentNode.components.material.material;
+              const myMat = curWallNode.components.material ? curWallNode.components.material.material : curWallNode.parentNode.components.material.material;
               if (curWallNode.myMesh) {
                 curWallNode.myMesh.geometry = wallGeom;
                 curWallNode.myMesh.material = myMat;
@@ -338,9 +338,9 @@ AFRAME.registerSystem('building', {
               const isCeiling = curCapNode.components.ceiling;
 
               const capShape = new THREE.Shape();
-              for (var wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-                var curWallNode = walls[wallIndex];
-                var ptX = curWallNode.components.position.data.x;
+              for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
+                const curWallNode = walls[wallIndex];
+                const ptX = curWallNode.components.position.data.x;
                 const ptZ = curWallNode.components.position.data.z;
                 if (wallIndex) {
                   capShape.lineTo(ptX, ptZ);
@@ -349,8 +349,8 @@ AFRAME.registerSystem('building', {
                 }
               }
               const capGeom = new THREE.ShapeGeometry(capShape);
-              for (var wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-                var curWallNode = walls[wallIndex];
+              for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
+                const curWallNode = walls[wallIndex];
                 const curVert = new THREE.Vector3(
                   capGeom.attributes.position.getX(wallIndex),
                   capGeom.attributes.position.getY(wallIndex),
@@ -372,7 +372,7 @@ AFRAME.registerSystem('building', {
               if (!curCapNode.myMeshes) { curCapNode.myMeshes = []; }
 
               const typeLabel = isCeiling ? 'ceiling' : 'floor';
-              var myMat = curCapNode.components.material ? curCapNode.components.material.material : curCapNode.parentNode.components.material.material;
+              const myMat = curCapNode.components.material ? curCapNode.components.material.material : curCapNode.parentNode.components.material.material;
               if (curCapNode.myMeshes[typeLabel]) {
                 curCapNode.myMeshes[typeLabel].geometry = capGeom;
                 curCapNode.myMeshes[typeLabel].material = myMat;
@@ -387,17 +387,17 @@ AFRAME.registerSystem('building', {
 
       // generate the door tunnels' geometry:
 
-      for (var curDoorlinkElIndex = 0; curDoorlinkElIndex < doorlinks.length; curDoorlinkElIndex++) {
-        var curDoorlinkEl = doorlinks[curDoorlinkElIndex];
+      for (let curDoorlinkElIndex = 0; curDoorlinkElIndex < doorlinks.length; curDoorlinkElIndex++) {
+        const curDoorlinkEl = doorlinks[curDoorlinkElIndex];
 
-        var curDoorlink = curDoorlinkEl.components.doorlink;
+        const curDoorlink = curDoorlinkEl.components.doorlink;
         if (!curDoorlink.data.from) { continue; }
         if (!curDoorlink.data.to) { continue; }
         if (!curDoorlink.data.from.myVerts) { return; }
         if (!curDoorlink.data.to.myVerts) { return; }
 
         for (let doorLinkChildIndex = 0; doorLinkChildIndex < curDoorlinkEl.children.length; doorLinkChildIndex++) {
-          var doorLinkChild = curDoorlinkEl.children[doorLinkChildIndex];
+          const doorLinkChild = curDoorlinkEl.children[doorLinkChildIndex];
           if (!doorLinkChild.components) { continue; }
 
           const types = ['sides', 'floor', 'ceiling'];
@@ -406,11 +406,11 @@ AFRAME.registerSystem('building', {
 
             if (!doorLinkChild.components[curType]) { continue; }
 
-            var myMat = doorLinkChild.components.material ? doorLinkChild.components.material.material : doorLinkChild.parentNode.components.material.material;
+            const myMat = doorLinkChild.components.material ? doorLinkChild.components.material.material : doorLinkChild.parentNode.components.material.material;
 
             if (!doorLinkChild.myGeoms) { doorLinkChild.myGeoms = []; }
             if (!doorLinkChild.myGeoms[curType]) {
-              var curGeom = new THREE.BufferGeometry();
+              const curGeom = new THREE.BufferGeometry();
               doorLinkChild.myGeoms[curType] = curGeom;
               const myMesh = new THREE.Mesh(
                 curGeom,
@@ -420,13 +420,13 @@ AFRAME.registerSystem('building', {
               doorLinkChild.setObject3D(curType, myMesh);
               const indexArray = [];
               indexArray.push(0, 1, 2, 1, 3, 2);
-              if (curType == 'sides') { indexArray.push(4, 5, 6, 5, 7, 6); }
+              if (curType === 'sides') { indexArray.push(4, 5, 6, 5, 7, 6); }
               curGeom.setIndex(indexArray);
             }
 
-            var curGeom = doorLinkChild.myGeoms[curType];
+            const curGeom = doorLinkChild.myGeoms[curType];
             curGeom.meshRef.material = myMat;
-            var positionArray = [];
+            const positionArray = [];
             function addWorldVertex (pt) {
               const localPt = pt.clone();
               doorLinkChild.object3D.worldToLocal(localPt);
@@ -512,7 +512,7 @@ function updateScene (lastScene) {
   if (lastScene && lastScene.systems.building) { lastScene.systems.building.reexamineBuilding(); }
 }
 function positionWatch (e) {
-  if (e.detail.name == 'position') { updateScene(e.detail.target.sceneEl); }
+  if (e.detail.name === 'position') { updateScene(e.detail.target.sceneEl); }
 }
 
 function nodeSceneInit () {

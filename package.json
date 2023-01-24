@@ -14,6 +14,7 @@
     "dist": "npm run dist:prd && npm run dist:dev",
     "lint:fix": "semistandard --fix | snazzy",
     "lint": "semistandard -v | snazzy",
+    "postinstall": "husky install",
     "precommit": "npm run lint",
     "start:https": "webpack serve --progress --open --server-type https",
     "start": "webpack serve --progress --open"
