@@ -1,0 +1,13 @@
+{
+  "name": "aframe-room-component",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:18-bullseye",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "configureZshAsDefaultShell": true
+    },
+    "ghcr.io/devcontainers/features/node:1": {
+      "version": "lts/hydrogen"
+    }
+  },
+  "postCreateCommand": ". ${NVM_DIR}/nvm.sh && nvm alias default lts/hydrogen"
+}
