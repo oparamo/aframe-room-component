@@ -1,118 +1,90 @@
 'use strict';
 
+let examineBuildingCount = 0;
+
+const flipGeometry = (geom) => {
+  const indexCopy = geom.index;
+  for (let curFaceIndex = 0; curFaceIndex < indexCopy.count / 3; curFaceIndex++) {
+    const temp = indexCopy[curFaceIndex * 3 + 2];
+    indexCopy[curFaceIndex * 3 + 2] = indexCopy[curFaceIndex * 3 + 1];
+    indexCopy[curFaceIndex * 3 + 1] = temp;
+  }
+  geom.setIndex(indexCopy);
+};
+
+const makeUvsForGeometry = (geom, callback) => {
+  const allUVs = geom.index.array.reduce((uvs, vertexIndex) => {
+    const vertex = new THREE.Vector3(
+      geom.attributes.position.getX(vertexIndex),
+      geom.attributes.position.getY(vertexIndex),
+      geom.attributes.position.getZ(vertexIndex)
+    );
+
+    const uv = callback(vertex, vertexIndex % 3);
+    uvs[vertexIndex * 2 + 0] = uv[0];
+    uvs[vertexIndex * 2 + 1] = uv[1];
+
+    return uvs;
+  }, []);
+
+  geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(allUVs), 2));
+  geom.uvsNeedUpdate = true;
+};
+
+const makePlaneUvs = (geom, uKey, vKey, uMult, vMult) => {
+  makeUvsForGeometry(geom, (pt) => {
+    return [
+      pt[uKey] * uMult,
+      pt[vKey] * vMult
+    ];
+  });
+};
+
+const finishGeometry = (geom) => {
+  geom.computeVertexNormals();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
+};
+
+const getUnsortedRoomWalls = (room) => {
+  return Array.from(room?.children).filter(child => child?.components?.wall);
+};
+
+// the results of this not being saved anywhere is super wasteful,
+// but, see above; not worth worrying about yet
+const getRoomWalls = (room) => {
+  const isOutside = room?.components?.room?.data?.outside;
+  const walls = getUnsortedRoomWalls(room);
+
+  let cwSum = 0;
+  for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
+    const currentWall = walls[wallIndex];
+    const nextWall = walls[(wallIndex + 1) % walls.length];
+    const { x: currentWallX, z: currentWallZ } = currentWall.components.position.data;
+    const { x: nextWallX, z: nextWallZ } = nextWall.components.position.data;
+
+    cwSum += (nextWallX - currentWallX) * (nextWallZ + currentWallZ);
+  }
+
+  let shouldReverse = false;
+  if (cwSum > 0) { shouldReverse = !shouldReverse; }
+  if (isOutside) { shouldReverse = !shouldReverse; }
+  if (shouldReverse) { walls.reverse(); }
+
+  return walls;
+};
+
+const getNextWall = (wall) => {
+  const roomWalls = getRoomWalls(wall.parentNode);
+  return roomWalls[(roomWalls.indexOf(wall) + 1) % roomWalls.length];
+}
+
 AFRAME.registerSystem('building', {
   examineBuilding: function () {
-    // console.log(" = REEVALUATION REQUESTED...");
+    examineBuildingCount++;
+    console.info('examineBuildingCount: ', examineBuildingCount);
 
-    const buildingSelf = this;
     const HAIR = 0.0001;
-
-    /*
-
-    https://github.com/oparamo/aframe-room-component
-    v0.5.0
-
-    OPTIMIZATION:
-
-    currently, the entire building is getting re-generated from scratch any time anything in it changes.
-    obviously this is wasteful, but:
-    - this library isn't particularly likely to be used in a context where these properties will be changing at runtime (at least outside of debugging)
-    - right now I am more concerned with getting it out the door than making it perfect anyway
-
-    PLANNED FEATURES TO COME (in order):
-    - greater control over UV generation
-    - automatic collision assignment
-    - doors lifted above the ground (i.e. windows)
-    - accept a shape to be extruded around a doorhole to make a doorframe (& around a floor to make a baseboard)
-
-    KNOWN ISSUES (with no obvious solution that would preserve ease of use):
-    - floor/ceiling triangulation is not controllable (and therefore varying wall verticality is nearly useless unless slope is consistent)
-    - doorhole parenting is always level to the horizon even on slope-floored walls
-    - the setTimeout thing results in a one-frame flash of invisible walls: is it worth it? (is there a smarter thing to listen for, maybe?)
-
-    ISSUES THAT COULD THEORETICALLY BE FIXED BUT DON'T SEEM WORTH THE TROUBLE:
-    - walls are internally rearranged to always wind CW, which means wall parenting will point towards the "previous" wall if you entered them in CCW order
-
-    */
-
-    function flipGeom (geom) {
-      const indexCopy = geom.index;
-      for (let curFaceIndex = 0; curFaceIndex < indexCopy.count / 3; curFaceIndex++) {
-        const temp = indexCopy[curFaceIndex * 3 + 2];
-        indexCopy[curFaceIndex * 3 + 2] = indexCopy[curFaceIndex * 3 + 1];
-        indexCopy[curFaceIndex * 3 + 1] = temp;
-      }
-      geom.setIndex(indexCopy);
-    }
-
-    function makeUvsForGeom (geom, callback) {
-      const allUVs = geom.index.array.reduce((uvs, vertexIndex) => {
-        const vertex = new THREE.Vector3(
-          geom.attributes.position.getX(vertexIndex),
-          geom.attributes.position.getY(vertexIndex),
-          geom.attributes.position.getZ(vertexIndex)
-        );
-
-        const uv = callback(vertex, vertexIndex % 3);
-        uvs[vertexIndex * 2 + 0] = uv[0];
-        uvs[vertexIndex * 2 + 1] = uv[1];
-
-        return uvs;
-      }, []);
-
-      geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(allUVs), 2));
-      geom.uvsNeedUpdate = true;
-    }
-
-    function makePlaneUvs (geom, uKey, vKey, uMult, vMult) {
-      makeUvsForGeom(geom, (pt) => {
-        return [
-          pt[uKey] * uMult,
-          pt[vKey] * vMult
-        ];
-      });
-    }
-
-    function finishGeom (geom) {
-      geom.computeVertexNormals();
-      // are these necessary?
-      geom.computeBoundingBox();
-      geom.computeBoundingSphere();
-    }
-
-    function getUnsortedRoomWalls (room) {
-      return Array.from(room?.children).filter(child => child?.components?.wall);
-    }
-
-    function getRoomWalls (room) {
-      // the results of this not being saved anywhere is super wasteful,
-      // but, see above; not worth worrying about yet
-
-      const isOutside = room?.components?.room?.data?.outside;
-      const walls = getUnsortedRoomWalls(room);
-
-      let cwSum = 0;
-      for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-        const currentWall = walls[wallIndex];
-        const nextWall = walls[(wallIndex + 1) % walls.length];
-        const { x: currentWallX, z: currentWallZ } = currentWall.components.position.data;
-        const { x: nextWallX, z: nextWallZ } = nextWall.components.position.data;
-
-        cwSum += (nextWallX - currentWallX) * (nextWallZ + currentWallZ);
-      }
-
-      let shouldReverse = false;
-      if (cwSum > 0) { shouldReverse = !shouldReverse; }
-      if (isOutside) { shouldReverse = !shouldReverse; }
-      if (shouldReverse) { walls.reverse(); }
-
-      return walls;
-    }
-
-    function getNextWall (wall) {
-      const roomWalls = getRoomWalls(wall.parentNode);
-      return roomWalls[(roomWalls.indexOf(wall) + 1) % roomWalls.length];
-    }
 
     function moveForLink (doorhole, doorlink) {
       const wall = doorhole.parentNode;
@@ -146,26 +118,24 @@ AFRAME.registerSystem('building', {
       doorhole.object3D.updateMatrixWorld();
     }
 
-    function getDoorholeLink (doorhole) {
-      return Array.from(buildingSelf.el.querySelectorAll('[doorlink]'))
+    const getDoorholeLink = (doorhole) => {
+      return Array.from(this.el.querySelectorAll('[doorlink]'))
         .find((link) => link?.components?.doorlink?.data?.from === doorhole || link?.components?.doorlink?.data?.to === doorhole);
-    }
+    };
 
-    function getWallHeight (wallEl) {
-      return wallEl?.components?.wall?.data?.height || wallEl?.parentNode?.components?.room?.data?.height;
-    }
+    const getWallHeight = (wall) => {
+      return wall?.components?.wall?.data?.height || wall?.parentNode?.components?.room?.data?.height;
+    };
 
-    if (buildingSelf.dirty) { return; }
-    buildingSelf.dirty = true;
+    if (this.dirty) { return; }
+    this.dirty = true;
 
     setTimeout(() => {
-      // console.log(" == STARTING RE-EVALUATION...");
-
       // silly but necessary because of threeJS weirdness
-      buildingSelf.el.object3D.updateMatrixWorld();
+      this.el.object3D.updateMatrixWorld();
 
       // lay out walls' angles:
-      for (const sceneChild of buildingSelf.el.children) {
+      for (const sceneChild of this.el.children) {
         // TODO: move this validation to the room component
         if (sceneChild?.components?.room) {
           const { width, length } = sceneChild?.components?.room?.data;
@@ -204,7 +174,7 @@ AFRAME.registerSystem('building', {
       }
 
       // position the door holes:
-      const doorlinks = buildingSelf.el.querySelectorAll('[doorlink]');
+      const doorlinks = this.el.querySelectorAll('[doorlink]');
       for (const curDoorlinkEl of doorlinks) {
         const curDoorlink = curDoorlinkEl.components.doorlink;
         if (!curDoorlink) { return; } // still setting up, try again later
@@ -214,7 +184,7 @@ AFRAME.registerSystem('building', {
       }
 
       // generate the walls' geometry:
-      for (const sceneChild of buildingSelf.el.children) {
+      for (const sceneChild of this.el.children) {
         if (sceneChild?.components?.room) {
           const isOutside = sceneChild?.components?.room?.data?.outside;
           const walls = getRoomWalls(sceneChild);
@@ -292,7 +262,7 @@ AFRAME.registerSystem('building', {
 
               const wallGeom = new THREE.ShapeGeometry(wallShape);
               makePlaneUvs(wallGeom, 'x', 'y', 1, 1);
-              finishGeom(wallGeom);
+              finishGeometry(wallGeom);
               const myMat = curWallNode?.components?.material?.material || curWallNode?.parentNode?.components?.material?.material;
               if (curWallNode.myMesh) {
                 curWallNode.myMesh.geometry = wallGeom;
@@ -336,10 +306,10 @@ AFRAME.registerSystem('building', {
                 let shouldReverse = false;
                 if (!isCeiling) { shouldReverse = !shouldReverse; }
                 if (isOutside) { shouldReverse = !shouldReverse; }
-                if (shouldReverse) { flipGeom(capGeom); }
+                if (shouldReverse) { flipGeometry(capGeom); }
 
                 makePlaneUvs(capGeom, 'x', 'z', isCeiling ? 1 : -1, 1);
-                finishGeom(capGeom);
+                finishGeometry(capGeom);
 
                 if (!cap.myMeshes) { cap.myMeshes = []; }
 
@@ -414,7 +384,7 @@ AFRAME.registerSystem('building', {
 
                 commitVertices();
 
-                makeUvsForGeom(curGeom, (pt, vertIndex) => {
+                makeUvsForGeometry(curGeom, (pt, vertIndex) => {
                   return [
                     1 - (vertIndex % 2),
                     1 - Math.floor(vertIndex / 2)
@@ -431,7 +401,7 @@ AFRAME.registerSystem('building', {
 
                 commitVertices();
 
-                makeUvsForGeom(curGeom, (pt, vertIndex) => {
+                makeUvsForGeometry(curGeom, (pt, vertIndex) => {
                   return [
                     vertIndex % 2,
                     1 - Math.floor(vertIndex / 2)
@@ -453,7 +423,7 @@ AFRAME.registerSystem('building', {
 
                 commitVertices();
 
-                makeUvsForGeom(curGeom, (pt, vertIndex) => {
+                makeUvsForGeometry(curGeom, (pt, vertIndex) => {
                   const uv = [];
                   uv[0] = Math.floor(vertIndex / 2);
                   uv[1] = vertIndex % 2;
@@ -463,13 +433,12 @@ AFRAME.registerSystem('building', {
 
                 break;
             }
-            finishGeom(curGeom);
+            finishGeometry(curGeom);
           }
         }
       }
 
-      // console.log(" === RE-EVALUATION COMPLETE!");
-      buildingSelf.dirty = false;
+      this.dirty = false;
     });
   }
 });
@@ -479,29 +448,21 @@ function updateScene (lastScene) {
 }
 
 function positionWatch (e) {
-  if (e?.detail?.name === 'position') { updateScene(e.detail.target.sceneEl); }
+  if (e?.detail?.name === 'position') { updateScene(e?.detail?.target?.sceneEl); }
 }
 
-function sceneInit () {
-  this.lastScene = this.el.sceneEl;
-  updateScene(this.lastScene);
-  this.el.addEventListener('componentchanged', positionWatch);
-}
-
-function sceneUpdate () {
-  updateScene(this.lastScene);
-}
-
-function sceneRemove () {
-  updateScene(this.lastScene);
-  this.lastScene = null;
-  this.el.removeEventListener('componentchanged', positionWatch);
-}
-
-const refreshSceneConfig = {
-  init: sceneInit,
-  update: sceneUpdate,
-  remove: sceneRemove
+const sceneConfig = {
+  init: function () {
+    updateScene(this.el.sceneEl);
+    this.el.addEventListener('componentchanged', positionWatch);
+  },
+  update: function () {
+    updateScene(this.el.sceneEl);
+  },
+  remove: function () {
+    updateScene(this.el.sceneEl);
+    this.el.removeEventListener('componentchanged', positionWatch);
+  }
 };
 
 AFRAME.registerComponent('room', Object.assign({
@@ -513,7 +474,7 @@ AFRAME.registerComponent('room', Object.assign({
     length: { type: 'number' }
   }
 
-}, refreshSceneConfig));
+}, sceneConfig));
 
 AFRAME.registerComponent('wall', Object.assign({
 
@@ -521,13 +482,13 @@ AFRAME.registerComponent('wall', Object.assign({
     height: { type: 'number' }
   }
 
-}, refreshSceneConfig));
+}, sceneConfig));
 
-AFRAME.registerComponent('floor', refreshSceneConfig);
+AFRAME.registerComponent('floor', sceneConfig);
 
-AFRAME.registerComponent('ceiling', refreshSceneConfig);
+AFRAME.registerComponent('ceiling', sceneConfig);
 
-AFRAME.registerComponent('doorhole', refreshSceneConfig);
+AFRAME.registerComponent('doorhole', sceneConfig);
 
 AFRAME.registerComponent('doorlink', Object.assign({
 
@@ -538,9 +499,9 @@ AFRAME.registerComponent('doorlink', Object.assign({
     width: { type: 'number', default: 0.8 }
   }
 
-}, refreshSceneConfig));
+}, sceneConfig));
 
-AFRAME.registerComponent('sides', refreshSceneConfig);
+AFRAME.registerComponent('sides', sceneConfig);
 
 // could probably automate this rather than hard-coding it, but this'll do for now:
 

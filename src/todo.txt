@@ -1,0 +1,23 @@
+https://github.com/oparamo/aframe-room-component
+v0.5.0
+
+OPTIMIZATION:
+
+currently, the entire building is getting re-generated from scratch any time anything in it changes.
+obviously this is wasteful, but:
+- this library isn't particularly likely to be used in a context where these properties will be changing at runtime (at least outside of debugging)
+- right now I am more concerned with getting it out the door than making it perfect anyway
+
+PLANNED FEATURES TO COME (in order):
+- greater control over UV generation
+- automatic collision assignment
+- doors lifted above the ground (i.e. windows)
+- accept a shape to be extruded around a doorhole to make a doorframe (& around a floor to make a baseboard)
+
+KNOWN ISSUES (with no obvious solution that would preserve ease of use):
+- floor/ceiling triangulation is not controllable (and therefore varying wall verticality is nearly useless unless slope is consistent)
+- doorhole parenting is always level to the horizon even on slope-floored walls
+- the setTimeout thing results in a one-frame flash of invisible walls: is it worth it? (is there a smarter thing to listen for, maybe?)
+
+ISSUES THAT COULD THEORETICALLY BE FIXED BUT DON'T SEEM WORTH THE TROUBLE:
+- walls are internally rearranged to always wind CW, which means wall parenting will point towards the "previous" wall if you entered them in CCW order
