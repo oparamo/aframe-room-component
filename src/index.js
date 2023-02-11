@@ -52,8 +52,8 @@ AFRAME.registerSystem('building', {
           geom.attributes.position.getY(vertexIndex),
           geom.attributes.position.getZ(vertexIndex)
         );
-        const uv = callback(vertex, vertexIndex % 3);
 
+        const uv = callback(vertex, vertexIndex % 3);
         uvs[vertexIndex * 2 + 0] = uv[0];
         uvs[vertexIndex * 2 + 1] = uv[1];
 
@@ -80,29 +80,25 @@ AFRAME.registerSystem('building', {
       geom.computeBoundingSphere();
     }
 
-    function getUnsortedRoomWallArray (roomEl) {
-      const walls = [];
-      for (const childNode of roomEl.children) {
-        if (childNode?.components?.wall) walls.push(childNode);
-      }
-      return walls;
+    function getUnsortedRoomWalls (room) {
+      return Array.from(room?.children).filter(child => child?.components?.wall);
     }
 
-    function getRoomWallArray (roomEl) {
+    function getRoomWalls (room) {
       // the results of this not being saved anywhere is super wasteful,
       // but, see above; not worth worrying about yet
 
-      const isOutside = roomEl?.components?.room?.data?.outside;
-      const walls = getUnsortedRoomWallArray(roomEl);
+      const isOutside = room?.components?.room?.data?.outside;
+      const walls = getUnsortedRoomWalls(room);
 
       let cwSum = 0;
       for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-        const curWallNode = walls[wallIndex];
-        const nextWallNode = walls[(wallIndex + 1) % walls.length];
-        const curWallPos = curWallNode.components.position.data;
-        const nextWallPos = nextWallNode.components.position.data;
+        const currentWall = walls[wallIndex];
+        const nextWall = walls[(wallIndex + 1) % walls.length];
+        const { x: currentWallX, z: currentWallZ } = currentWall.components.position.data;
+        const { x: nextWallX, z: nextWallZ } = nextWall.components.position.data;
 
-        cwSum += (nextWallPos.x - curWallPos.x) * (nextWallPos.z + curWallPos.z);
+        cwSum += (nextWallX - currentWallX) * (nextWallZ + currentWallZ);
       }
 
       let shouldReverse = false;
@@ -113,50 +109,46 @@ AFRAME.registerSystem('building', {
       return walls;
     }
 
-    function getNextWallEl (wallEl) {
-      const wallList = getRoomWallArray(wallEl.parentNode);
-      const curWallIndex = wallList.indexOf(wallEl);
-      return wallList[(curWallIndex + 1) % wallList.length];
+    function getNextWall (wall) {
+      const roomWalls = getRoomWalls(wall.parentNode);
+      return roomWalls[(roomWalls.indexOf(wall) + 1) % roomWalls.length];
     }
 
-    function moveForLink (doorholeEl, doorlinkEl) {
-      const holeWallEl = doorholeEl.parentNode;
-      const nextWallEl = getNextWallEl(holeWallEl);
-      if (!nextWallEl) { return; }
+    function moveForLink (doorhole, doorlink) {
+      const wall = doorhole.parentNode;
+      const nextWall = getNextWall(wall);
+      if (!nextWall) { return; }
 
       const worldWallPos = new THREE.Vector3();
       const worldNextPos = new THREE.Vector3();
       const worldLinkPos = new THREE.Vector3();
 
-      holeWallEl.object3D.getWorldPosition(worldWallPos);
-      nextWallEl.object3D.getWorldPosition(worldNextPos);
-      doorlinkEl.object3D.getWorldPosition(worldLinkPos);
+      wall.object3D.getWorldPosition(worldWallPos);
+      nextWall.object3D.getWorldPosition(worldNextPos);
+      doorlink.object3D.getWorldPosition(worldLinkPos);
 
       const linkGapX = worldLinkPos.x - worldWallPos.x;
       const linkGapZ = worldLinkPos.z - worldWallPos.z;
 
       const wallGapX = worldNextPos.x - worldWallPos.x;
       const wallGapZ = worldNextPos.z - worldWallPos.z;
-      const wallAng = Math.atan2(wallGapZ, wallGapX);
+      const wallAngle = Math.atan2(wallGapZ, wallGapX);
       const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
 
-      let localLinkX = linkGapX * Math.cos(-wallAng) - linkGapZ * Math.sin(-wallAng);
-      // var localLinkZ = linkGapX*Math.sin(-wallAng) + linkGapZ*Math.cos(-wallAng);
+      let localLinkX = linkGapX * Math.cos(-wallAngle) - linkGapZ * Math.sin(-wallAngle);
+      // var localLinkZ = linkGapX*Math.sin(-wallAngle) + linkGapZ*Math.cos(-wallAngle);
 
-      const doorHalf = doorlinkEl.components.doorlink.data.width / 2;
+      const doorHalf = doorlink.components.doorlink.data.width / 2;
       localLinkX = Math.max(localLinkX, doorHalf + HAIR);
       localLinkX = Math.min(localLinkX, wallLength - doorHalf - HAIR);
 
-      doorholeEl.setAttribute('position', { x: localLinkX, y: 0, z: 0 });
-      doorholeEl.object3D.updateMatrixWorld();
+      doorhole.setAttribute('position', { x: localLinkX, y: 0, z: 0 });
+      doorhole.object3D.updateMatrixWorld();
     }
 
-    function getHoleLink (doorholeEl) {
-      const doorlinks = buildingSelf.el.querySelectorAll('[doorlink]');
-      for (const curLink of doorlinks) {
-        if (curLink?.components?.doorlink?.data?.from === doorholeEl) { return curLink; }
-        if (curLink?.components?.doorlink?.data?.to === doorholeEl) { return curLink; }
-      }
+    function getDoorholeLink (doorhole) {
+      return Array.from(buildingSelf.el.querySelectorAll('[doorlink]'))
+        .find((link) => link?.components?.doorlink?.data?.from === doorhole || link?.components?.doorlink?.data?.to === doorhole);
     }
 
     function getWallHeight (wallEl) {
@@ -173,12 +165,13 @@ AFRAME.registerSystem('building', {
       buildingSelf.el.object3D.updateMatrixWorld();
 
       // lay out walls' angles:
-      for (const sceneChildNode of buildingSelf.el.children) {
-        if (sceneChildNode?.components?.room) {
-          const { width, length } = sceneChildNode?.components?.room?.data;
+      for (const sceneChild of buildingSelf.el.children) {
+        // TODO: move this validation to the room component
+        if (sceneChild?.components?.room) {
+          const { width, length } = sceneChild?.components?.room?.data;
           if (width || length) {
             if (width && length) {
-              const rawWalls = getUnsortedRoomWallArray(sceneChildNode);
+              const rawWalls = getUnsortedRoomWalls(sceneChild);
               if (rawWalls.length >= 4) {
                 if (rawWalls.length > 4) { console.error('rooms with WIDTH and LENGTH should only have four walls!'); }
                 rawWalls[0].setAttribute('position', { x: 0, y: 0, z: 0 });
@@ -193,7 +186,7 @@ AFRAME.registerSystem('building', {
             }
           }
 
-          const walls = getRoomWallArray(sceneChildNode);
+          const walls = getRoomWalls(sceneChild);
           if (walls.length > 2) {
             for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
               const curWallNode = walls[wallIndex];
@@ -221,10 +214,10 @@ AFRAME.registerSystem('building', {
       }
 
       // generate the walls' geometry:
-      for (const sceneChildNode of buildingSelf.el.children) {
-        if (sceneChildNode?.components?.room) {
-          const isOutside = sceneChildNode?.components?.room?.data?.outside;
-          const walls = getRoomWallArray(sceneChildNode);
+      for (const sceneChild of buildingSelf.el.children) {
+        if (sceneChild?.components?.room) {
+          const isOutside = sceneChild?.components?.room?.data?.outside;
+          const walls = getRoomWalls(sceneChild);
 
           if (walls.length > 2) {
             for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
@@ -255,7 +248,7 @@ AFRAME.registerSystem('building', {
                 if (!holeEl.myVerts) { holeEl.myVerts = []; }
                 holeEl.myVerts.length = 0;
 
-                const linkEl = getHoleLink(holeEl);
+                const linkEl = getDoorholeLink(holeEl);
                 if (!linkEl) { continue; }
 
                 const holeInfo = holeEl.components;
@@ -310,57 +303,56 @@ AFRAME.registerSystem('building', {
               }
             }
 
-            const caps = [];
-            for (const roomChildNode of sceneChildNode.children) {
-              if (roomChildNode?.components?.floor || roomChildNode?.components?.ceiling) { caps.push(roomChildNode); }
-            }
-            for (const curCapNode of caps) {
-              const isCeiling = curCapNode?.components?.ceiling;
+            Array.from(sceneChild.children)
+              .filter(roomChild => roomChild?.components?.floor || roomChild?.components?.ceiling)
+              .forEach(cap => {
+                const isCeiling = cap?.components?.ceiling;
 
-              const capShape = new THREE.Shape();
-              for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-                const curWallNode = walls[wallIndex];
-                const ptX = curWallNode.components.position.data.x;
-                const ptZ = curWallNode.components.position.data.z;
-                if (wallIndex) {
-                  capShape.lineTo(ptX, ptZ);
-                } else {
-                  capShape.moveTo(ptX, ptZ);
+                const capShape = new THREE.Shape();
+                for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
+                  const curWallNode = walls[wallIndex];
+                  const ptX = curWallNode.components.position.data.x;
+                  const ptZ = curWallNode.components.position.data.z;
+                  if (wallIndex) {
+                    capShape.lineTo(ptX, ptZ);
+                  } else {
+                    capShape.moveTo(ptX, ptZ);
+                  }
                 }
-              }
-              const capGeom = new THREE.ShapeGeometry(capShape);
-              for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-                const curWallNode = walls[wallIndex];
-                const curVert = new THREE.Vector3(
-                  capGeom.attributes.position.getX(wallIndex),
-                  capGeom.attributes.position.getY(wallIndex),
-                  capGeom.attributes.position.getZ(wallIndex)
-                );
-                curVert.set(curVert.x, curWallNode.components.position.data.y, curVert.y);
-                if (isCeiling) { curVert.y += getWallHeight(curWallNode); }
-                capGeom.attributes.position.setXYZ(wallIndex, curVert.x, curVert.y, curVert.z);
-              }
 
-              let shouldReverse = false;
-              if (!isCeiling) { shouldReverse = !shouldReverse; }
-              if (isOutside) { shouldReverse = !shouldReverse; }
-              if (shouldReverse) { flipGeom(capGeom); }
+                const capGeom = new THREE.ShapeGeometry(capShape);
+                for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
+                  const curWallNode = walls[wallIndex];
+                  const curVert = new THREE.Vector3(
+                    capGeom.attributes.position.getX(wallIndex),
+                    capGeom.attributes.position.getY(wallIndex),
+                    capGeom.attributes.position.getZ(wallIndex)
+                  );
+                  curVert.set(curVert.x, curWallNode.components.position.data.y, curVert.y);
+                  if (isCeiling) { curVert.y += getWallHeight(curWallNode); }
+                  capGeom.attributes.position.setXYZ(wallIndex, curVert.x, curVert.y, curVert.z);
+                }
 
-              makePlaneUvs(capGeom, 'x', 'z', isCeiling ? 1 : -1, 1);
-              finishGeom(capGeom);
+                let shouldReverse = false;
+                if (!isCeiling) { shouldReverse = !shouldReverse; }
+                if (isOutside) { shouldReverse = !shouldReverse; }
+                if (shouldReverse) { flipGeom(capGeom); }
 
-              if (!curCapNode.myMeshes) { curCapNode.myMeshes = []; }
+                makePlaneUvs(capGeom, 'x', 'z', isCeiling ? 1 : -1, 1);
+                finishGeom(capGeom);
 
-              const typeLabel = isCeiling ? 'ceiling' : 'floor';
-              const myMat = curCapNode?.components?.material?.material || curCapNode?.parentNode?.components?.material?.material;
-              if (curCapNode.myMeshes[typeLabel]) {
-                curCapNode.myMeshes[typeLabel].geometry = capGeom;
-                curCapNode.myMeshes[typeLabel].material = myMat;
-              } else {
-                curCapNode.myMeshes[typeLabel] = new THREE.Mesh(capGeom, myMat);
-                curCapNode.setObject3D(typeLabel, curCapNode.myMeshes[typeLabel]);
-              }
-            }
+                if (!cap.myMeshes) { cap.myMeshes = []; }
+
+                const typeLabel = isCeiling ? 'ceiling' : 'floor';
+                const myMat = cap?.components?.material?.material || cap?.parentNode?.components?.material?.material;
+                if (cap.myMeshes[typeLabel]) {
+                  cap.myMeshes[typeLabel].geometry = capGeom;
+                  cap.myMeshes[typeLabel].material = myMat;
+                } else {
+                  cap.myMeshes[typeLabel] = new THREE.Mesh(capGeom, myMat);
+                  cap.setObject3D(typeLabel, cap.myMeshes[typeLabel]);
+                }
+              });
           }
         }
       }
@@ -487,29 +479,29 @@ function updateScene (lastScene) {
 }
 
 function positionWatch (e) {
-  if (e.detail.name === 'position') { updateScene(e.detail.target.sceneEl); }
+  if (e?.detail?.name === 'position') { updateScene(e.detail.target.sceneEl); }
 }
 
-function nodeSceneInit () {
+function sceneInit () {
   this.lastScene = this.el.sceneEl;
   updateScene(this.lastScene);
   this.el.addEventListener('componentchanged', positionWatch);
 }
 
-function nodeSceneUpdate () {
+function sceneUpdate () {
   updateScene(this.lastScene);
 }
 
-function nodeSceneRemove () {
+function sceneRemove () {
   updateScene(this.lastScene);
   this.lastScene = null;
   this.el.removeEventListener('componentchanged', positionWatch);
 }
 
 const refreshSceneConfig = {
-  init: nodeSceneInit,
-  update: nodeSceneUpdate,
-  remove: nodeSceneRemove
+  init: sceneInit,
+  update: sceneUpdate,
+  remove: sceneRemove
 };
 
 AFRAME.registerComponent('room', Object.assign({
