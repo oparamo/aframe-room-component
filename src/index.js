@@ -138,6 +138,8 @@ AFRAME.registerSystem('building', {
       // silly but necessary because of threeJS weirdness
       this.el.object3D.updateMatrixWorld();
 
+      const doorlinks = Array.from(this.el.querySelectorAll('[doorlink]'));
+
       // lay out walls' angles:
       for (const sceneChild of this.el.children) {
         if (sceneChild?.components?.room) {
@@ -178,7 +180,6 @@ AFRAME.registerSystem('building', {
       }
 
       // position the door holes:
-      const doorlinks = Array.from(this.el.querySelectorAll('[doorlink]'));
       for (const { components: { doorlink } } of doorlinks) {
         if (!doorlink) { return; } // still setting up, try again later
 
