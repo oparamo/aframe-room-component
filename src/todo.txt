@@ -21,3 +21,8 @@ KNOWN ISSUES (with no obvious solution that would preserve ease of use):
 
 ISSUES THAT COULD THEORETICALLY BE FIXED BUT DON'T SEEM WORTH THE TROUBLE:
 - walls are internally rearranged to always wind CW, which means wall parenting will point towards the "previous" wall if you entered them in CCW order
+
+
+go all in with life cycle
+- register walls and retrieve them
+- validate # of walls in room
