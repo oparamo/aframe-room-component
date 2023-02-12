@@ -206,14 +206,9 @@ AFRAME.registerSystem('building', {
               const wallGapY = nextWallNode.components.position.data.y - curWallNode.components.position.data.y;
               const heightGap = getWallHeight(nextWallNode) - getWallHeight(curWallNode);
 
-              // TODO: clean up
-              const orderedHoles = [];
-              for (const wallChild of curWallNode.children) {
-                if (wallChild?.components?.doorhole) {
-                  orderedHoles.push(wallChild);
-                }
-              }
-              orderedHoles.sort((a, b) => a?.components?.position?.data?.x - b?.components?.position?.data?.x);
+              const orderedHoles = Array.from(curWallNode.children)
+                .filter((wallChild) => wallChild?.components?.doorhole)
+                .sort((a, b) => a?.components?.position?.data?.x - b?.components?.position?.data?.x);
 
               const wallShape = new THREE.Shape();
               wallShape.moveTo(0, getWallHeight(curWallNode));
