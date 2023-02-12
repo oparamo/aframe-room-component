@@ -24,9 +24,9 @@ const makeGeometryUvs = (geom, callback) => {
       geom.attributes.position.getZ(vertexIndex)
     );
 
-    const uv = callback(vertex, vertexIndex % 3);
-    uvs[vertexIndex * 2 + 0] = uv[0];
-    uvs[vertexIndex * 2 + 1] = uv[1];
+    const [u, v] = callback(vertex, vertexIndex % 3);
+    uvs[vertexIndex * 2 + 0] = u;
+    uvs[vertexIndex * 2 + 1] = v;
 
     return uvs;
   }, []);
@@ -180,12 +180,12 @@ AFRAME.registerSystem('building', {
       }
 
       // position the door holes:
-      for (const { components: { doorlink } } of doorlinks) {
-        if (!doorlink) { return; } // still setting up, try again later
-
-        moveForLink(doorlink.data.from, doorlink.el);
-        moveForLink(doorlink.data.to, doorlink.el);
-      }
+      doorlinks
+        .filter((doorlinkEl) => doorlinkEl?.components?.doorlink)
+        .forEach(({ components: { doorlink } }) => {
+          moveForLink(doorlink?.data?.from, doorlink.el);
+          moveForLink(doorlink?.data?.to, doorlink.el);
+        });
 
       // generate the walls' geometry:
       for (const sceneChild of this.el.children) {
@@ -333,12 +333,13 @@ AFRAME.registerSystem('building', {
       }
 
       // generate the door tunnels' geometry:
-      for (const curDoorlinkEl of doorlinks) {
-        const curDoorlink = curDoorlinkEl.components.doorlink;
-        if (!curDoorlink?.data?.from || !curDoorlink?.data?.to) { continue; }
-        if (!curDoorlink?.data?.from?.myVerts || !curDoorlink?.data?.to?.myVerts) { return; }
+      for (const doorlinkEl of doorlinks) {
+        const doorlink = doorlinkEl.components.doorlink;
+        const fVerts = doorlink?.data?.from?.myVerts;
+        const tVerts = doorlink?.data?.to?.myVerts;
+        if (!fVerts || !tVerts) { return; }
 
-        for (const doorLinkChild of curDoorlinkEl.children) {
+        for (const doorLinkChild of doorlinkEl.children) {
           if (!doorLinkChild.components) { continue; }
 
           const types = ['sides', 'floor', 'ceiling'];
@@ -351,10 +352,7 @@ AFRAME.registerSystem('building', {
             if (!doorLinkChild.myGeoms[curType]) {
               const curGeom = new THREE.BufferGeometry();
               doorLinkChild.myGeoms[curType] = curGeom;
-              const myMesh = new THREE.Mesh(
-                curGeom,
-                myMat
-              );
+              const myMesh = new THREE.Mesh(curGeom, myMat);
               curGeom.meshRef = myMesh;
               doorLinkChild.setObject3D(curType, myMesh);
               const indexArray = [];
@@ -367,18 +365,16 @@ AFRAME.registerSystem('building', {
             curGeom.meshRef.material = myMat;
             const positionArray = [];
 
-            function addWorldVertex (pt) {
-              const localPt = pt.clone();
-              doorLinkChild.object3D.worldToLocal(localPt);
-              positionArray.push(localPt.x, localPt.y, localPt.z);
-            }
+            const addWorldVertex = (vertex) => {
+              const point = vertex.clone();
+              doorLinkChild.object3D.worldToLocal(point);
+              positionArray.push(point.x, point.y, point.z);
+            };
 
-            function commitVertices () {
+            const commitVertices = () => {
               curGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positionArray), 3));
-            }
+            };
 
-            const fVerts = curDoorlink?.data?.from?.myVerts;
-            const tVerts = curDoorlink?.data?.to?.myVerts;
             switch (curType) {
               case 'floor':
 
@@ -389,7 +385,7 @@ AFRAME.registerSystem('building', {
 
                 commitVertices();
 
-                makeGeometryUvs(curGeom, (pt, vertIndex) => {
+                makeGeometryUvs(curGeom, (point, vertIndex) => {
                   return [
                     1 - (vertIndex % 2),
                     1 - Math.floor(vertIndex / 2)
@@ -406,7 +402,7 @@ AFRAME.registerSystem('building', {
 
                 commitVertices();
 
-                makeGeometryUvs(curGeom, (pt, vertIndex) => {
+                makeGeometryUvs(curGeom, (point, vertIndex) => {
                   return [
                     vertIndex % 2,
                     1 - Math.floor(vertIndex / 2)
@@ -428,7 +424,7 @@ AFRAME.registerSystem('building', {
 
                 commitVertices();
 
-                makeGeometryUvs(curGeom, (pt, vertIndex) => {
+                makeGeometryUvs(curGeom, (point, vertIndex) => {
                   const uv = [];
                   uv[0] = Math.floor(vertIndex / 2);
                   uv[1] = vertIndex % 2;
