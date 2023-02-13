@@ -439,46 +439,57 @@ AFRAME.registerSystem('building', {
   }
 });
 
-const updateScene = (lastScene) => {
-  if (lastScene?.systems?.building) { lastScene.systems.building.examineBuilding(); }
-};
-
 const positionWatch = (event) => {
-  if (event?.detail?.name === 'position') { updateScene(event?.detail?.target?.sceneEl); }
+  if (event?.detail?.name === 'position') {
+    event?.detail?.target?.sceneEl?.systems?.building?.examineBuilding();
+  }
 };
 
 const sceneConfig = {
   init: function () {
-    updateScene(this.el.sceneEl);
     this.el.addEventListener('componentchanged', positionWatch);
   },
   update: function () {
-    updateScene(this.el.sceneEl);
+    this.el.sceneEl.systems?.building?.examineBuilding();
   },
   remove: function () {
-    updateScene(this.el.sceneEl);
     this.el.removeEventListener('componentchanged', positionWatch);
   }
 };
 
-AFRAME.registerComponent('room', Object.assign({
-
+AFRAME.registerComponent('room', {
   schema: {
     outside: { type: 'boolean' },
     height: { type: 'number', default: 2.4 },
     width: { type: 'number' },
     length: { type: 'number' }
-  }
+  },
+  init: function () {
+    this.el.addEventListener('componentchanged', positionWatch);
+  },
+  update: function () {
+    this.el.sceneEl.systems?.building?.examineBuilding();
+  },
+  remove: function () {
+    this.el.removeEventListener('componentchanged', positionWatch);
+  },
+});
 
-}, sceneConfig));
-
-AFRAME.registerComponent('wall', Object.assign({
-
+AFRAME.registerComponent('wall', {
   schema: {
     height: { type: 'number' }
-  }
-
-}, sceneConfig));
+  },
+  init: function () {
+    this.el.addEventListener('componentchanged', positionWatch);
+  },
+  update: function () {
+    this.el.sceneEl.systems?.building?.examineBuilding();
+  },
+  remove: function () {
+    this.el.removeEventListener('componentchanged', positionWatch);
+  },
+  dependencies: ['room']
+});
 
 AFRAME.registerComponent('floor', sceneConfig);
 
