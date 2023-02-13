@@ -35,19 +35,19 @@
     <a-entity camera="active: true" look-controls="reverseMouseDrag: true" wasd-controls position="0 1.6 0">
     </a-entity>
 
-    <rw-room position="-2.5 0 -2.5" width="5" length="5" height="3">
+    <rw-room id="roomA" position="-2.5 0 -2.5" width="5" length="5" height="3">
 
-      <rw-wall material="color:#F88">
+      <rw-wall id="wallAA" material="color:#F88">
         <rw-doorhole id="holeA"></rw-doorhole>
       </rw-wall>
-      <rw-wall material="color:#F88"></rw-wall>
-      <rw-wall material="color:#F88">
+      <rw-wall id="wallAB" material="color:#F88"></rw-wall>
+      <rw-wall id="wallAC" material="color:#F88">
         <rw-doorhole id="frontInner"></rw-doorhole>
       </rw-wall>
-      <rw-wall material="color:#F88"></rw-wall>
+      <rw-wall id="wallAD" material="color:#F88"></rw-wall>
 
-      <rw-floor mixin="floorMat"></rw-floor>
-      <rw-ceiling material="color:#AAA"></rw-ceiling>
+      <rw-floor id="floorAA" mixin="floorMat"></rw-floor>
+      <rw-ceiling id="ceilingAA" material="color:#AAA"></rw-ceiling>
 
     </rw-room>
 
@@ -57,7 +57,7 @@
       <rw-sides material="color:#BB6"></rw-sides>
     </rw-doorlink>
 
-    <rw-room position="0 0 -2.7">
+    <rw-room id="roomB" position="0 0 -2.7">
 
       <rw-wall position="-2 0 0" material="color:#F00"></rw-wall>
       <rw-wall position=" 2 0 0" material="src:#testTex; repeat:0.5 0.5;">
@@ -78,7 +78,7 @@
 
     </rw-room>
 
-    <rw-room position="2 0 -5">
+    <rw-room id="roomC" position="2 0 -5">
 
       <rw-wall position="0 0 0" material="color:#800"></rw-wall>
       <rw-wall position="0 0 2" material="color:#800">
@@ -92,7 +92,7 @@
 
     </rw-room>
 
-    <rw-room position="0 0 0" outside="true" material="color:#877">
+    <rw-room id="roomD" position="0 0 0" outside="true" material="color:#877">
 
       <rw-wall position="-3 0 -8" height="3"></rw-wall>
       <rw-wall position=" 4 0 -8" height="3"></rw-wall>
