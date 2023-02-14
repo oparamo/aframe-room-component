@@ -29,8 +29,8 @@
 
     <a-plane src="#groundTexture" rotation="-90 0 0" position="0 -0.01 0" height="100" width="100"></a-plane>
 
-    <a-light type="directional" intensity="0.9" position="-1 -2  2"></a-light>
-    <a-light type="directional" intensity="1.0" position=" 2  1 -1"></a-light>
+    <a-light type="directional" intensity="0.9" position="-1 -2 2"></a-light>
+    <a-light type="directional" intensity="1.0" position=" 2 1 -1"></a-light>
 
     <a-entity camera="active: true" look-controls="reverseMouseDrag: true" wasd-controls position="0 1.6 0">
     </a-entity>
@@ -92,12 +92,12 @@
 
     </rw-room>
 
-    <rw-room id="roomD" position="0 0 0" outside="true" material="color:#877">
+    <rw-room id="outside-room" position="0 0 0" outside="true" material="color:#877">
 
       <rw-wall position="-3 0 -8" height="3"></rw-wall>
-      <rw-wall position=" 4 0 -8" height="3"></rw-wall>
-      <rw-wall position=" 4 0  3" height="3"></rw-wall>
-      <rw-wall position="-3 0  3" height="3">
+      <rw-wall position="4 0 -8" height="3"></rw-wall>
+      <rw-wall position="4 0 3" height="3"></rw-wall>
+      <rw-wall position="-3 0 3" height="3">
         <rw-doorhole id="frontOuter"></rw-doorhole>
         <rw-doorlink from="#frontInner" to="#frontOuter" material="color:#778" position="3 0 0">
           <rw-floor></rw-floor>
