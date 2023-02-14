@@ -114,7 +114,7 @@ const moveForLink = (doorhole, doorlink) => {
 
   // var localLinkZ = linkGapX*Math.sin(-wallAngle) + linkGapZ*Math.cos(-wallAngle);
 
-  doorhole.setAttribute('position', { x: localLinkX, y: 0, z: 0 });
+  doorhole.object3D.position.set(localLinkX, 0, 0);
   doorhole.object3D.updateMatrixWorld();
 };
 
@@ -221,11 +221,10 @@ AFRAME.registerSystem('building', {
                 const doorholeLink = getDoorholeLink(hole, doorlinks);
                 if (!doorholeLink) { continue; }
 
-                const holeInfo = hole.components;
                 const linkInfo = doorholeLink.components;
 
                 for (let holeSide = -1; holeSide <= 1; holeSide += 2) {
-                  const ptX = holeInfo.position.data.x + linkInfo.doorlink.data.width / 2 * holeSide;
+                  const ptX = hole.object3D.position.x + linkInfo.doorlink.data.width / 2 * holeSide;
                   const floorY = (ptX / wallLength) * wallGapY;
                   let topY = floorY + linkInfo.doorlink.data.height;
 
