@@ -2,7 +2,7 @@
   "name": "aframe-room-component",
   "version": "0.5.0",
   "description": "An A-Frame component for quickly creating rooms connected by doors.",
-  "main": "./index.js",
+  "main": "./src/index.js",
   "cdn": "./dist/aframe-room-component.min.js",
   "engines": {
     "node": ">=18.13.0",
@@ -55,7 +55,6 @@
     "@babel/core": "7.20.12",
     "@babel/preset-env": "7.20.2",
     "babel-loader": "9.1.2",
-    "eslint": "8.32.0",
     "husky": "8.0.3",
     "semistandard": "16.0.1",
     "snazzy": "9.0.0",
@@ -64,7 +63,7 @@
     "webpack-cli": "5.0.1",
     "webpack-dev-server": "4.11.1"
   },
-  "dependencies": {
+  "peerDependencies": {
     "aframe": "1.4.1"
   },
   "semistandard": {
