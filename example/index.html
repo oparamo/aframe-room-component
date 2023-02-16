@@ -46,58 +46,58 @@
       </rw-wall>
       <rw-wall id="wallAD" material="color:#F88"></rw-wall>
 
-      <rw-floor id="floorAA" mixin="floorMat"></rw-floor>
-      <rw-ceiling id="ceilingAA" material="color:#AAA"></rw-ceiling>
+      <rw-floor id="floorA" mixin="floorMat"></rw-floor>
+      <rw-ceiling id="ceilingA" material="color:#AAA"></rw-ceiling>
 
     </rw-room>
 
     <rw-doorlink from="#holeA" to="#holeB" width="2" position="0.5 0 0">
-      <rw-floor mixin="floorMat"></rw-floor>
-      <rw-ceiling material="color:#BB6"></rw-ceiling>
-      <rw-sides material="color:#BB6"></rw-sides>
+      <rw-floor id="holeAFloor" mixin="floorMat"></rw-floor>
+      <rw-ceiling id="holeACeiling" material="color:#BB6"></rw-ceiling>
+      <rw-sides id="holeASides" material="color:#BB6"></rw-sides>
     </rw-doorlink>
 
     <rw-room id="roomB" position="0 0 -2.7">
 
-      <rw-wall position="-2 0 0" material="color:#F00"></rw-wall>
-      <rw-wall position=" 2 0 0" material="src:#testTex; repeat:0.5 0.5;">
+      <rw-wall id="wallBA" position="-2 0 0" material="color:#F00"></rw-wall>
+      <rw-wall id="wallBB" position=" 2 0 0" material="src:#testTex; repeat:0.5 0.5;">
         <rw-doorhole id="holeB"></rw-doorhole>
       </rw-wall>
-      <rw-wall position=" 2 0 -5" material="color:#00F">
+      <rw-wall id="wallBC" position=" 2 0 -5" material="color:#00F">
         <rw-doorhole id="holeC"></rw-doorhole>
         <rw-doorlink from="#holeC" to="#holeD" position="4 0 0"></rw-doorlink>
       </rw-wall>
-      <rw-wall position="-2 0 -5" material="color:#F0F">
+      <rw-wall id="wallBD" position="-2 0 -5" material="color:#F0F">
         <a-box position="0.5 1.4 0" scale="0.5 0.5 0.2"></a-box>
         <a-box position="1.5 1.7 0" scale="0.5 0.5 0.2"></a-box>
         <a-box position="2.5 1.4 0" scale="0.5 0.5 0.2"></a-box>
       </rw-wall>
 
-      <rw-floor mixin="floorMat"></rw-floor>
-      <rw-ceiling material="color:#99A"></rw-ceiling>
+      <rw-floor id="floorB" mixin="floorMat"></rw-floor>
+      <rw-ceiling id="ceilingB" material="color:#99A"></rw-ceiling>
 
     </rw-room>
 
     <rw-room id="roomC" position="2 0 -5">
 
-      <rw-wall position="0 0 0" material="color:#800"></rw-wall>
-      <rw-wall position="0 0 2" material="color:#800">
+      <rw-wall id="wallCA" position="0 0 0" material="color:#800"></rw-wall>
+      <rw-wall id="wallCB" position="0 0 2" material="color:#800">
         <rw-doorhole id="holeD"></rw-doorhole>
       </rw-wall>
-      <rw-wall position="1 0 2" material="color:#800"></rw-wall>
-      <rw-wall position="1 0 0" material="color:#800"></rw-wall>
+      <rw-wall id="wallCC" position="1 0 2" material="color:#800"></rw-wall>
+      <rw-wall id="wallCD" position="1 0 0" material="color:#800"></rw-wall>
 
-      <rw-floor mixin="floorMat"></rw-floor>
-      <rw-ceiling material="color:#99A"></rw-ceiling>
+      <rw-floor id="floorC" mixin="floorMat"></rw-floor>
+      <rw-ceiling id="ceilingC" material="color:#99A"></rw-ceiling>
 
     </rw-room>
 
     <rw-room id="outside-room" position="0 0 0" outside="true" material="color:#877">
 
-      <rw-wall position="-3 0 -8" height="3"></rw-wall>
-      <rw-wall position="4 0 -8" height="3"></rw-wall>
-      <rw-wall position="4 0 3" height="3"></rw-wall>
-      <rw-wall position="-3 0 3" height="3">
+      <rw-wall id="wallDA" position="-3 0 -8" height="3"></rw-wall>
+      <rw-wall id="wallDB" position="4 0 -8" height="3"></rw-wall>
+      <rw-wall id="wallDC" position="4 0 3" height="3"></rw-wall>
+      <rw-wall id="wallDD" position="-3 0 3" height="3">
         <rw-doorhole id="frontOuter"></rw-doorhole>
         <rw-doorlink from="#frontInner" to="#frontOuter" material="color:#778" position="3 0 0">
           <rw-floor></rw-floor>
