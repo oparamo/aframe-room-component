@@ -1,5 +1,8 @@
 'use strict';
 
+require('./components');
+require('./primitives');
+
 let examineBuildingCount = 0;
 
 const HAIR = 0.0001;
@@ -127,6 +130,9 @@ const getDoorholeLink = (doorhole, doorlinks) => {
 };
 
 AFRAME.registerSystem('building', {
+  init: function () {
+    this.rooms = {};
+  },
   examineBuilding: function () {
     if (this.dirty) { return; }
     this.dirty = true;
@@ -232,13 +238,13 @@ AFRAME.registerSystem('building', {
                   const maxTopY = floorY + curCeil - HAIR;// will always be a seam, but, I'm not bothering to rewrite just for that
                   if (topY > maxTopY) { topY = maxTopY; }
 
-                  function addWorldVert (ptY) {
+                  const addWorldVert = (ptX, ptY) => {
                     const tempPos = new THREE.Vector3(ptX, ptY, 0);
                     curWallNode.object3D.localToWorld(tempPos);
                     hole.myVerts.push(tempPos);
-                  }
-                  addWorldVert(floorY);
-                  addWorldVert(topY);
+                  };
+                  addWorldVert(ptX, floorY);
+                  addWorldVert(ptX, topY);
 
                   if (holeSide < 0) {
                     wallShape.lineTo(ptX, floorY);
@@ -435,125 +441,33 @@ AFRAME.registerSystem('building', {
 
       this.dirty = false;
     });
+  },
+  registerRoom: function (room) {
+    const roomId = room?.el?.object3D?.uuid;
+    if (!this.rooms[roomId]) {
+      this.rooms[roomId] = { walls: {} };
+    }
+
+    // this.rooms[roomId] = Object.assign(this.rooms[roomId], ...room.data);
+  },
+  unregisterRoom: function (room) {
+    const roomId = room?.el?.object3D?.uuid;
+
+    delete this.rooms[roomId];
+  },
+  registerWall: function (wall) {
+    const roomId = wall?.el?.parentEl?.object3D?.uuid;
+    if (!this.rooms[roomId]) {
+      this.rooms[roomId] = { walls: {} };
+    }
+
+    const wallId = wall?.el?.object3D?.uuid;
+    this.rooms[roomId].walls[wallId] = { ...wall.data };
+  },
+  unregisterWall: function (wall) {
+    const roomId = wall?.el?.parentEl?.object3D?.uuid;
+    const wallId = wall?.el?.object3D?.uuid;
+
+    delete this.rooms[roomId].walls[wallId];
   }
-});
-
-const positionWatch = (event) => {
-  if (event?.detail?.name === 'position') {
-    event?.detail?.target?.sceneEl?.systems?.building?.examineBuilding();
-  }
-};
-
-const sceneConfig = {
-  init: function () {
-    this.el.addEventListener('componentchanged', positionWatch);
-  },
-  update: function () {
-    this.el.sceneEl.systems?.building?.examineBuilding();
-  },
-  remove: function () {
-    this.el.removeEventListener('componentchanged', positionWatch);
-  }
-};
-
-AFRAME.registerComponent('room', {
-  schema: {
-    outside: { type: 'boolean' },
-    height: { type: 'number', default: 2.4 },
-    width: { type: 'number' },
-    length: { type: 'number' }
-  },
-  init: function () {
-    this.el.addEventListener('componentchanged', positionWatch);
-  },
-  update: function () {
-    this.el.sceneEl.systems?.building?.examineBuilding();
-  },
-  remove: function () {
-    this.el.removeEventListener('componentchanged', positionWatch);
-  },
-});
-
-AFRAME.registerComponent('wall', {
-  schema: {
-    height: { type: 'number' }
-  },
-  init: function () {
-    this.el.addEventListener('componentchanged', positionWatch);
-  },
-  update: function () {
-    this.el.sceneEl.systems?.building?.examineBuilding();
-  },
-  remove: function () {
-    this.el.removeEventListener('componentchanged', positionWatch);
-  },
-  dependencies: ['room']
-});
-
-AFRAME.registerComponent('floor', sceneConfig);
-
-AFRAME.registerComponent('ceiling', sceneConfig);
-
-AFRAME.registerComponent('doorhole', sceneConfig);
-
-AFRAME.registerComponent('doorlink', Object.assign({
-
-  schema: {
-    from: { type: 'selector' },
-    to: { type: 'selector' },
-    height: { type: 'number', default: 2.0 },
-    width: { type: 'number', default: 0.8 }
-  }
-
-}, sceneConfig));
-
-AFRAME.registerComponent('sides', sceneConfig);
-
-// could probably automate this rather than hard-coding it, but this'll do for now:
-
-AFRAME.registerPrimitive('rw-room', {
-  defaultComponents: { room: {} },
-  mappings: {
-    outside: 'room.outside',
-    height: 'room.height',
-    width: 'room.width',
-    length: 'room.length'
-  }
-});
-
-AFRAME.registerPrimitive('rw-wall', {
-  defaultComponents: { wall: {} },
-  mappings: {
-    height: 'wall.height'
-  }
-});
-
-AFRAME.registerPrimitive('rw-floor', {
-  defaultComponents: { floor: {} },
-  mappings: {}
-});
-
-AFRAME.registerPrimitive('rw-ceiling', {
-  defaultComponents: { ceiling: {} },
-  mappings: {}
-});
-
-AFRAME.registerPrimitive('rw-doorhole', {
-  defaultComponents: { doorhole: {} },
-  mappings: {}
-});
-
-AFRAME.registerPrimitive('rw-doorlink', {
-  defaultComponents: { doorlink: {} },
-  mappings: {
-    from: 'doorlink.from',
-    to: 'doorlink.to',
-    height: 'doorlink.height',
-    width: 'doorlink.width'
-  }
-});
-
-AFRAME.registerPrimitive('rw-sides', {
-  defaultComponents: { sides: {} },
-  mappings: {}
 });
