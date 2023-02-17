@@ -8,12 +8,14 @@ module.exports.Component = AFRAME.registerComponent('room', {
     length: { type: 'number' }
   },
   init: function () {
-    this.el.sceneEl.systems?.building?.registerRoom(this);
+    console.info('registering room');
+    this.el.sceneEl.systems?.building?.registerRoom(this.el);
   },
   update: function () {
+    console.info('updating room');
     this.el.sceneEl.systems?.building?.examineBuilding();
   },
   remove: function () {
-    this.el.sceneEl.systems?.building?.unregisterRoom(this);
+    this.el.sceneEl.systems?.building?.unregisterRoom(this.el);
   }
 });

@@ -52,12 +52,12 @@ const finishGeometry = (geom) => {
 
 // TODO: remove these completely by hooking into aframe lifecycles
 const getUnsortedRoomWalls = (room) => {
-  return Array.from(room?.children).filter(child => child?.components?.wall);
+  return Array.from(room?.children).filter(child => child?.getAttribute('wall'));
 };
 
 // TODO: remove these completely by hooking into aframe lifecycles
 const getRoomWalls = (room) => {
-  const isOutside = room?.components?.room?.data?.outside;
+  const isOutside = room?.getAttribute('room')?.outside;
   const walls = getUnsortedRoomWalls(room);
 
   let cwSum = 0;
@@ -119,7 +119,7 @@ const moveForLink = (doorhole, doorlink) => {
 };
 
 const getWallHeight = (wall) => {
-  return wall?.components?.wall?.data?.height || wall?.parentNode?.components?.room?.data?.height;
+  return wall?.getAttribute('wall')?.height || wall?.parentNode?.getAttribute('room')?.height;
 };
 
 const getDoorholeLink = (doorhole, doorlinks) => {
@@ -129,13 +129,15 @@ const getDoorholeLink = (doorhole, doorlinks) => {
 AFRAME.registerSystem('building', {
   init: function () {
     this.rooms = {};
+    this.walls = {};
   },
   examineBuilding: function () {
     if (this.dirty) { return; }
     this.dirty = true;
 
+    examineBuildingCount++;
+
     setTimeout(() => {
-      examineBuildingCount++;
       console.info('examineBuildingCount: ', examineBuildingCount);
 
       // silly but necessary because of threeJS weirdness
@@ -440,31 +442,33 @@ AFRAME.registerSystem('building', {
     });
   },
   registerRoom: function (room) {
-    const roomId = room?.el?.object3D?.uuid;
+    const roomId = room?.object3D?.uuid;
     if (!this.rooms[roomId]) {
-      this.rooms[roomId] = { walls: {} };
+      room.walls = [];
+      this.rooms[roomId] = room;
     }
 
-    // this.rooms[roomId] = Object.assign(this.rooms[roomId], ...room.data);
+    return roomId;
   },
   unregisterRoom: function (room) {
-    const roomId = room?.el?.object3D?.uuid;
+    const roomId = room?.object3D?.uuid;
 
     delete this.rooms[roomId];
   },
   registerWall: function (wall) {
-    const roomId = wall?.el?.parentEl?.object3D?.uuid;
-    if (!this.rooms[roomId]) {
-      this.rooms[roomId] = { walls: {} };
+    const wallId = wall?.object3D?.uuid;
+    if (!this.walls[wallId]) {
+      this.walls[wallId] = wall;
+
+      const roomId = this.registerRoom(wall?.parentEl);
+      this.rooms[roomId].walls.push(wallId);
     }
 
-    const wallId = wall?.el?.object3D?.uuid;
-    this.rooms[roomId].walls[wallId] = { ...wall.data };
+    return wallId;
   },
   unregisterWall: function (wall) {
-    const roomId = wall?.el?.parentEl?.object3D?.uuid;
-    const wallId = wall?.el?.object3D?.uuid;
+    const wallId = wall?.object3D?.uuid;
 
-    delete this.rooms[roomId].walls[wallId];
+    delete this.walls[wallId];
   }
 });
