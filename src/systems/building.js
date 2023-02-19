@@ -96,7 +96,7 @@ const getDoorholeLink = (doorhole, doorlinks) => {
 
 AFRAME.registerSystem('building', {
   init: function () {
-    this.rooms = {};
+    this.rooms = [];
     // this.walls = {};
   },
   examineBuilding: function () {
@@ -114,22 +114,18 @@ AFRAME.registerSystem('building', {
       const doorlinks = Array.from(this.el.querySelectorAll('[doorlink]'));
 
       // lay out walls' angles:
-      for (const sceneChild of this.el.children) {
-        if (sceneChild?.components?.room) {
-          const walls = sceneChild?.walls;
-          if (walls.length > 2) {
-            for (let i = 0; i < walls.length; i++) {
-              const currentWall = walls[i];
-              const nextWall = currentWall.nextWall;
+      for (const room of this.rooms) {
+        const walls = room?.walls;
+        for (let i = 0; i < walls.length; i++) {
+          const currentWall = walls[i];
+          const nextWall = currentWall.nextWall;
 
-              const wallGapX = nextWall.components.position.data.x - currentWall.components.position.data.x;
-              const wallGapZ = nextWall.components.position.data.z - currentWall.components.position.data.z;
-              const wallAngle = Math.atan2(wallGapZ, wallGapX);
+          const wallGapX = nextWall.components.position.data.x - currentWall.components.position.data.x;
+          const wallGapZ = nextWall.components.position.data.z - currentWall.components.position.data.z;
+          const wallAngle = Math.atan2(wallGapZ, wallGapX);
 
-              currentWall.setAttribute('rotation', { x: 0, y: -wallAngle / Math.PI * 180, z: 0 });
-              currentWall.object3D.updateMatrixWorld();
-            }
-          }
+          currentWall.setAttribute('rotation', { x: 0, y: -wallAngle / Math.PI * 180, z: 0 });
+          currentWall.object3D.updateMatrixWorld();
         }
       }
 
@@ -142,142 +138,138 @@ AFRAME.registerSystem('building', {
         });
 
       // generate the walls' geometry:
-      for (const sceneChild of this.el.children) {
-        if (sceneChild?.components?.room) {
-          const isOutside = sceneChild?.components?.room?.data?.outside;
-          const walls = sceneChild?.walls;
+      for (const roomEl of this.rooms) {
+        const { outside } = roomEl?.getAttribute('room');
+        const walls = roomEl?.walls;
 
-          if (walls.length > 2) {
-            for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-              const currentWall = walls[wallIndex];
-              const nextWall = currentWall.nextWall;
+        for (let i = 0; i < walls.length; i++) {
+          const currentWall = walls[i];
+          const nextWall = currentWall.nextWall;
 
-              const wallGapX = nextWall.components.position.data.x - currentWall.components.position.data.x;
-              const wallGapZ = nextWall.components.position.data.z - currentWall.components.position.data.z;
-              const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
-              // var wallAngle = Math.atan2(wallGapZ, wallGapX);
+          const wallGapX = nextWall.components.position.data.x - currentWall.components.position.data.x;
+          const wallGapZ = nextWall.components.position.data.z - currentWall.components.position.data.z;
+          const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
+          // var wallAngle = Math.atan2(wallGapZ, wallGapX);
 
-              const wallGapY = nextWall.components.position.data.y - currentWall.components.position.data.y;
-              const heightGap = getWallHeight(nextWall) - getWallHeight(currentWall);
+          const wallGapY = nextWall.components.position.data.y - currentWall.components.position.data.y;
+          const heightGap = getWallHeight(nextWall) - getWallHeight(currentWall);
 
-              const orderedHoles = Array.from(currentWall.children)
-                .filter((wallChild) => wallChild?.components?.doorhole)
-                .sort((a, b) => a?.components?.position?.data?.x - b?.components?.position?.data?.x);
+          const orderedHoles = Array.from(currentWall.children)
+            .filter((wallChild) => wallChild?.components?.doorhole)
+            .sort((a, b) => a?.components?.position?.data?.x - b?.components?.position?.data?.x);
 
-              const wallShape = new THREE.Shape();
-              wallShape.moveTo(0, getWallHeight(currentWall));
-              wallShape.lineTo(0, 0);
+          const wallShape = new THREE.Shape();
+          wallShape.moveTo(0, getWallHeight(currentWall));
+          wallShape.lineTo(0, 0);
 
-              for (const hole of orderedHoles) {
-                if (!hole.myVerts) { hole.myVerts = []; }
-                hole.myVerts.length = 0;
+          for (const hole of orderedHoles) {
+            if (!hole.myVerts) { hole.myVerts = []; }
+            hole.myVerts.length = 0;
 
-                const doorholeLink = getDoorholeLink(hole, doorlinks);
-                if (!doorholeLink) { continue; }
+            const doorholeLink = getDoorholeLink(hole, doorlinks);
+            if (!doorholeLink) { continue; }
 
-                const linkInfo = doorholeLink.components;
+            const linkInfo = doorholeLink.components;
 
-                for (let holeSide = -1; holeSide <= 1; holeSide += 2) {
-                  const ptX = hole.object3D.position.x + linkInfo.doorlink.data.width / 2 * holeSide;
-                  const floorY = (ptX / wallLength) * wallGapY;
-                  let topY = floorY + linkInfo.doorlink.data.height;
+            for (let holeSide = -1; holeSide <= 1; holeSide += 2) {
+              const ptX = hole.object3D.position.x + linkInfo.doorlink.data.width / 2 * holeSide;
+              const floorY = (ptX / wallLength) * wallGapY;
+              let topY = floorY + linkInfo.doorlink.data.height;
 
-                  const curCeil = getWallHeight(currentWall) + (ptX / wallLength) * heightGap;
-                  const maxTopY = floorY + curCeil - HAIR;// will always be a seam, but, I'm not bothering to rewrite just for that
-                  if (topY > maxTopY) { topY = maxTopY; }
+              const curCeil = getWallHeight(currentWall) + (ptX / wallLength) * heightGap;
+              const maxTopY = floorY + curCeil - HAIR;// will always be a seam, but, I'm not bothering to rewrite just for that
+              if (topY > maxTopY) { topY = maxTopY; }
 
-                  const addWorldVert = (ptX, ptY) => {
-                    const tempPos = new THREE.Vector3(ptX, ptY, 0);
-                    currentWall.object3D.localToWorld(tempPos);
-                    hole.myVerts.push(tempPos);
-                  };
-                  addWorldVert(ptX, floorY);
-                  addWorldVert(ptX, topY);
+              const addWorldVert = (ptX, ptY) => {
+                const tempPos = new THREE.Vector3(ptX, ptY, 0);
+                currentWall.object3D.localToWorld(tempPos);
+                hole.myVerts.push(tempPos);
+              };
+              addWorldVert(ptX, floorY);
+              addWorldVert(ptX, topY);
 
-                  if (holeSide < 0) {
-                    wallShape.lineTo(ptX, floorY);
-                    wallShape.lineTo(ptX, topY);
-                  } else {
-                    wallShape.lineTo(ptX, topY);
-                    wallShape.lineTo(ptX, floorY);
-                  }
-                }
-              }
-
-              wallShape.lineTo(
-                wallLength,
-                nextWall?.components?.position?.data?.y - currentWall?.components?.position?.data?.y
-              );
-              wallShape.lineTo(
-                wallLength,
-                (nextWall?.components?.position?.data?.y - currentWall?.components?.position?.data?.y) + getWallHeight(nextWall)
-              );
-
-              const wallGeom = new THREE.ShapeGeometry(wallShape);
-              makePlaneUvs(wallGeom, 'x', 'y', 1, 1);
-              finishGeometry(wallGeom);
-              const myMat = currentWall?.components?.material?.material || currentWall?.parentNode?.components?.material?.material;
-              if (currentWall.myMesh) {
-                currentWall.myMesh.geometry = wallGeom;
-                currentWall.myMesh.material = myMat;
+              if (holeSide < 0) {
+                wallShape.lineTo(ptX, floorY);
+                wallShape.lineTo(ptX, topY);
               } else {
-                currentWall.myMesh = new THREE.Mesh(wallGeom, myMat);
-                currentWall.setObject3D('wallMesh', currentWall.myMesh);
+                wallShape.lineTo(ptX, topY);
+                wallShape.lineTo(ptX, floorY);
+              }
+            }
+          }
+
+          wallShape.lineTo(
+            wallLength,
+            nextWall?.components?.position?.data?.y - currentWall?.components?.position?.data?.y
+          );
+          wallShape.lineTo(
+            wallLength,
+            (nextWall?.components?.position?.data?.y - currentWall?.components?.position?.data?.y) + getWallHeight(nextWall)
+          );
+
+          const wallGeom = new THREE.ShapeGeometry(wallShape);
+          makePlaneUvs(wallGeom, 'x', 'y', 1, 1);
+          finishGeometry(wallGeom);
+          const myMat = currentWall?.components?.material?.material || currentWall?.parentNode?.components?.material?.material;
+          if (currentWall.myMesh) {
+            currentWall.myMesh.geometry = wallGeom;
+            currentWall.myMesh.material = myMat;
+          } else {
+            currentWall.myMesh = new THREE.Mesh(wallGeom, myMat);
+            currentWall.setObject3D('wallMesh', currentWall.myMesh);
+          }
+        }
+
+        Array.from(roomEl.children)
+          .filter(roomChild => roomChild?.components?.floor || roomChild?.components?.ceiling)
+          .forEach(cap => {
+            const isCeiling = cap?.components?.ceiling;
+
+            const capShape = new THREE.Shape();
+            for (let i = 0; i < walls.length; i++) {
+              const currentWall = walls[i];
+              const ptX = currentWall.components.position.data.x;
+              const ptZ = currentWall.components.position.data.z;
+              if (i) {
+                capShape.lineTo(ptX, ptZ);
+              } else {
+                capShape.moveTo(ptX, ptZ);
               }
             }
 
-            Array.from(sceneChild.children)
-              .filter(roomChild => roomChild?.components?.floor || roomChild?.components?.ceiling)
-              .forEach(cap => {
-                const isCeiling = cap?.components?.ceiling;
+            const capGeom = new THREE.ShapeGeometry(capShape);
+            for (let i = 0; i < walls.length; i++) {
+              const currentWall = walls[i];
+              const curVert = new THREE.Vector3(
+                capGeom.attributes.position.getX(i),
+                capGeom.attributes.position.getY(i),
+                capGeom.attributes.position.getZ(i)
+              );
+              curVert.set(curVert.x, currentWall.components.position.data.y, curVert.y);
+              if (isCeiling) { curVert.y += getWallHeight(currentWall); }
+              capGeom.attributes.position.setXYZ(i, curVert.x, curVert.y, curVert.z);
+            }
 
-                const capShape = new THREE.Shape();
-                for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-                  const currentWall = walls[wallIndex];
-                  const ptX = currentWall.components.position.data.x;
-                  const ptZ = currentWall.components.position.data.z;
-                  if (wallIndex) {
-                    capShape.lineTo(ptX, ptZ);
-                  } else {
-                    capShape.moveTo(ptX, ptZ);
-                  }
-                }
+            let shouldReverse = false;
+            if (!isCeiling) { shouldReverse = !shouldReverse; }
+            if (outside) { shouldReverse = !shouldReverse; }
+            if (shouldReverse) { flipGeometry(capGeom); }
 
-                const capGeom = new THREE.ShapeGeometry(capShape);
-                for (let wallIndex = 0; wallIndex < walls.length; wallIndex++) {
-                  const currentWall = walls[wallIndex];
-                  const curVert = new THREE.Vector3(
-                    capGeom.attributes.position.getX(wallIndex),
-                    capGeom.attributes.position.getY(wallIndex),
-                    capGeom.attributes.position.getZ(wallIndex)
-                  );
-                  curVert.set(curVert.x, currentWall.components.position.data.y, curVert.y);
-                  if (isCeiling) { curVert.y += getWallHeight(currentWall); }
-                  capGeom.attributes.position.setXYZ(wallIndex, curVert.x, curVert.y, curVert.z);
-                }
+            makePlaneUvs(capGeom, 'x', 'z', isCeiling ? 1 : -1, 1);
+            finishGeometry(capGeom);
 
-                let shouldReverse = false;
-                if (!isCeiling) { shouldReverse = !shouldReverse; }
-                if (isOutside) { shouldReverse = !shouldReverse; }
-                if (shouldReverse) { flipGeometry(capGeom); }
+            if (!cap.myMeshes) { cap.myMeshes = []; }
 
-                makePlaneUvs(capGeom, 'x', 'z', isCeiling ? 1 : -1, 1);
-                finishGeometry(capGeom);
-
-                if (!cap.myMeshes) { cap.myMeshes = []; }
-
-                const typeLabel = isCeiling ? 'ceiling' : 'floor';
-                const myMat = cap?.components?.material?.material || cap?.parentNode?.components?.material?.material;
-                if (cap.myMeshes[typeLabel]) {
-                  cap.myMeshes[typeLabel].geometry = capGeom;
-                  cap.myMeshes[typeLabel].material = myMat;
-                } else {
-                  cap.myMeshes[typeLabel] = new THREE.Mesh(capGeom, myMat);
-                  cap.setObject3D(typeLabel, cap.myMeshes[typeLabel]);
-                }
-              });
-          }
-        }
+            const typeLabel = isCeiling ? 'ceiling' : 'floor';
+            const myMat = cap?.components?.material?.material || cap?.parentNode?.components?.material?.material;
+            if (cap.myMeshes[typeLabel]) {
+              cap.myMeshes[typeLabel].geometry = capGeom;
+              cap.myMeshes[typeLabel].material = myMat;
+            } else {
+              cap.myMeshes[typeLabel] = new THREE.Mesh(capGeom, myMat);
+              cap.setObject3D(typeLabel, cap.myMeshes[typeLabel]);
+            }
+          });
       }
 
       // generate the door tunnels' geometry:
@@ -391,11 +383,12 @@ AFRAME.registerSystem('building', {
     });
   },
   registerRoom: function (room) {
-    const roomId = room?.object3D?.uuid;
-    this.rooms[roomId] = room;
+    // const roomId = room?.object3D?.uuid;
+    // this.rooms[roomId] = room;
+    this.rooms.push(room);
   },
   unregisterRoom: function (room) {
-    const roomId = room?.object3D?.uuid;
-    delete this.rooms[roomId];
+    // const roomId = room?.object3D?.uuid;
+    // delete this.rooms[roomId];
   }
 });
