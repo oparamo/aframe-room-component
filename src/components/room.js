@@ -24,12 +24,12 @@ module.exports.Component = AFRAME.registerComponent('room', {
           walls[2].setAttribute('position', { x: width, y: 0, z: length });
           walls[3].setAttribute('position', { x: 0, y: 0, z: length });
         } else {
-          const message = 'rooms with WIDTH and LENGTH must have four walls!'
+          const message = 'rooms with WIDTH and LENGTH must have four walls!';
           console.error(message);
           throw new Error(message);
         }
       } else {
-        const message = 'rooms with WIDTH must also have LENGTH (and vice versa)'
+        const message = 'rooms with WIDTH must also have LENGTH (and vice versa)';
         console.error(message);
         throw new Error(message);
       }
