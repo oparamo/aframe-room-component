@@ -8,7 +8,7 @@ module.exports.Component = AFRAME.registerComponent('room', {
     length: { type: 'number' }
   },
   init: function () {
-    console.info('registering room');
+    console.info('initializing room');
     this.el.sceneEl.systems?.building?.registerRoom(this.el);
   },
   update: function () {

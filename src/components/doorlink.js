@@ -8,9 +8,10 @@ module.exports.Component = AFRAME.registerComponent('doorlink', {
     width: { type: 'number', default: 0.8 }
   },
   init: function () {
-    console.info('registering doorlink');
+    console.info('initializing doorlink');
   },
   update: function () {
+    console.info('updating doorlink');
     this.el.sceneEl.systems?.building?.examineBuilding();
   }
 });

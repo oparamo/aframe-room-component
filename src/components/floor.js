@@ -2,9 +2,10 @@
 
 module.exports.Component = AFRAME.registerComponent('floor', {
   init: function () {
-    console.info('registering floor');
+    console.info('initializing floor');
   },
   update: function () {
+    console.info('updating floor');
     this.el.sceneEl.systems?.building?.examineBuilding();
   }
 });

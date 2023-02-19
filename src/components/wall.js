@@ -5,11 +5,11 @@ module.exports.Component = AFRAME.registerComponent('wall', {
     height: { type: 'number' }
   },
   init: function () {
-    console.info('registering wall');
+    console.info('initializing wall');
     this.el.sceneEl.systems?.building?.registerWall(this.el);
   },
   update: function () {
-    console.info('updating room');
+    console.info('updating wall');
     this.el.sceneEl.systems?.building?.examineBuilding();
   },
   remove: function () {
