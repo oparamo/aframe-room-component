@@ -97,7 +97,7 @@ const getDoorholeLink = (doorhole, doorlinks) => {
 AFRAME.registerSystem('building', {
   init: function () {
     this.rooms = [];
-    // this.walls = {};
+    this.doorlinks = [];
   },
   examineBuilding: function () {
     if (this.dirty) { return; }
@@ -111,31 +111,13 @@ AFRAME.registerSystem('building', {
       // silly but necessary because of threeJS weirdness
       this.el.object3D.updateMatrixWorld();
 
-      const doorlinks = Array.from(this.el.querySelectorAll('[doorlink]'));
-
-      // lay out walls' angles:
-      for (const room of this.rooms) {
-        const walls = room?.walls;
-        for (let i = 0; i < walls.length; i++) {
-          const currentWall = walls[i];
-          const nextWall = currentWall.nextWall;
-
-          const wallGapX = nextWall.components.position.data.x - currentWall.components.position.data.x;
-          const wallGapZ = nextWall.components.position.data.z - currentWall.components.position.data.z;
-          const wallAngle = Math.atan2(wallGapZ, wallGapX);
-
-          currentWall.setAttribute('rotation', { x: 0, y: -wallAngle / Math.PI * 180, z: 0 });
-          currentWall.object3D.updateMatrixWorld();
-        }
-      }
-
       // position the door holes:
-      doorlinks
-        .filter((doorlinkEl) => doorlinkEl?.components?.doorlink)
-        .forEach(({ components: { doorlink } }) => {
-          moveForLink(doorlink?.data?.from, doorlink.el);
-          moveForLink(doorlink?.data?.to, doorlink.el);
-        });
+      for (const doorlinkEl of this.doorlinks) {
+        const { from, to } = doorlinkEl.getAttribute('doorlink');
+
+        moveForLink(from, doorlinkEl);
+        moveForLink(to, doorlinkEl);
+      }
 
       // generate the walls' geometry:
       for (const roomEl of this.rooms) {
@@ -166,7 +148,7 @@ AFRAME.registerSystem('building', {
             if (!hole.myVerts) { hole.myVerts = []; }
             hole.myVerts.length = 0;
 
-            const doorholeLink = getDoorholeLink(hole, doorlinks);
+            const doorholeLink = getDoorholeLink(hole, this.doorlinks);
             if (!doorholeLink) { continue; }
 
             const linkInfo = doorholeLink.components;
@@ -273,7 +255,7 @@ AFRAME.registerSystem('building', {
       }
 
       // generate the door tunnels' geometry:
-      for (const doorlinkEl of doorlinks) {
+      for (const doorlinkEl of this.doorlinks) {
         const doorlink = doorlinkEl.components.doorlink;
         const fVerts = doorlink?.data?.from?.myVerts;
         const tVerts = doorlink?.data?.to?.myVerts;
@@ -383,12 +365,19 @@ AFRAME.registerSystem('building', {
     });
   },
   registerRoom: function (room) {
-    // const roomId = room?.object3D?.uuid;
-    // this.rooms[roomId] = room;
     this.rooms.push(room);
   },
   unregisterRoom: function (room) {
+    // TODO: write a proper unregister function
     // const roomId = room?.object3D?.uuid;
-    // delete this.rooms[roomId];
+    // this.rooms.delete(roomId);
+  },
+  registerDoorlink: function (doorlink) {
+    this.doorlinks.push(doorlink);
+  },
+  unregisterDoorlink: function (doorlink) {
+    // TODO: write a proper unregister function
+    // const doorlinkId = doorlink?.object3D?.uuid;
+    // this.doorlinks.delete(doorlinkId);
   }
 });
