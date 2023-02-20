@@ -85,7 +85,6 @@ const moveForLink = (doorhole, doorlink) => {
   doorhole.object3D.updateMatrixWorld();
 };
 
-// TODO: move this to wall lifecycle function
 const getWallHeight = (wall) => {
   return wall?.getAttribute('wall')?.height || wall?.parentNode?.getAttribute('room')?.height;
 };

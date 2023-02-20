@@ -1,18 +1,18 @@
 'use strict';
 
+const ROOM = 'a-room';
+
 module.exports.Component = AFRAME.registerComponent('wall', {
   schema: {
     height: { type: 'number' }
   },
-  init: function () {
-    console.info('initializing wall');
-    this.el.sceneEl.systems?.building?.registerWall(this.el);
-  },
   update: function () {
     console.info('updating wall');
-    this.el.sceneEl.systems?.building?.examineBuilding();
-  },
-  remove: function () {
-    this.el.sceneEl.systems?.building?.unregisterWall(this.el);
+
+    const parentName = this.el.parentEl?.localName;
+    if (parentName !== ROOM) {
+      const message = 'a-wall elements must have an "a-room" parent';
+      throw new Error(message);
+    }
   }
 });
