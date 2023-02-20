@@ -26,7 +26,7 @@ module.exports.Component = AFRAME.registerComponent('doorlink', {
 
     const parentName = this.el.parentEl?.localName;
     if (parentName !== SCENE && parentName !== WALL) {
-      const message = 'a-doorlink elements must have an "a-scene" or "a-wall" parent';
+      const message = `a-doorlink elements must have an "${SCENE}" or "${WALL}" parent`;
       throw new Error(message);
     }
 
