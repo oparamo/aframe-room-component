@@ -9,6 +9,8 @@ module.exports.Component = AFRAME.registerComponent('room', {
   },
   // TODO: move most of this to update function
   init: function () {
+    console.info('initializing room');
+
     const roomEl = this.el;
     const { outside, length, width } = roomEl?.getAttribute('room');
     const walls = Array.from(roomEl.querySelectorAll('a-wall'));
@@ -74,6 +76,7 @@ module.exports.Component = AFRAME.registerComponent('room', {
   },
   update: function () {
     console.info('updating room');
+
     this.el.sceneEl.systems?.building?.examineBuilding();
   },
   remove: function () {
