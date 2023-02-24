@@ -14,8 +14,6 @@
     "dist": "npm run dist:prd && npm run dist:dev",
     "lint:fix": "semistandard --fix | snazzy",
     "lint": "semistandard -v | snazzy",
-    "postinstall": "husky install",
-    "precommit": "npm run lint",
     "start:https": "webpack serve --progress --open --server-type https",
     "start": "webpack serve --progress --open"
   },
@@ -55,7 +53,6 @@
     "@babel/core": "7.20.12",
     "@babel/preset-env": "7.20.2",
     "babel-loader": "9.1.2",
-    "husky": "8.0.3",
     "semistandard": "16.0.1",
     "snazzy": "9.0.0",
     "terser-webpack-plugin": "5.3.6",
