@@ -73,9 +73,6 @@ module.exports.Component = AFRAME.registerComponent('room', {
     roomEl.walls = walls;
 
     roomEl.sceneEl.systems?.building?.registerRoom(roomEl);
-  },
-  update: function () {
-    console.info('updating room');
 
     this.el.sceneEl.systems?.building?.examineBuilding();
   },

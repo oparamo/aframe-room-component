@@ -51,7 +51,7 @@ const finishGeometry = (geom) => {
 };
 
 const moveForLink = (doorhole, doorlink) => {
-  const wall = doorhole.parentNode;
+  const wall = doorhole.parentEl;
   const nextWall = wall.nextWall;
   if (!nextWall) { return; }
 
@@ -135,15 +135,11 @@ AFRAME.registerSystem('building', {
           const wallGapY = nextWall.components.position.data.y - currentWall.components.position.data.y;
           const heightGap = getWallHeight(nextWall) - getWallHeight(currentWall);
 
-          const orderedHoles = Array.from(currentWall.children)
-            .filter((wallChild) => wallChild?.components?.doorhole)
-            .sort((a, b) => a?.components?.position?.data?.x - b?.components?.position?.data?.x);
-
           const wallShape = new THREE.Shape();
           wallShape.moveTo(0, getWallHeight(currentWall));
           wallShape.lineTo(0, 0);
 
-          for (const hole of orderedHoles) {
+          for (const hole of currentWall.doorholes) {
             if (!hole.myVerts) { hole.myVerts = []; }
             hole.myVerts.length = 0;
 

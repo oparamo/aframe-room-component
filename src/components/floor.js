@@ -4,8 +4,8 @@ const DOORLINK = 'a-doorlink';
 const ROOM = 'a-room';
 
 module.exports.Component = AFRAME.registerComponent('floor', {
-  update: function () {
-    console.info('updating floor');
+  init: function () {
+    console.info('initializing floor');
 
     const parentName = this.el.parentEl?.localName;
     if (parentName !== DOORLINK && parentName !== ROOM) {
