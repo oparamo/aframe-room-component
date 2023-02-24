@@ -1,7 +1,5 @@
 'use strict';
 
-let examineBuildingCount = 0;
-
 const HAIR = 0.0001;
 
 const flipGeometry = (geom) => {
@@ -86,7 +84,7 @@ const moveForLink = (doorhole, doorlink) => {
 };
 
 const getWallHeight = (wall) => {
-  return wall?.getAttribute('wall')?.height || wall?.parentNode?.getAttribute('room')?.height;
+  return wall?.getAttribute('wall')?.height || wall?.parentEl?.getAttribute('room')?.height;
 };
 
 const getDoorholeLink = (doorhole, doorlinks) => {
@@ -108,11 +106,57 @@ const addWorldVert = (wall, hole, ptX, ptY) => {
   hole.myVerts.push(tempPos);
 };
 
-const generateWallGeometry = (rooms, doorlinks) => {
-  for (const roomEl of rooms) {
-    const { outside } = roomEl?.getAttribute('room');
-    const walls = roomEl?.walls;
+const generateCap = (walls, cap, isCeiling, isOutside) => {
+  const capShape = new THREE.Shape();
+  for (let i = 0; i < walls.length; i++) {
+    const currentWall = walls[i];
+    const ptX = currentWall.components.position.data.x;
+    const ptZ = currentWall.components.position.data.z;
+    if (i) {
+      capShape.lineTo(ptX, ptZ);
+    } else {
+      capShape.moveTo(ptX, ptZ);
+    }
+  }
 
+  const capGeom = new THREE.ShapeGeometry(capShape);
+  for (let i = 0; i < walls.length; i++) {
+    const currentWall = walls[i];
+    const curVert = new THREE.Vector3(
+      capGeom.attributes.position.getX(i),
+      capGeom.attributes.position.getY(i),
+      capGeom.attributes.position.getZ(i)
+    );
+    curVert.set(curVert.x, currentWall.components.position.data.y, curVert.y);
+    if (isCeiling) { curVert.y += getWallHeight(currentWall); }
+    capGeom.attributes.position.setXYZ(i, curVert.x, curVert.y, curVert.z);
+  }
+
+  let shouldReverse = false;
+  if (!isCeiling) { shouldReverse = !shouldReverse; }
+  if (isOutside) { shouldReverse = !shouldReverse; }
+  if (shouldReverse) { flipGeometry(capGeom); }
+
+  makePlaneUvs(capGeom, 'x', 'z', isCeiling ? 1 : -1, 1);
+  finishGeometry(capGeom);
+
+  if (!cap.myMeshes) { cap.myMeshes = []; }
+
+  const typeLabel = isCeiling ? 'ceiling' : 'floor';
+  const myMat = cap?.components?.material?.material || cap?.parentEl?.components?.material?.material;
+  if (cap.myMeshes[typeLabel]) {
+    cap.myMeshes[typeLabel].geometry = capGeom;
+    cap.myMeshes[typeLabel].material = myMat;
+  } else {
+    cap.myMeshes[typeLabel] = new THREE.Mesh(capGeom, myMat);
+    cap.setObject3D(typeLabel, cap.myMeshes[typeLabel]);
+  }
+};
+
+const generateRoom = (rooms, doorlinks) => {
+  for (const roomEl of rooms) {
+    // generate walls
+    const walls = roomEl?.walls;
     for (let i = 0; i < walls.length; i++) {
       const currentWall = walls[i];
       const nextWall = currentWall.nextWall;
@@ -172,7 +216,7 @@ const generateWallGeometry = (rooms, doorlinks) => {
       const wallGeom = new THREE.ShapeGeometry(wallShape);
       makePlaneUvs(wallGeom, 'x', 'y', 1, 1);
       finishGeometry(wallGeom);
-      const myMat = currentWall?.components?.material?.material || currentWall?.parentNode?.components?.material?.material;
+      const myMat = currentWall?.components?.material?.material || currentWall?.parentEl?.components?.material?.material;
       if (currentWall.myMesh) {
         currentWall.myMesh.geometry = wallGeom;
         currentWall.myMesh.material = myMat;
@@ -182,60 +226,14 @@ const generateWallGeometry = (rooms, doorlinks) => {
       }
     }
 
-    Array.from(roomEl.children)
-      .filter(roomChild => roomChild?.components?.floor || roomChild?.components?.ceiling)
-      .forEach(cap => {
-        const isCeiling = cap?.components?.ceiling;
-
-        const capShape = new THREE.Shape();
-        for (let i = 0; i < walls.length; i++) {
-          const currentWall = walls[i];
-          const ptX = currentWall.components.position.data.x;
-          const ptZ = currentWall.components.position.data.z;
-          if (i) {
-            capShape.lineTo(ptX, ptZ);
-          } else {
-            capShape.moveTo(ptX, ptZ);
-          }
-        }
-
-        const capGeom = new THREE.ShapeGeometry(capShape);
-        for (let i = 0; i < walls.length; i++) {
-          const currentWall = walls[i];
-          const curVert = new THREE.Vector3(
-            capGeom.attributes.position.getX(i),
-            capGeom.attributes.position.getY(i),
-            capGeom.attributes.position.getZ(i)
-          );
-          curVert.set(curVert.x, currentWall.components.position.data.y, curVert.y);
-          if (isCeiling) { curVert.y += getWallHeight(currentWall); }
-          capGeom.attributes.position.setXYZ(i, curVert.x, curVert.y, curVert.z);
-        }
-
-        let shouldReverse = false;
-        if (!isCeiling) { shouldReverse = !shouldReverse; }
-        if (outside) { shouldReverse = !shouldReverse; }
-        if (shouldReverse) { flipGeometry(capGeom); }
-
-        makePlaneUvs(capGeom, 'x', 'z', isCeiling ? 1 : -1, 1);
-        finishGeometry(capGeom);
-
-        if (!cap.myMeshes) { cap.myMeshes = []; }
-
-        const typeLabel = isCeiling ? 'ceiling' : 'floor';
-        const myMat = cap?.components?.material?.material || cap?.parentNode?.components?.material?.material;
-        if (cap.myMeshes[typeLabel]) {
-          cap.myMeshes[typeLabel].geometry = capGeom;
-          cap.myMeshes[typeLabel].material = myMat;
-        } else {
-          cap.myMeshes[typeLabel] = new THREE.Mesh(capGeom, myMat);
-          cap.setObject3D(typeLabel, cap.myMeshes[typeLabel]);
-        }
-      });
+    // generate ceiling and floor
+    const { outside } = roomEl?.getAttribute('room');
+    generateCap(walls, roomEl?.floor, false, outside);
+    generateCap(walls, roomEl?.ceiling, true, outside);
   }
 };
 
-const generateDoorlinkGeometry = (doorlinks) => {
+const generateDoorlink = (doorlinks) => {
   for (const doorlinkEl of doorlinks) {
     const doorlink = doorlinkEl.components.doorlink;
     const fVerts = doorlink?.data?.from?.myVerts;
@@ -249,7 +247,7 @@ const generateDoorlinkGeometry = (doorlinks) => {
       for (const curType of types) {
         if (!doorLinkChild.components[curType]) { continue; }
 
-        const myMat = doorLinkChild?.components?.material?.material || doorLinkChild?.parentNode?.components?.material?.material;
+        const myMat = doorLinkChild?.components?.material?.material || doorLinkChild?.parentEl?.components?.material?.material;
 
         if (!doorLinkChild.myGeoms) { doorLinkChild.myGeoms = []; }
         if (!doorLinkChild.myGeoms[curType]) {
@@ -347,23 +345,23 @@ AFRAME.registerSystem('building', {
   init: function () {
     this.rooms = [];
     this.doorlinks = [];
+
+    console.log('initializing building');
   },
   examineBuilding: function () {
     if (this.dirty) { return; }
     this.dirty = true;
 
-    examineBuildingCount++;
-
     setTimeout(() => {
-      console.info('examineBuildingCount: ', examineBuildingCount);
+      console.info('building...');
 
       this.el.object3D.updateMatrixWorld();
 
       positionDoorholes(this.doorlinks);
 
-      generateWallGeometry(this.rooms, this.doorlinks);
+      generateRoom(this.rooms, this.doorlinks);
 
-      generateDoorlinkGeometry(this.doorlinks);
+      generateDoorlink(this.doorlinks);
 
       this.dirty = false;
     });
