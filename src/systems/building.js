@@ -2,6 +2,14 @@
 
 const HAIR = 0.0001;
 
+const getWallHeight = (wall) => {
+  return wall?.getAttribute('wall')?.height || wall?.parentEl?.getAttribute('room')?.height;
+};
+
+const getDoorholeLink = (doorhole, doorlinks) => {
+  return doorlinks.find((link) => link?.components?.doorlink?.data?.from === doorhole || link?.components?.doorlink?.data?.to === doorhole);
+};
+
 const flipGeometry = (geom) => {
   const indices = geom.getIndex().array;
   for (let i = 0; i < indices.length; i += 3) {
@@ -46,58 +54,6 @@ const finishGeometry = (geom) => {
   // TODO: remove completely or make optional
   // geom.computeBoundingBox();
   // geom.computeBoundingSphere();
-};
-
-const moveForLink = (doorhole, doorlink) => {
-  const wall = doorhole.parentEl;
-  const nextWall = wall.nextWall;
-  if (!nextWall) { return; }
-
-  const wallWorldPosition = new THREE.Vector3();
-  wall.object3D.getWorldPosition(wallWorldPosition);
-
-  const nextWallWorldPosition = new THREE.Vector3();
-  nextWall.object3D.getWorldPosition(nextWallWorldPosition);
-
-  const doorlinkWorldPosition = new THREE.Vector3();
-  doorlink.object3D.getWorldPosition(doorlinkWorldPosition);
-
-  const linkGapX = doorlinkWorldPosition.x - wallWorldPosition.x;
-  const linkGapZ = doorlinkWorldPosition.z - wallWorldPosition.z;
-
-  const wallGapX = nextWallWorldPosition.x - wallWorldPosition.x;
-  const wallGapZ = nextWallWorldPosition.z - wallWorldPosition.z;
-
-  const wallAngle = Math.atan2(wallGapZ, wallGapX);
-  const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
-
-  const doorHalf = doorlink.components.doorlink.data.width / 2;
-
-  let localLinkX = linkGapX * Math.cos(-wallAngle) - linkGapZ * Math.sin(-wallAngle);
-  localLinkX = Math.max(localLinkX, doorHalf + HAIR);
-  localLinkX = Math.min(localLinkX, wallLength - doorHalf - HAIR);
-
-  // var localLinkZ = linkGapX*Math.sin(-wallAngle) + linkGapZ*Math.cos(-wallAngle);
-
-  doorhole.object3D.position.set(localLinkX, 0, 0);
-  doorhole.object3D.updateMatrixWorld();
-};
-
-const getWallHeight = (wall) => {
-  return wall?.getAttribute('wall')?.height || wall?.parentEl?.getAttribute('room')?.height;
-};
-
-const getDoorholeLink = (doorhole, doorlinks) => {
-  return doorlinks.find((link) => link?.components?.doorlink?.data?.from === doorhole || link?.components?.doorlink?.data?.to === doorhole);
-};
-
-const positionDoorholes = (doorlinks) => {
-  for (const doorlinkEl of doorlinks) {
-    const { from, to } = doorlinkEl.getAttribute('doorlink');
-
-    moveForLink(from, doorlinkEl);
-    moveForLink(to, doorlinkEl);
-  }
 };
 
 const addWorldVert = (wall, hole, ptX, ptY) => {
@@ -341,12 +297,56 @@ const generateDoorlink = (doorlinks) => {
   }
 };
 
+// doorhole stuff
+const moveForLink = (doorhole, doorlink) => {
+  const wall = doorhole.parentEl;
+  const nextWall = wall.nextWall;
+  if (!nextWall) { return; }
+
+  const wallWorldPosition = new THREE.Vector3();
+  wall.object3D.getWorldPosition(wallWorldPosition);
+
+  const nextWallWorldPosition = new THREE.Vector3();
+  nextWall.object3D.getWorldPosition(nextWallWorldPosition);
+
+  const doorlinkWorldPosition = new THREE.Vector3();
+  doorlink.object3D.getWorldPosition(doorlinkWorldPosition);
+
+  const linkGapX = doorlinkWorldPosition.x - wallWorldPosition.x;
+  const linkGapZ = doorlinkWorldPosition.z - wallWorldPosition.z;
+
+  const wallGapX = nextWallWorldPosition.x - wallWorldPosition.x;
+  const wallGapZ = nextWallWorldPosition.z - wallWorldPosition.z;
+
+  const wallAngle = Math.atan2(wallGapZ, wallGapX);
+  const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
+
+  const doorHalf = doorlink.components.doorlink.data.width / 2;
+
+  let localLinkX = linkGapX * Math.cos(-wallAngle) - linkGapZ * Math.sin(-wallAngle);
+  localLinkX = Math.max(localLinkX, doorHalf + HAIR);
+  localLinkX = Math.min(localLinkX, wallLength - doorHalf - HAIR);
+
+  // var localLinkZ = linkGapX*Math.sin(-wallAngle) + linkGapZ*Math.cos(-wallAngle);
+
+  doorhole.object3D.position.set(localLinkX, 0, 0);
+};
+
+const positionDoorholes = (doorlinks) => {
+  for (const doorlinkEl of doorlinks) {
+    const { from, to } = doorlinkEl.getAttribute('doorlink');
+
+    moveForLink(from, doorlinkEl);
+    moveForLink(to, doorlinkEl);
+  }
+};
+
 AFRAME.registerSystem('building', {
   init: function () {
+    console.log('initializing building');
+
     this.rooms = [];
     this.doorlinks = [];
-
-    console.log('initializing building');
   },
   examineBuilding: function () {
     if (this.dirty) { return; }

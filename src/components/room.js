@@ -65,7 +65,6 @@ module.exports.Component = AFRAME.registerComponent('room', {
 
       // TODO: avoid using set attribute for rotation
       currentWall.setAttribute('rotation', { x: 0, y: -wallAngle / Math.PI * 180, z: 0 });
-      currentWall.object3D.updateMatrixWorld();
     }
 
     roomEl.ceiling = roomEl.querySelector('a-ceiling');
