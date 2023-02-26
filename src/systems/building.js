@@ -297,7 +297,6 @@ const generateDoorlink = (doorlinks) => {
   }
 };
 
-// doorhole stuff
 const moveForLink = (doorhole, doorlink) => {
   const wall = doorhole.parentEl;
   const nextWall = wall.nextWall;
@@ -341,33 +340,87 @@ const positionDoorholes = (doorlinks) => {
   }
 };
 
+const sortRoomWalls = (walls, outside) => {
+  let cwSum = 0;
+  for (let i = 0; i < walls.length; i++) {
+    const currentWall = walls[i];
+    const nextWall = walls[(i + 1) % walls.length];
+
+    const { x: currentWallX, z: currentWallZ } = currentWall.components.position.data;
+    const { x: nextWallX, z: nextWallZ } = nextWall.components.position.data;
+
+    cwSum += (nextWallX - currentWallX) * (nextWallZ + currentWallZ);
+  }
+
+  let shouldReverse = false;
+  if (cwSum > 0) { shouldReverse = !shouldReverse; }
+  if (outside) { shouldReverse = !shouldReverse; }
+  if (shouldReverse) { walls.reverse(); }
+};
+
+const positionWalls = (rooms) => {
+  for (const roomEl of rooms) {
+    const { outside, length, width } = roomEl?.getAttribute('room');
+    const walls = roomEl.walls;
+
+    if (width && length) {
+      // TODO: avoid using setAttribute for position
+      walls[0].setAttribute('position', { x: 0, y: 0, z: 0 });
+      walls[1].setAttribute('position', { x: width, y: 0, z: 0 });
+      walls[2].setAttribute('position', { x: width, y: 0, z: length });
+      walls[3].setAttribute('position', { x: 0, y: 0, z: length });
+    }
+
+    sortRoomWalls(walls, outside);
+
+    // lay out walls' angles:
+    for (let i = 0; i < walls.length; i++) {
+      const currentWall = walls[i];
+      const nextWall = walls[(i + 1) % walls.length];
+
+      const wallGapX = nextWall.components.position.data.x - currentWall.components.position.data.x;
+      const wallGapZ = nextWall.components.position.data.z - currentWall.components.position.data.z;
+      const wallAngle = Math.atan2(wallGapZ, wallGapX);
+
+      // TODO: avoid using set attribute for rotation
+      currentWall.setAttribute('rotation', { x: 0, y: -wallAngle / Math.PI * 180, z: 0 });
+
+      // link next wall for convenience
+      currentWall.nextWall = nextWall;
+    }
+  }
+};
+
 AFRAME.registerSystem('building', {
   init: function () {
     console.log('initializing building');
 
     this.rooms = [];
     this.doorlinks = [];
+    this.totalChildren = this.el?.querySelectorAll('a-room, a-doorlink')?.length;
   },
-  examineBuilding: function () {
-    if (this.dirty) { return; }
-    this.dirty = true;
+  build: function () {
+    const registeredCount = this.rooms?.length + this.doorlinks?.length;
+    if (registeredCount !== this.totalChildren) return;
+
+    console.info('building...');
 
     setTimeout(() => {
-      console.info('building...');
-
       this.el.object3D.updateMatrixWorld();
+
+      positionWalls(this.rooms);
 
       positionDoorholes(this.doorlinks);
 
       generateRoom(this.rooms, this.doorlinks);
 
       generateDoorlink(this.doorlinks);
-
-      this.dirty = false;
     });
   },
   registerRoom: function (room) {
     this.rooms.push(room);
+
+    this.build();
   },
   unregisterRoom: function (room) {
     // TODO: write a proper unregister function
@@ -376,6 +429,8 @@ AFRAME.registerSystem('building', {
   },
   registerDoorlink: function (doorlink) {
     this.doorlinks.push(doorlink);
+
+    this.build();
   },
   unregisterDoorlink: function (doorlink) {
     // TODO: write a proper unregister function
