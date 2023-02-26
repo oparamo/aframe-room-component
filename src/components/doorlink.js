@@ -20,7 +20,6 @@ module.exports.Component = AFRAME.registerComponent('doorlink', {
     }
 
     const doorlinkEl = this.el;
-
     doorlinkEl.ceiling = doorlinkEl.querySelector('a-ceiling');
     doorlinkEl.floor = doorlinkEl.querySelector('a-floor');
     doorlinkEl.sides = doorlinkEl.querySelector('a-sides');
