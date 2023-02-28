@@ -78,7 +78,7 @@ const positionDoorhole = (doorholeEl) => {
   const wallAngle = Math.atan2(wallGapZ, wallGapX);
   const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
 
-  const doorHalf = doorlinkEl.components.doorlink.data.width / 2;
+  const doorHalf = doorlinkEl.getAttribute('doorlink')?.width / 2;
 
   let localLinkX = doorlinkGapX * Math.cos(-wallAngle) - doorlinkGapZ * Math.sin(-wallAngle);
   localLinkX = Math.max(localLinkX, doorHalf + HAIR);
@@ -198,9 +198,9 @@ const buildRooms = (rooms) => {
         if (!doorlinkEl) { continue; }
 
         for (let holeSide = -1; holeSide <= 1; holeSide += 2) {
-          const ptX = doorholeEl.object3D.position.x + doorlinkEl.components.doorlink.data.width / 2 * holeSide;
+          const ptX = doorholeEl.object3D.position.x + doorlinkEl.getAttribute('doorlink').width / 2 * holeSide;
           const floorY = (ptX / wallLength) * wallGapY;
-          let topY = floorY + doorlinkEl.components.doorlink.data.height;
+          let topY = floorY + doorlinkEl.getAttribute('doorlink').height;
 
           const curCeil = wallEl.getHeight() + (ptX / wallLength) * heightGap;
           const maxTopY = floorY + curCeil - HAIR;// will always be a seam, but, I'm not bothering to rewrite just for that
@@ -249,10 +249,10 @@ const buildRooms = (rooms) => {
 
 const buildDoorlinks = (doorlinks) => {
   for (const doorlinkEl of doorlinks) {
-    const doorlink = doorlinkEl.components.doorlink;
-    const fVerts = doorlink?.data?.from?.myVerts;
-    const tVerts = doorlink?.data?.to?.myVerts;
-    if (!fVerts || !tVerts) { return; }
+    const { from, to } = doorlinkEl.getAttribute('doorlink');
+    const fromVerts = from?.myVerts;
+    const toVerts = to?.myVerts;
+    if (!fromVerts || !toVerts) { return; }
 
     for (const doorLinkChild of doorlinkEl.children) {
       if (!doorLinkChild.components) { continue; }
@@ -294,10 +294,10 @@ const buildDoorlinks = (doorlinks) => {
         switch (curType) {
           case 'floor':
 
-            addWorldVertex(tVerts[0]);
-            addWorldVertex(tVerts[2]);
-            addWorldVertex(fVerts[2]);
-            addWorldVertex(fVerts[0]);
+            addWorldVertex(toVerts[0]);
+            addWorldVertex(toVerts[2]);
+            addWorldVertex(fromVerts[2]);
+            addWorldVertex(fromVerts[0]);
 
             commitVertices();
 
@@ -311,10 +311,10 @@ const buildDoorlinks = (doorlinks) => {
             break;
           case 'ceiling':
 
-            addWorldVertex(tVerts[3]);
-            addWorldVertex(tVerts[1]);
-            addWorldVertex(fVerts[1]);
-            addWorldVertex(fVerts[3]);
+            addWorldVertex(toVerts[3]);
+            addWorldVertex(toVerts[1]);
+            addWorldVertex(fromVerts[1]);
+            addWorldVertex(fromVerts[3]);
 
             commitVertices();
 
@@ -328,15 +328,15 @@ const buildDoorlinks = (doorlinks) => {
             break;
           case 'sides':
 
-            addWorldVertex(tVerts[2]);
-            addWorldVertex(tVerts[3]);
-            addWorldVertex(fVerts[0]);
-            addWorldVertex(fVerts[1]);
+            addWorldVertex(toVerts[2]);
+            addWorldVertex(toVerts[3]);
+            addWorldVertex(fromVerts[0]);
+            addWorldVertex(fromVerts[1]);
 
-            addWorldVertex(fVerts[2]);
-            addWorldVertex(fVerts[3]);
-            addWorldVertex(tVerts[0]);
-            addWorldVertex(tVerts[1]);
+            addWorldVertex(fromVerts[2]);
+            addWorldVertex(fromVerts[3]);
+            addWorldVertex(toVerts[0]);
+            addWorldVertex(toVerts[1]);
 
             commitVertices();
 
