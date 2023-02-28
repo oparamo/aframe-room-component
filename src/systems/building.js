@@ -51,7 +51,7 @@ const finishGeometry = (geom) => {
 const addWorldVert = (wall, hole, ptX, ptY) => {
   const tempPos = new THREE.Vector3(ptX, ptY, 0);
   wall.object3D.localToWorld(tempPos);
-  hole.myVerts.push(tempPos);
+  hole.verts.push(tempPos);
 };
 
 const positionDoorhole = (doorholeEl) => {
@@ -191,9 +191,6 @@ const buildRooms = (rooms) => {
       for (const doorholeEl of wallEl.doorholes) {
         positionDoorhole(doorholeEl);
 
-        if (!doorholeEl.myVerts) { doorholeEl.myVerts = []; }
-        doorholeEl.myVerts.length = 0;
-
         const doorlinkEl = doorholeEl.getDoorlink();
         if (!doorlinkEl) { continue; }
 
@@ -250,8 +247,8 @@ const buildRooms = (rooms) => {
 const buildDoorlinks = (doorlinks) => {
   for (const doorlinkEl of doorlinks) {
     const { from, to } = doorlinkEl.getAttribute('doorlink');
-    const fromVerts = from?.myVerts;
-    const toVerts = to?.myVerts;
+    const fromVerts = from?.verts;
+    const toVerts = to?.verts;
     if (!fromVerts || !toVerts) { return; }
 
     for (const doorLinkChild of doorlinkEl.children) {

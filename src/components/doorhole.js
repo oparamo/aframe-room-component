@@ -12,6 +12,7 @@ module.exports.Component = AFRAME.registerComponent('doorhole', {
       throw new Error(message);
     }
 
+    this.el.verts = [];
     this.el.getDoorlink = () => this.el.sceneEl.querySelector(`a-doorlink[from="#${this.el.id}"], a-doorlink[to="#${this.el.id}"]`);
   }
 });
