@@ -2,14 +2,6 @@
 
 const HAIR = 0.0001;
 
-const getWallHeight = (wall) => {
-  return wall?.getAttribute('wall')?.height || wall?.parentEl?.getAttribute('room')?.height;
-};
-
-const getDoorholeLink = (doorhole, doorlinks) => {
-  return doorlinks.find((link) => link?.components?.doorlink?.data?.from === doorhole || link?.components?.doorlink?.data?.to === doorhole);
-};
-
 const flipGeometry = (geom) => {
   const indices = geom.getIndex().array;
   for (let i = 0; i < indices.length; i += 3) {
@@ -62,6 +54,82 @@ const addWorldVert = (wall, hole, ptX, ptY) => {
   hole.myVerts.push(tempPos);
 };
 
+const positionDoorhole = (doorholeEl) => {
+  const doorlinkEl = doorholeEl.getDoorlink();
+  const wallEl = doorholeEl.parentEl;
+  const nextWallEl = wallEl?.nextWall;
+  if (!nextWallEl) { return; }
+
+  const wallWorldPosition = new THREE.Vector3();
+  wallEl.object3D.getWorldPosition(wallWorldPosition);
+
+  const nextWallWorldPosition = new THREE.Vector3();
+  nextWallEl.object3D.getWorldPosition(nextWallWorldPosition);
+
+  const doorlinkWorldPosition = new THREE.Vector3();
+  doorlinkEl.object3D.getWorldPosition(doorlinkWorldPosition);
+
+  const doorlinkGapX = doorlinkWorldPosition.x - wallWorldPosition.x;
+  const doorlinkGapZ = doorlinkWorldPosition.z - wallWorldPosition.z;
+
+  const wallGapX = nextWallWorldPosition.x - wallWorldPosition.x;
+  const wallGapZ = nextWallWorldPosition.z - wallWorldPosition.z;
+
+  const wallAngle = Math.atan2(wallGapZ, wallGapX);
+  const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
+
+  const doorHalf = doorlinkEl.components.doorlink.data.width / 2;
+
+  let localLinkX = doorlinkGapX * Math.cos(-wallAngle) - doorlinkGapZ * Math.sin(-wallAngle);
+  localLinkX = Math.max(localLinkX, doorHalf + HAIR);
+  localLinkX = Math.min(localLinkX, wallLength - doorHalf - HAIR);
+
+  // var localLinkZ = doorlinkGapX*Math.sin(-wallAngle) + doorlinkGapZ*Math.cos(-wallAngle);
+
+  doorholeEl.object3D.position.set(localLinkX, 0, 0);
+};
+
+const sortRoomWalls = (walls, outside) => {
+  let cwSum = 0;
+  for (let i = 0; i < walls.length; i++) {
+    const currentWall = walls[i];
+    const nextWall = walls[(i + 1) % walls.length];
+
+    const { x: currentWallX, z: currentWallZ } = currentWall.object3D.position;
+    const { x: nextWallX, z: nextWallZ } = nextWall.object3D.position;
+
+    cwSum += (nextWallX - currentWallX) * (nextWallZ + currentWallZ);
+  }
+
+  let shouldReverse = false;
+  if (cwSum > 0) { shouldReverse = !shouldReverse; }
+  if (outside) { shouldReverse = !shouldReverse; }
+  if (shouldReverse) { walls.reverse(); }
+};
+
+const positionWalls = (walls, outside, length, width) => {
+  if (width && length) {
+    walls[0].object3D.position.set(0, 0, 0);
+    walls[1].object3D.position.set(width, 0, 0);
+    walls[2].object3D.position.set(width, 0, length);
+    walls[3].object3D.position.set(0, 0, length);
+  }
+
+  sortRoomWalls(walls, outside);
+
+  // rotate walls
+  for (let i = 0; i < walls.length; i++) {
+    const currentWall = walls[i];
+    currentWall.nextWall = walls[(i + 1) % walls.length];
+
+    const wallGapX = currentWall.nextWall.object3D.position.x - currentWall.object3D.position.x;
+    const wallGapZ = currentWall.nextWall.object3D.position.z - currentWall.object3D.position.z;
+    const wallAngle = Math.atan2(wallGapZ, wallGapX);
+
+    currentWall.object3D.rotation.y = THREE.MathUtils.degToRad(-wallAngle / Math.PI * 180);
+  }
+};
+
 const generateCap = (walls, cap, isCeiling, isOutside) => {
   const capShape = new THREE.Shape();
   for (let i = 0; i < walls.length; i++) {
@@ -84,7 +152,7 @@ const generateCap = (walls, cap, isCeiling, isOutside) => {
       capGeom.attributes.position.getZ(i)
     );
     curVert.set(curVert.x, currentWall.object3D.position.y, curVert.y);
-    if (isCeiling) { curVert.y += getWallHeight(currentWall); }
+    if (isCeiling) { curVert.y += currentWall.getHeight(); }
     capGeom.attributes.position.setXYZ(i, curVert.x, curVert.y, curVert.z);
   }
 
@@ -109,10 +177,14 @@ const generateCap = (walls, cap, isCeiling, isOutside) => {
   }
 };
 
-const generateRoom = (rooms, doorlinks) => {
+const buildRooms = (rooms) => {
   for (const roomEl of rooms) {
-    // generate walls
+    const { outside, length, width } = roomEl?.getAttribute('room');
     const walls = roomEl?.walls;
+
+    positionWalls(walls, outside, length, width);
+
+    // generate walls
     for (let i = 0; i < walls.length; i++) {
       const currentWall = walls[i];
       const nextWall = currentWall.nextWall;
@@ -123,30 +195,32 @@ const generateRoom = (rooms, doorlinks) => {
       // var wallAngle = Math.atan2(wallGapZ, wallGapX);
 
       const wallGapY = nextWall.object3D.position.y - currentWall.object3D.position.y;
-      const heightGap = getWallHeight(nextWall) - getWallHeight(currentWall);
+      const heightGap = nextWall.getHeight() - currentWall.getHeight();
 
       const wallShape = new THREE.Shape();
-      wallShape.moveTo(0, getWallHeight(currentWall));
+      wallShape.moveTo(0, currentWall.getHeight());
       wallShape.lineTo(0, 0);
 
-      for (const hole of currentWall.doorholes) {
-        if (!hole.myVerts) { hole.myVerts = []; }
-        hole.myVerts.length = 0;
+      for (const doorholeEl of currentWall.doorholes) {
+        positionDoorhole(doorholeEl);
 
-        const doorholeLink = getDoorholeLink(hole, doorlinks);
-        if (!doorholeLink) { continue; }
+        if (!doorholeEl.myVerts) { doorholeEl.myVerts = []; }
+        doorholeEl.myVerts.length = 0;
+
+        const doorlinkEl = doorholeEl.getDoorlink();
+        if (!doorlinkEl) { continue; }
 
         for (let holeSide = -1; holeSide <= 1; holeSide += 2) {
-          const ptX = hole.object3D.position.x + doorholeLink.components.doorlink.data.width / 2 * holeSide;
+          const ptX = doorholeEl.object3D.position.x + doorlinkEl.components.doorlink.data.width / 2 * holeSide;
           const floorY = (ptX / wallLength) * wallGapY;
-          let topY = floorY + doorholeLink.components.doorlink.data.height;
+          let topY = floorY + doorlinkEl.components.doorlink.data.height;
 
-          const curCeil = getWallHeight(currentWall) + (ptX / wallLength) * heightGap;
+          const curCeil = currentWall.getHeight() + (ptX / wallLength) * heightGap;
           const maxTopY = floorY + curCeil - HAIR;// will always be a seam, but, I'm not bothering to rewrite just for that
           if (topY > maxTopY) { topY = maxTopY; }
 
-          addWorldVert(currentWall, hole, ptX, floorY);
-          addWorldVert(currentWall, hole, ptX, topY);
+          addWorldVert(currentWall, doorholeEl, ptX, floorY);
+          addWorldVert(currentWall, doorholeEl, ptX, topY);
 
           if (holeSide < 0) {
             wallShape.lineTo(ptX, floorY);
@@ -164,7 +238,7 @@ const generateRoom = (rooms, doorlinks) => {
       );
       wallShape.lineTo(
         wallLength,
-        (nextWall?.object3D?.position?.y - currentWall?.object3D?.position?.y) + getWallHeight(nextWall)
+        (nextWall?.object3D?.position?.y - currentWall?.object3D?.position?.y) + nextWall.getHeight()
       );
 
       const wallGeom = new THREE.ShapeGeometry(wallShape);
@@ -181,13 +255,12 @@ const generateRoom = (rooms, doorlinks) => {
     }
 
     // generate ceiling and floor
-    const { outside } = roomEl?.getAttribute('room');
     generateCap(walls, roomEl?.floor, false, outside);
     generateCap(walls, roomEl?.ceiling, true, outside);
   }
 };
 
-const generateDoorlink = (doorlinks) => {
+const buildDoorlinks = (doorlinks) => {
   for (const doorlinkEl of doorlinks) {
     const doorlink = doorlinkEl.components.doorlink;
     const fVerts = doorlink?.data?.from?.myVerts;
@@ -296,98 +369,6 @@ const generateDoorlink = (doorlinks) => {
   }
 };
 
-const positionDoorhole = (doorhole, doorlink) => {
-  const wall = doorhole.parentEl;
-  const nextWall = wall.nextWall;
-  if (!nextWall) { return; }
-
-  const wallWorldPosition = new THREE.Vector3();
-  wall.object3D.getWorldPosition(wallWorldPosition);
-
-  const nextWallWorldPosition = new THREE.Vector3();
-  nextWall.object3D.getWorldPosition(nextWallWorldPosition);
-
-  const doorlinkWorldPosition = new THREE.Vector3();
-  doorlink.object3D.getWorldPosition(doorlinkWorldPosition);
-
-  const doorlinkGapX = doorlinkWorldPosition.x - wallWorldPosition.x;
-  const doorlinkGapZ = doorlinkWorldPosition.z - wallWorldPosition.z;
-
-  const wallGapX = nextWallWorldPosition.x - wallWorldPosition.x;
-  const wallGapZ = nextWallWorldPosition.z - wallWorldPosition.z;
-
-  const wallAngle = Math.atan2(wallGapZ, wallGapX);
-  const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
-
-  const doorHalf = doorlink.components.doorlink.data.width / 2;
-
-  let localLinkX = doorlinkGapX * Math.cos(-wallAngle) - doorlinkGapZ * Math.sin(-wallAngle);
-  localLinkX = Math.max(localLinkX, doorHalf + HAIR);
-  localLinkX = Math.min(localLinkX, wallLength - doorHalf - HAIR);
-
-  // var localLinkZ = doorlinkGapX*Math.sin(-wallAngle) + doorlinkGapZ*Math.cos(-wallAngle);
-
-  doorhole.object3D.position.set(localLinkX, 0, 0);
-};
-
-const positionDoorlinks = (doorlinks) => {
-  for (const doorlinkEl of doorlinks) {
-    const { from, to } = doorlinkEl.getAttribute('doorlink');
-
-    positionDoorhole(from, doorlinkEl);
-    positionDoorhole(to, doorlinkEl);
-  }
-};
-
-const sortRoomWalls = (walls, outside) => {
-  let cwSum = 0;
-  for (let i = 0; i < walls.length; i++) {
-    const currentWall = walls[i];
-    const nextWall = walls[(i + 1) % walls.length];
-
-    const { x: currentWallX, z: currentWallZ } = currentWall.object3D.position;
-    const { x: nextWallX, z: nextWallZ } = nextWall.object3D.position;
-
-    cwSum += (nextWallX - currentWallX) * (nextWallZ + currentWallZ);
-  }
-
-  let shouldReverse = false;
-  if (cwSum > 0) { shouldReverse = !shouldReverse; }
-  if (outside) { shouldReverse = !shouldReverse; }
-  if (shouldReverse) { walls.reverse(); }
-};
-
-const positionWalls = (rooms) => {
-  for (const roomEl of rooms) {
-    const { outside, length, width } = roomEl?.getAttribute('room');
-    const walls = roomEl.walls;
-
-    if (width && length) {
-      walls[0].object3D.position.set(0, 0, 0);
-      walls[1].object3D.position.set(width, 0, 0);
-      walls[2].object3D.position.set(width, 0, length);
-      walls[3].object3D.position.set(0, 0, length);
-    }
-
-    sortRoomWalls(walls, outside);
-
-    // rotate walls
-    for (let i = 0; i < walls.length; i++) {
-      const currentWall = walls[i];
-      const nextWall = walls[(i + 1) % walls.length];
-
-      const wallGapX = nextWall.object3D.position.x - currentWall.object3D.position.x;
-      const wallGapZ = nextWall.object3D.position.z - currentWall.object3D.position.z;
-      const wallAngle = Math.atan2(wallGapZ, wallGapX);
-
-      currentWall.object3D.rotation.y = THREE.MathUtils.degToRad(-wallAngle / Math.PI * 180);
-
-      // link next wall for convenience
-      currentWall.nextWall = nextWall;
-    }
-  }
-};
-
 AFRAME.registerSystem('building', {
   init: function () {
     console.log('initializing building');
@@ -405,13 +386,9 @@ AFRAME.registerSystem('building', {
     setTimeout(() => {
       this.el.object3D.updateMatrixWorld();
 
-      positionWalls(this.rooms);
+      buildRooms(this.rooms);
 
-      positionDoorlinks(this.doorlinks);
-
-      generateRoom(this.rooms, this.doorlinks);
-
-      generateDoorlink(this.doorlinks);
+      buildDoorlinks(this.doorlinks);
     });
   },
   registerRoom: function (room) {
