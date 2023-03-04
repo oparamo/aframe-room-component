@@ -355,11 +355,10 @@ AFRAME.registerSystem('building', {
 
     this.rooms = [];
     this.doorlinks = [];
-    this.totalChildren = this.el?.querySelectorAll('a-room, a-doorlink')?.length;
+    this.totalRooms = this.el?.querySelectorAll('a-room')?.length;
   },
   build: function () {
-    const registeredCount = this.rooms?.length + this.doorlinks?.length;
-    if (registeredCount !== this.totalChildren) return;
+    if (this.rooms?.length !== this.totalRooms) return;
 
     console.info('building...');
 
@@ -375,22 +374,20 @@ AFRAME.registerSystem('building', {
       }
     });
   },
-  registerRoom: function (room) {
-    this.rooms.push(room);
-
+  registerRoom: function (roomEl) {
+    this.rooms.push(roomEl);
     this.build();
   },
-  unregisterRoom: function (room) {
-    const index = this.rooms.indexOf(room);
+  unregisterRoom: function (roomEl) {
+    const index = this.rooms.indexOf(roomEl);
     this.rooms.splice(index, 1);
   },
-  registerDoorlink: function (doorlink) {
-    this.doorlinks.push(doorlink);
-
+  registerDoorlink: function (doorlinkEl) {
+    this.doorlinks.push(doorlinkEl);
     this.build();
   },
-  unregisterDoorlink: function (doorlink) {
-    const index = this.doorlinks.indexOf(doorlink);
+  unregisterDoorlink: function (doorlinkEl) {
+    const index = this.doorlinks.indexOf(doorlinkEl);
     this.doorlinks.splice(index, 1);
   }
 });
