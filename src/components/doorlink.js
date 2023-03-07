@@ -23,12 +23,9 @@ module.exports.Component = AFRAME.registerComponent('doorlink', {
     doorlinkEl.ceiling = doorlinkEl.querySelector('a-ceiling');
     doorlinkEl.floor = doorlinkEl.querySelector('a-floor');
     doorlinkEl.sides = doorlinkEl.querySelector('a-sides');
-
-    doorlinkEl.sceneEl.systems?.building?.registerDoorlink(doorlinkEl);
   },
-  remove: function () {
-    console.info('removing doorlink');
-
-    this.el.sceneEl.systems?.building?.unregisterDoorlink(this.el);
+  update: function () {
+    console.info('updating doorlink');
+    this.el.sceneEl.systems?.building?.buildDoorlink(this.el);
   }
 });

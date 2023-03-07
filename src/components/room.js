@@ -29,10 +29,9 @@ module.exports.Component = AFRAME.registerComponent('room', {
     roomEl.ceiling = roomEl.querySelector('a-ceiling');
     roomEl.floor = roomEl.querySelector('a-floor');
     roomEl.walls = walls;
-
-    roomEl.sceneEl.systems?.building?.registerRoom(roomEl);
   },
-  remove: function () {
-    this.el.sceneEl.systems?.building?.unregisterRoom(this.el);
+  update: function () {
+    console.info('updating room');
+    this.el.sceneEl.systems?.building?.buildRoom(this.el);
   }
 });

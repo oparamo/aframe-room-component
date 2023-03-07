@@ -15,7 +15,8 @@ const flipGeometry = (geom) => {
 
 const makeGeometryUvs = (geom, callback) => {
   const indices = geom.getIndex().array;
-  const uvs = indices.reduce((uvs, vertexIndex) => {
+  const uvs = [];
+  for (const vertexIndex of indices) {
     const vertex = new THREE.Vector3(
       geom.attributes.position.getX(vertexIndex),
       geom.attributes.position.getY(vertexIndex),
@@ -25,9 +26,7 @@ const makeGeometryUvs = (geom, callback) => {
     const [u, v] = callback(vertex, vertexIndex % 3);
     uvs[vertexIndex * 2 + 0] = u;
     uvs[vertexIndex * 2 + 1] = v;
-
-    return uvs;
-  }, []);
+  }
 
   geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
 };
@@ -43,9 +42,8 @@ const makePlaneUvs = (geom, uKey, vKey, uMult, vMult) => {
 
 const finishGeometry = (geom) => {
   geom.computeVertexNormals();
-  // TODO: remove completely or make optional
-  // geom.computeBoundingBox();
-  // geom.computeBoundingSphere();
+  geom.computeBoundingBox();
+  geom.computeBoundingSphere();
 };
 
 const addWorldVert = (wall, hole, ptX, ptY) => {
@@ -251,7 +249,6 @@ const buildDoorlink = (doorlinkEl) => {
   for (const doorLinkChild of doorlinkEl.children) {
     if (!doorLinkChild.components) { continue; }
 
-    // TODO: use pointers instead of looping through array
     const types = ['sides', 'floor', 'ceiling'];
     for (const curType of types) {
       if (!doorLinkChild.components[curType]) { continue; }
@@ -353,41 +350,31 @@ AFRAME.registerSystem('building', {
   init: function () {
     console.log('initializing building');
 
-    this.rooms = [];
-    this.doorlinks = [];
-    this.totalRooms = this.el?.querySelectorAll('a-room')?.length;
-  },
-  build: function () {
-    if (this.rooms?.length !== this.totalRooms) return;
+    this.el.rooms = this.el.querySelectorAll('a-room');
+    this.el.doorlinks = this.el.querySelectorAll('a-doorlink');
+    this.el.updateReady = false;
 
+    this.el.addEventListener('loaded', this.initialBuild);
+  },
+  initialBuild: function () {
     console.info('building...');
 
-    setTimeout(() => {
-      this.el.object3D.updateMatrixWorld();
+    this.object3D.updateMatrixWorld();
 
-      for (const roomEl of this.rooms) {
-        buildRoom(roomEl);
-      }
+    for (const roomEl of this.rooms) {
+      buildRoom(roomEl);
+    }
 
-      for (const doorlinkEl of this.doorlinks) {
-        buildDoorlink(doorlinkEl);
-      }
-    });
+    for (const doorlinkEl of this.doorlinks) {
+      buildDoorlink(doorlinkEl);
+    }
+
+    this.updateReady = true;
   },
-  registerRoom: function (roomEl) {
-    this.rooms.push(roomEl);
-    this.build();
+  buildRoom: function (roomEl) {
+    if (this.el.updateReady) buildRoom(roomEl);
   },
-  unregisterRoom: function (roomEl) {
-    const index = this.rooms.indexOf(roomEl);
-    this.rooms.splice(index, 1);
-  },
-  registerDoorlink: function (doorlinkEl) {
-    this.doorlinks.push(doorlinkEl);
-    this.build();
-  },
-  unregisterDoorlink: function (doorlinkEl) {
-    const index = this.doorlinks.indexOf(doorlinkEl);
-    this.doorlinks.splice(index, 1);
+  buildDoorlink: function (doorlinkEl) {
+    if (this.el.updateReady) buildDoorlink(doorlinkEl);
   }
 });
