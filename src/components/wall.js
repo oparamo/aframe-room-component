@@ -9,7 +9,7 @@ module.exports.Component = AFRAME.registerComponent('wall', {
   init: function () {
     const parentName = this.el.parentEl?.localName;
     if (parentName !== ROOM) {
-      const message = `a-wall elements must have an "${ROOM}" parent`;
+      const message = `<a-wall> must be a child of a <${ROOM}>`;
       throw new Error(message);
     }
 

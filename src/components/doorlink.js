@@ -13,7 +13,7 @@ module.exports.Component = AFRAME.registerComponent('doorlink', {
   init: function () {
     const parentName = this.el.parentEl?.localName;
     if (parentName !== SCENE && parentName !== WALL) {
-      const message = `a-doorlink elements must have an "${SCENE}" or "${WALL}" parent`;
+      const message = `<a-doorlink> must be a child of a <${SCENE}> or <${WALL}>.`;
       throw new Error(message);
     }
   },

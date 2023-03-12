@@ -13,13 +13,13 @@ module.exports.Component = AFRAME.registerComponent('room', {
     const walls = Array.from(roomEl.querySelectorAll('a-wall'));
 
     if ((width || length) && !(width && length)) {
-      const message = 'rooms with WIDTH must also have LENGTH (and vice versa)';
+      const message = '<a-room> with WIDTH must also have LENGTH (and vice versa).';
       console.error(message);
       throw new Error(message);
     }
 
     if (width && length && walls.length !== 4) {
-      const message = 'rooms with WIDTH and LENGTH must have four walls!';
+      const message = '<a-room> with WIDTH and LENGTH must have four walls.';
       console.error(message);
       throw new Error(message);
     }
