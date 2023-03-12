@@ -8,8 +8,6 @@ module.exports.Component = AFRAME.registerComponent('room', {
     length: { type: 'number' }
   },
   init: function () {
-    console.info('initializing room');
-
     const roomEl = this.el;
     const { length, width } = roomEl?.getAttribute('room');
     const walls = Array.from(roomEl.querySelectorAll('a-wall'));
@@ -31,7 +29,6 @@ module.exports.Component = AFRAME.registerComponent('room', {
     roomEl.walls = walls;
   },
   update: function () {
-    console.info('updating room');
     this.el.sceneEl.systems?.building?.buildRoom(this.el);
   }
 });

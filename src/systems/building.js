@@ -32,24 +32,26 @@ const makeGeometryUvs = (geom, callback) => {
 };
 
 const makePlaneUvs = (geom, uKey, vKey, uMult, vMult) => {
-  makeGeometryUvs(geom, (point) => {
-    return [
-      point[uKey] * uMult,
-      point[vKey] * vMult
-    ];
-  });
+  const callback = (point) => ([point[uKey] * uMult, point[vKey] * vMult]);
+  makeGeometryUvs(geom, callback);
 };
 
 const finishGeometry = (geom) => {
   geom.computeVertexNormals();
-  geom.computeBoundingBox();
-  geom.computeBoundingSphere();
+  // geom.computeBoundingBox();
+  // geom.computeBoundingSphere();
 };
 
-const addWorldVert = (wall, hole, ptX, ptY) => {
-  const tempPos = new THREE.Vector3(ptX, ptY, 0);
-  wall.object3D.localToWorld(tempPos);
-  hole.verts.push(tempPos);
+const addDoorlinkWorldVertex = (vertex, doorlinkChildEl, positions) => {
+  const point = vertex.clone();
+  doorlinkChildEl.object3D.worldToLocal(point);
+  positions.push(point.x, point.y, point.z);
+};
+
+const addDoorholeWorldVertex = (wall, doorhole, ptX, ptY) => {
+  const vertex = new THREE.Vector3(ptX, ptY, 0);
+  wall.object3D.localToWorld(vertex);
+  doorhole.vertices.push(vertex);
 };
 
 const positionDoorhole = (doorholeEl) => {
@@ -81,8 +83,7 @@ const positionDoorhole = (doorholeEl) => {
   let localLinkX = doorlinkGapX * Math.cos(-wallAngle) - doorlinkGapZ * Math.sin(-wallAngle);
   localLinkX = Math.max(localLinkX, doorHalf + HAIR);
   localLinkX = Math.min(localLinkX, wallLength - doorHalf - HAIR);
-
-  // var localLinkZ = doorlinkGapX*Math.sin(-wallAngle) + doorlinkGapZ*Math.cos(-wallAngle);
+  // const localLinkZ = doorlinkGapX*Math.sin(-wallAngle) + doorlinkGapZ*Math.cos(-wallAngle);
 
   doorholeEl.object3D.position.set(localLinkX, 0, 0);
 };
@@ -106,49 +107,47 @@ const sortWalls = (walls, isOutside) => {
 };
 
 const buildCap = (walls, cap, isCeiling, isOutside) => {
-  const capShape = new THREE.Shape();
+  const shape = new THREE.Shape();
   for (let i = 0; i < walls.length; i++) {
     const wallEl = walls[i];
     const ptX = wallEl.object3D.position.x;
     const ptZ = wallEl.object3D.position.z;
     if (i) {
-      capShape.lineTo(ptX, ptZ);
+      shape.lineTo(ptX, ptZ);
     } else {
-      capShape.moveTo(ptX, ptZ);
+      shape.moveTo(ptX, ptZ);
     }
   }
 
-  const capGeom = new THREE.ShapeGeometry(capShape);
+  const geom = new THREE.ShapeGeometry(shape);
   for (let i = 0; i < walls.length; i++) {
     const wallEl = walls[i];
-    const curVert = new THREE.Vector3(
-      capGeom.attributes.position.getX(i),
-      capGeom.attributes.position.getY(i),
-      capGeom.attributes.position.getZ(i)
+    const vertex = new THREE.Vector3(
+      geom.attributes.position.getX(i),
+      geom.attributes.position.getY(i),
+      geom.attributes.position.getZ(i)
     );
-    curVert.set(curVert.x, wallEl.object3D.position.y, curVert.y);
-    if (isCeiling) { curVert.y += wallEl.getHeight(); }
-    capGeom.attributes.position.setXYZ(i, curVert.x, curVert.y, curVert.z);
+    vertex.set(vertex.x, wallEl.object3D.position.y, vertex.y);
+    if (isCeiling) { vertex.y += wallEl.getHeight(); }
+    geom.attributes.position.setXYZ(i, vertex.x, vertex.y, vertex.z);
   }
 
   let shouldReverse = false;
   if (!isCeiling) { shouldReverse = !shouldReverse; }
   if (isOutside) { shouldReverse = !shouldReverse; }
-  if (shouldReverse) { flipGeometry(capGeom); }
+  if (shouldReverse) { flipGeometry(geom); }
 
-  makePlaneUvs(capGeom, 'x', 'z', isCeiling ? 1 : -1, 1);
-  finishGeometry(capGeom);
+  makePlaneUvs(geom, 'x', 'z', isCeiling ? 1 : -1, 1);
+  finishGeometry(geom);
 
-  if (!cap.myMeshes) { cap.myMeshes = []; }
-
-  const typeLabel = isCeiling ? 'ceiling' : 'floor';
-  const myMat = cap?.components?.material?.material || cap?.parentEl?.components?.material?.material;
-  if (cap.myMeshes[typeLabel]) {
-    cap.myMeshes[typeLabel].geometry = capGeom;
-    cap.myMeshes[typeLabel].material = myMat;
+  const material = cap?.components?.material?.material || cap?.parentEl?.components?.material?.material;
+  if (cap.mesh) {
+    cap.mesh.geometry = geom;
+    cap.mesh.material = material;
   } else {
-    cap.myMeshes[typeLabel] = new THREE.Mesh(capGeom, myMat);
-    cap.setObject3D(typeLabel, cap.myMeshes[typeLabel]);
+    const typeLabel = isCeiling ? 'ceiling' : 'floor';
+    cap.mesh = new THREE.Mesh(geom, material);
+    cap.setObject3D(typeLabel, cap.mesh);
   }
 };
 
@@ -196,12 +195,12 @@ const buildRoom = (roomEl) => {
         const floorY = (ptX / wallLength) * wallGapY;
         let topY = floorY + doorlinkEl.getAttribute('doorlink').height;
 
-        const curCeil = wallEl.getHeight() + (ptX / wallLength) * heightGap;
-        const maxTopY = floorY + curCeil - HAIR;// will always be a seam, but, I'm not bothering to rewrite just for that
+        const ceiling = wallEl.getHeight() + (ptX / wallLength) * heightGap;
+        const maxTopY = floorY + ceiling - HAIR; // will always be a seam
         if (topY > maxTopY) { topY = maxTopY; }
 
-        addWorldVert(wallEl, doorholeEl, ptX, floorY);
-        addWorldVert(wallEl, doorholeEl, ptX, topY);
+        addDoorholeWorldVertex(wallEl, doorholeEl, ptX, floorY);
+        addDoorholeWorldVertex(wallEl, doorholeEl, ptX, topY);
 
         if (holeSide < 0) {
           wallShape.lineTo(ptX, floorY);
@@ -225,13 +224,13 @@ const buildRoom = (roomEl) => {
     const wallGeom = new THREE.ShapeGeometry(wallShape);
     makePlaneUvs(wallGeom, 'x', 'y', 1, 1);
     finishGeometry(wallGeom);
-    const myMat = wallEl?.components?.material?.material || wallEl?.parentEl?.components?.material?.material;
-    if (wallEl.myMesh) {
-      wallEl.myMesh.geometry = wallGeom;
-      wallEl.myMesh.material = myMat;
+    const material = wallEl?.components?.material?.material || wallEl?.parentEl?.components?.material?.material;
+    if (wallEl.mesh) {
+      wallEl.mesh.geometry = wallGeom;
+      wallEl.mesh.material = material;
     } else {
-      wallEl.myMesh = new THREE.Mesh(wallGeom, myMat);
-      wallEl.setObject3D('wallMesh', wallEl.myMesh);
+      wallEl.mesh = new THREE.Mesh(wallGeom, material);
+      wallEl.setObject3D('wallMesh', wallEl.mesh);
     }
   }
 
@@ -242,96 +241,63 @@ const buildRoom = (roomEl) => {
 
 const buildDoorlink = (doorlinkEl) => {
   const { from, to } = doorlinkEl.getAttribute('doorlink');
-  const fromVerts = from?.verts;
-  const toVerts = to?.verts;
+  const fromVerts = from?.vertices;
+  const toVerts = to?.vertices;
   if (!fromVerts || !toVerts) { return; }
 
-  for (const doorLinkChild of doorlinkEl.children) {
-    if (!doorLinkChild.components) { continue; }
-
+  for (const doorlinkChildEl of doorlinkEl.children) {
     const types = ['sides', 'floor', 'ceiling'];
-    for (const curType of types) {
-      if (!doorLinkChild.components[curType]) { continue; }
+    for (const type of types) {
+      if (!doorlinkChildEl.components[type]) { continue; }
 
-      const myMat = doorLinkChild?.components?.material?.material || doorLinkChild?.parentEl?.components?.material?.material;
+      const material = doorlinkChildEl?.components?.material?.material || doorlinkChildEl?.parentEl?.components?.material?.material;
 
-      if (!doorLinkChild.myGeoms) { doorLinkChild.myGeoms = []; }
-      if (!doorLinkChild.myGeoms[curType]) {
-        const curGeom = new THREE.BufferGeometry();
-        doorLinkChild.myGeoms[curType] = curGeom;
-        const myMesh = new THREE.Mesh(curGeom, myMat);
-        curGeom.meshRef = myMesh;
-        doorLinkChild.setObject3D(curType, myMesh);
-        const indexArray = [];
-        indexArray.push(0, 1, 2, 1, 3, 2);
-        if (curType === 'sides') { indexArray.push(4, 5, 6, 5, 7, 6); }
-        curGeom.setIndex(indexArray);
-      }
+      const indices = (type === 'sides') ? [0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6] : [0, 1, 2, 1, 3, 2];
+      const geom = new THREE.BufferGeometry();
+      geom.setIndex(indices);
 
-      const curGeom = doorLinkChild.myGeoms[curType];
-      curGeom.meshRef.material = myMat;
-      const positionArray = [];
+      doorlinkChildEl.mesh = new THREE.Mesh(geom, material);
+      doorlinkChildEl.setObject3D(type, doorlinkChildEl.mesh);
 
-      const addWorldVertex = (vertex) => {
-        const point = vertex.clone();
-        doorLinkChild.object3D.worldToLocal(point);
-        positionArray.push(point.x, point.y, point.z);
-      };
+      const positions = [];
 
-      const commitVertices = () => {
-        curGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positionArray), 3));
-      };
-
-      switch (curType) {
+      switch (type) {
         case 'floor':
+          addDoorlinkWorldVertex(toVerts[0], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(toVerts[2], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(fromVerts[2], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(fromVerts[0], doorlinkChildEl, positions);
 
-          addWorldVertex(toVerts[0]);
-          addWorldVertex(toVerts[2]);
-          addWorldVertex(fromVerts[2]);
-          addWorldVertex(fromVerts[0]);
+          geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
 
-          commitVertices();
-
-          makeGeometryUvs(curGeom, (point, vertIndex) => {
-            return [
-              1 - (vertIndex % 2),
-              1 - Math.floor(vertIndex / 2)
-            ];
-          });
+          makeGeometryUvs(geom, (point, vertIndex) => ([1 - (vertIndex % 2), 1 - Math.floor(vertIndex / 2)]));
 
           break;
         case 'ceiling':
+          addDoorlinkWorldVertex(toVerts[3], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(toVerts[1], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(fromVerts[1], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(fromVerts[3], doorlinkChildEl, positions);
 
-          addWorldVertex(toVerts[3]);
-          addWorldVertex(toVerts[1]);
-          addWorldVertex(fromVerts[1]);
-          addWorldVertex(fromVerts[3]);
+          geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
 
-          commitVertices();
-
-          makeGeometryUvs(curGeom, (point, vertIndex) => {
-            return [
-              vertIndex % 2,
-              1 - Math.floor(vertIndex / 2)
-            ];
-          });
+          makeGeometryUvs(geom, (point, vertIndex) => ([vertIndex % 2, 1 - Math.floor(vertIndex / 2)]));
 
           break;
         case 'sides':
+          addDoorlinkWorldVertex(toVerts[2], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(toVerts[3], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(fromVerts[0], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(fromVerts[1], doorlinkChildEl, positions);
 
-          addWorldVertex(toVerts[2]);
-          addWorldVertex(toVerts[3]);
-          addWorldVertex(fromVerts[0]);
-          addWorldVertex(fromVerts[1]);
+          addDoorlinkWorldVertex(fromVerts[2], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(fromVerts[3], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(toVerts[0], doorlinkChildEl, positions);
+          addDoorlinkWorldVertex(toVerts[1], doorlinkChildEl, positions);
 
-          addWorldVertex(fromVerts[2]);
-          addWorldVertex(fromVerts[3]);
-          addWorldVertex(toVerts[0]);
-          addWorldVertex(toVerts[1]);
+          geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
 
-          commitVertices();
-
-          makeGeometryUvs(curGeom, (point, vertIndex) => {
+          makeGeometryUvs(geom, (point, vertIndex) => {
             const uv = [];
             uv[0] = Math.floor(vertIndex / 2);
             uv[1] = vertIndex % 2;
@@ -341,31 +307,28 @@ const buildDoorlink = (doorlinkEl) => {
 
           break;
       }
-      finishGeometry(curGeom);
+
+      finishGeometry(geom);
     }
   }
 };
 
 AFRAME.registerSystem('building', {
   init: function () {
-    console.log('initializing building');
-
-    this.el.rooms = this.el.querySelectorAll('a-room');
-    this.el.doorlinks = this.el.querySelectorAll('a-doorlink');
-    this.el.updateReady = false;
-
     this.el.addEventListener('loaded', this.initialBuild);
+    this.el.updateReady = false;
   },
   initialBuild: function () {
-    console.info('building...');
+    const doorlinks = this.querySelectorAll('a-doorlink');
+    const rooms = this.querySelectorAll('a-room');
 
     this.object3D.updateMatrixWorld();
 
-    for (const roomEl of this.rooms) {
+    for (const roomEl of rooms) {
       buildRoom(roomEl);
     }
 
-    for (const doorlinkEl of this.doorlinks) {
+    for (const doorlinkEl of doorlinks) {
       buildDoorlink(doorlinkEl);
     }
 

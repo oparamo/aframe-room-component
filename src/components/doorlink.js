@@ -11,21 +11,13 @@ module.exports.Component = AFRAME.registerComponent('doorlink', {
     width: { type: 'number', default: 0.8 }
   },
   init: function () {
-    console.info('initializing doorlink');
-
     const parentName = this.el.parentEl?.localName;
     if (parentName !== SCENE && parentName !== WALL) {
       const message = `a-doorlink elements must have an "${SCENE}" or "${WALL}" parent`;
       throw new Error(message);
     }
-
-    const doorlinkEl = this.el;
-    doorlinkEl.ceiling = doorlinkEl.querySelector('a-ceiling');
-    doorlinkEl.floor = doorlinkEl.querySelector('a-floor');
-    doorlinkEl.sides = doorlinkEl.querySelector('a-sides');
   },
   update: function () {
-    console.info('updating doorlink');
     this.el.sceneEl.systems?.building?.buildDoorlink(this.el);
   }
 });

@@ -5,8 +5,6 @@ const ROOM = 'a-room';
 
 module.exports.Component = AFRAME.registerComponent('floor', {
   init: function () {
-    console.info('initializing floor');
-
     const parentName = this.el.parentEl?.localName;
     if (parentName !== DOORLINK && parentName !== ROOM) {
       const message = `a-floor elements must have an "${DOORLINK}" or "${ROOM}" parent`;

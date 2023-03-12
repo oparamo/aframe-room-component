@@ -61,7 +61,7 @@
     "webpack-dev-server": "4.11.1"
   },
   "peerDependencies": {
-    "aframe": "1.4.1"
+    "aframe": ">=1.2.0"
   },
   "semistandard": {
     "globals": [
