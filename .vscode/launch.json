@@ -1,10 +1,17 @@
 {
   "configurations": [
     {
-      "name": "Launch Chrome",
+      "name": "Debug basic",
       "request": "launch",
       "type": "chrome",
-      "url": "http://localhost:8000",
+      "url": "http://localhost:8000/basic.html",
+      "webRoot": "${workspaceFolder}"
+    },
+    {
+      "name": "Debug random building",
+      "request": "launch",
+      "type": "chrome",
+      "url": "http://localhost:8000/random.html",
       "webRoot": "${workspaceFolder}"
     }
   ]
