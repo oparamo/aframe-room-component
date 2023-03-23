@@ -2,7 +2,7 @@
 
 const { buildDoorlink, buildRoom } = require('./buildingService');
 
-AFRAME.registerSystem('building', {
+module.exports.System = AFRAME.registerSystem('building', {
   init: function () {
     this.el.addEventListener('loaded', this.initialBuild);
     this.el.updateReady = false;
