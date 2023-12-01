@@ -16,19 +16,34 @@
 
 <body>
   <a-scene>
-
     <a-assets>
       <img id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg" crossorigin="anonymous">
       <img id="skyTexture" src="https://cdn.aframe.io/a-painter/images/sky.jpg" crossorigin="anonymous">
       <img id="testTex" src="test.png">
 
+      <img id="wood" src="./assets/WoodParquet/512_albedo.png">
+      <img id="woodNormal" src="./assets/WoodParquet/512_normal.png">
+      <img id="woodRoughness" src="./assets/WoodParquet/512_roughness.png">
+
+      <!-- <img id="quartzite" src="./assets/Quartzite/COL_8K.png">
+      <img id="quartziteNormal" src="./assets/Quartzite/NRM_8K.png">
+      <img id="quartziteMetalness" src="./assets/Quartzite/METALNESS_8K.png">
+      <img id="quartziteRoughness" src="./assets/Quartzite/ROUGHNESS_8K.png"> -->
+
+      <img id="plaster" src="./assets/Plaster/COL_1K.png">
+      <img id="plasterNormal" src="./assets/Plaster/NRM_1K.png">
+      <img id="plasterMetalness" src="./assets/Plaster/METALNESS_1K.png">
+      <img id="plasterRoughness" src="./assets/Plaster/ROUGHNESS_1K.png">
+
       <a-mixin id="floorMat" material="color:#FFF"></a-mixin>
+      <a-mixin id="woodMaterial" material="src: #wood; normalMap: #woodNormal; roughnessMap: #woodRoughness; repeat:2 2">
+      <!-- <a-mixin id="quartziteMaterial" material="src: #quartzite; normalMap: #quartziteNormal; roughnessMap: #quartziteRoughness; repeat:1 1;"> -->
+      <a-mixin id="plasterMaterial" material="src: #plaster; normalMap: #plasterNormal; roughnessMap: #plasterRoughness; repeat:.5 .5">
     </a-assets>
 
-    <a-sky height="2048" radius="30" src="#skyTexture" theta-length="90" width="2048" segments-height="5"
-      segments-width="8"></a-sky>
+    <a-sky height="2048" radius="30" src="#skyTexture" theta-length="90" width="2048" segments-height="5" segments-width="8"></a-sky>
 
-    <a-plane src="#groundTexture" rotation="-90 0 0" position="0 -0.01 0" height="100" width="100"></a-plane>
+    <a-plane mixin="woodMaterial" rotation="-90 0 0" position="0 -0.01 0" height="100" width="100"></a-plane>
 
     <a-light type="directional" intensity="0.9" position="-1 -2 2"></a-light>
     <a-light type="directional" intensity="1.0" position="2 1 -1"></a-light>
@@ -38,17 +53,17 @@
 
     <a-room id="roomA" position="-2.5 0 -2.5" width="5" length="5" height="3">
 
-      <a-wall id="wallAA" material="color:#F88">
+      <a-wall id="wallAA" mixin="woodMaterial">
         <a-doorhole id="holeA"></a-doorhole>
       </a-wall>
-      <a-wall id="wallAB" material="color:#F88"></a-wall>
-      <a-wall id="wallAC" material="color:#F88">
+      <a-wall id="wallAB" mixin="woodMaterial"></a-wall>
+      <a-wall id="wallAC" mixin="woodMaterial">
         <a-doorhole id="frontInner"></a-doorhole>
       </a-wall>
-      <a-wall id="wallAD" material="color:#F88"></a-wall>
+      <a-wall id="wallAD" mixin="woodMaterial"></a-wall>
 
-      <a-floor id="floorA" mixin="floorMat"></a-floor>
-      <a-ceiling id="ceilingA" material="color:#AAA"></a-ceiling>
+      <a-floor id="floorA" mixin="woodMaterial"></a-floor>
+      <a-ceiling id="ceilingA" mixin="woodMaterial"></a-ceiling>
 
     </a-room>
 
@@ -61,7 +76,7 @@
     <a-room id="roomB" position="0 0 -2.7">
 
       <a-wall id="wallBA" position="-2 0 0" material="color:#F00"></a-wall>
-      <a-wall id="wallBB" position="2 0 0" material="src:#testTex; repeat:0.5 0.5;">
+      <a-wall id="wallBB" position="2 0 0" material="src:#testTex; repeat:2 2;">
         <a-doorhole id="holeB"></a-doorhole>
       </a-wall>
       <a-wall id="wallBC" position="2 0 -5" material="color:#00F">

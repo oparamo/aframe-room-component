@@ -137,7 +137,8 @@ const buildCap = (walls, cap, isCeiling, isOutside) => {
   if (isOutside) { shouldReverse = !shouldReverse; }
   if (shouldReverse) { flipGeometry(geom); }
 
-  makePlaneUvs(geom, 'x', 'z', isCeiling ? 1 : -1, 1);
+  // makePlaneUvs(geom, 'x', 'z', isCeiling ? 1 : -1, 1);
+  makePlaneUvs(geom, 'x', 'z', 1, 1);
   finishGeometry(geom);
 
   const material = cap?.components?.material?.material || cap?.parentEl?.components?.material?.material;

@@ -2,12 +2,11 @@
 
 module.exports.Component = AFRAME.registerComponent('random-building', {
   schema: {
-    minRoomSize: { type: 'vec3', default: { x: 2, y: 2, z: 2 } },
-    maxRoomSize: { type: 'vec3', default: { x: 3, y: 4, z: 3 } },
-    minRooms: { type: 'int', default: 1 },
-    maxRooms: { type: 'int', default: 5 },
-    boundary: { type: 'vec3', default: { x: 20, y: 0, z: 20 } },
-    maxPositionAttempts: { type: 'int', default: 50 }
+    roomCount: { type: 'int', default: 5 },
+    roomMinSize: { type: 'vec3', default: { x: 3, y: 3, z: 3 } },
+    roomMaxSize: { type: 'vec3', default: { x: 7, y: 7, z: 7 } },
+    doorMinSize: { type: 'vec2', default: { x: 0.5, y: 1 } },
+    doorMaxSize: { type: 'vec2', default: { x: 1.5, y: 2 } },
   },
 
   init: function () {
@@ -15,36 +14,32 @@ module.exports.Component = AFRAME.registerComponent('random-building', {
   },
 
   generateBuilding: function () {
-    const { minRoomSize, maxRoomSize, minRooms, maxRooms, boundary, maxPositionAttempts } = this.data;
+    const { roomCount, roomMinSize, roomMaxSize } = this.data;
 
-    const numRooms = Math.floor(Math.random() * (maxRooms - minRooms + 1) + minRooms);
     const rooms = [];
 
-    let positionAttempts = 0;
-    for (let i = 0; i < numRooms && positionAttempts != maxPositionAttempts; i++) {
+    for (let i = 0; i < roomCount; i++) {
       const roomSize = {
-        x: Math.random() * (maxRoomSize.x - minRoomSize.x) + minRoomSize.x,
-        y: Math.random() * (maxRoomSize.y - minRoomSize.y) + minRoomSize.y,
-        z: Math.random() * (maxRoomSize.z - minRoomSize.z) + minRoomSize.z
+        x: Math.random() * (roomMaxSize.x - roomMinSize.x) + roomMinSize.x,
+        y: Math.random() * (roomMaxSize.y - roomMinSize.y) + roomMinSize.y,
+        z: Math.random() * (roomMaxSize.z - roomMinSize.z) + roomMinSize.z
       };
 
-      for (positionAttempts = 0; positionAttempts < maxPositionAttempts; positionAttempts++) {
-        const roomPosition = {
-          x: Math.random() * boundary.x,
-          y: 0,
-          z: Math.random() * boundary.z
-        };
+      const roomPosition = {
+        x: 0,
+        y: roomSize.y / 2,
+        z: 0
+      };
 
-        const collision = this.checkCollision(roomPosition, roomSize, rooms);
-        if (!collision) {
-          const newRoom = this.createRoom(roomSize, roomPosition);
-          rooms.push(newRoom);
-          this.el.appendChild(newRoom.room);
-          break;
-        } else {
-          roomSize.x = Math.max(minRoomSize.x, roomSize.x * 0.9);
-          roomSize.z = Math.max(minRoomSize.z, roomSize.z * 0.9);
-        }
+      const collision = this.checkCollision(roomPosition, roomSize, rooms);
+      if (!collision) {
+        const newRoom = this.createRoom(roomSize, roomPosition);
+        rooms.push(newRoom);
+        this.el.appendChild(newRoom.room);
+        break;
+      } else {
+        roomSize.x = Math.max(roomMinSize.x, roomSize.x * 0.9);
+        roomSize.z = Math.max(roomMinSize.z, roomSize.z * 0.9);
       }
     }
   },
@@ -61,6 +56,19 @@ module.exports.Component = AFRAME.registerComponent('random-building', {
 
     return false;
   },
+
+  // Check if a room overlaps with any of the other rooms
+  // isOverlapping: function (room, rooms) {
+  //   for (const other of rooms) {
+  //     if (room.position.x + room.width / 2 > other.position.x - other.width / 2 &&
+  //       room.position.x - room.width / 2 < other.position.x + other.width / 2 &&
+  //       room.position.z + room.height / 2 > other.position.z - other.height / 2 &&
+  //       room.position.z - room.height / 2 < other.position.z + other.height / 2) {
+  //       return true;
+  //     }
+  //   }
+  //   return false;
+  // },
 
   createRoom: function (roomSize, roomPosition) {
     const room = document.createElement('a-entity');
