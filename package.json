@@ -2,20 +2,25 @@
   "name": "aframe-room-component",
   "version": "0.6.0",
   "description": "An A-Frame component for quickly creating rooms connected by doors.",
-  "main": "./src/index.js",
+  "main": "./dist/aframe-room-component.min.js",
+  "module": "./dist/aframe-room-component.esm.js",
   "cdn": "./dist/aframe-room-component.min.js",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
   "engines": {
-    "node": ">=18.13.0",
-    "yarn": ">=1.22.0"
+    "node": ">=24.0.0",
+    "pnpm": ">=10.0.0"
   },
   "scripts": {
-    "dist:dev": "webpack --config webpack.config.js",
-    "dist:prd": "webpack --config webpack.prod.config.js",
-    "dist": "npm run dist:prd && npm run dist:dev",
-    "lint:fix": "semistandard --fix | snazzy",
-    "lint": "semistandard -v | snazzy",
-    "start:https": "webpack serve --progress --open --server-type https",
-    "start": "webpack serve --progress --open"
+    "dist:dev": "vite build --mode development",
+    "dist:prd": "vite build",
+    "dist": "vite build && vite build --mode development",
+    "lint:fix": "eslint src --fix",
+    "lint": "eslint src",
+    "start:https": "vite --https",
+    "start": "vite",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "repository": {
     "type": "git",
@@ -50,26 +55,14 @@
   },
   "homepage": "https://github.com/oparamo/aframe-room-component#readme",
   "devDependencies": {
-    "@babel/core": "7.23.3",
-    "@babel/preset-env": "7.23.3",
-    "babel-loader": "9.1.3",
-    "semistandard": "17.0.0",
-    "snazzy": "9.0.0",
-    "terser-webpack-plugin": "5.3.9",
-    "webpack": "5.89.0",
-    "webpack-cli": "5.1.4",
-    "webpack-dev-server": "4.15.1"
+    "eslint": "9.39.4",
+    "neostandard": "0.13.0",
+    "terser": "5.46.1",
+    "three": "0.184.0",
+    "vite": "8.0.8",
+    "vitest": "4.1.4"
   },
   "peerDependencies": {
     "aframe": ">=1.5.0"
-  },
-  "semistandard": {
-    "globals": [
-      "AFRAME",
-      "THREE"
-    ],
-    "ignore": [
-      "dist/**"
-    ]
   }
 }
