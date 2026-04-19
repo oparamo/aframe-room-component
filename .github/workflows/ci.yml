@@ -1,24 +1,25 @@
-name: CI
+name: CICD
 
 on:
   push:
     branches: [ master ]
+    tags: [ "v*" ]
   pull_request:
 
 jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 24
           cache: pnpm
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
 
       - run: pnpm install --frozen-lockfile
 
@@ -27,3 +28,41 @@ jobs:
       - run: pnpm test
 
       - run: pnpm dist
+
+      - uses: actions/upload-artifact@v6
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: ci
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/download-artifact@v6
+        with:
+          name: dist
+          path: dist/
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - run: pnpm publish --no-git-checks --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - run: gh release create ${{ github.ref_name }} --generate-notes dist/*
+        env:
+          GH_TOKEN: ${{ github.token }}
