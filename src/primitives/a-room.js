@@ -1,5 +1,3 @@
-'use strict';
-
 AFRAME.registerPrimitive('a-room', {
   defaultComponents: { room: {} },
   mappings: {

@@ -1,8 +1,6 @@
-'use strict';
-
 const ROOM = 'a-room';
 
-module.exports.Component = AFRAME.registerComponent('wall', {
+AFRAME.registerComponent('wall', {
   schema: {
     height: { type: 'number' }
   },

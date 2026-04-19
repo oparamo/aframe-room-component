@@ -1,6 +1,4 @@
-'use strict';
-
-module.exports.Component = AFRAME.registerComponent('room', {
+AFRAME.registerComponent('room', {
   schema: {
     outside: { type: 'boolean' },
     height: { type: 'number', default: 2.4 },

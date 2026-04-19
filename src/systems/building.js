@@ -1,8 +1,6 @@
-'use strict';
+import { buildDoorlink, buildRoom } from './buildingService';
 
-const { buildDoorlink, buildRoom } = require('./buildingService');
-
-module.exports.System = AFRAME.registerSystem('building', {
+AFRAME.registerSystem('building', {
   init: function () {
     this.el.addEventListener('loaded', this.initialBuild);
     this.el.updateReady = false;

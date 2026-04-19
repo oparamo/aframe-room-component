@@ -1,8 +1,6 @@
-'use strict';
-
 const WALL = 'a-wall';
 
-module.exports.Component = AFRAME.registerComponent('doorhole', {
+AFRAME.registerComponent('doorhole', {
   init: function () {
     const parentName = this.el.parentEl?.localName;
     if (parentName !== WALL) {

@@ -1,5 +1,3 @@
-'use strict';
-
 AFRAME.registerPrimitive('a-doorlink', {
   defaultComponents: { doorlink: {} },
   mappings: {

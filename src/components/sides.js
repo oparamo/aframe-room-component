@@ -1,8 +1,6 @@
-'use strict';
-
 const DOORLINK = 'a-doorlink';
 
-module.exports.Component = AFRAME.registerComponent('sides', {
+AFRAME.registerComponent('sides', {
   init: function () {
     const parentName = this.el.parentEl?.localName;
     if (parentName !== DOORLINK) {

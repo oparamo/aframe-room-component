@@ -1,9 +1,7 @@
-'use strict';
-
 const SCENE = 'a-scene';
 const WALL = 'a-wall';
 
-module.exports.Component = AFRAME.registerComponent('doorlink', {
+AFRAME.registerComponent('doorlink', {
   schema: {
     from: { type: 'selector' },
     to: { type: 'selector' },

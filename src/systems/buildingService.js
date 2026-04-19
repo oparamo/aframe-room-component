@@ -1,5 +1,3 @@
-'use strict';
-
 const HAIR = 0.0001;
 
 const flipGeometry = (geom) => {
@@ -313,4 +311,4 @@ const buildDoorlink = (doorlinkEl) => {
   }
 };
 
-module.exports = { buildDoorlink, buildRoom };
+export { buildDoorlink, buildRoom };

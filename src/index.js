@@ -1,5 +1,3 @@
-'use strict';
-
-require('./components');
-require('./primitives');
-require('./systems');
+import './components';
+import './primitives';
+import './systems';
