@@ -2,29 +2,28 @@ import { buildDoorlink, buildRoom } from './buildingService';
 
 AFRAME.registerSystem('building', {
   init: function () {
-    this.el.addEventListener('loaded', this.initialBuild);
-    this.el.updateReady = false;
-  },
-  initialBuild: function () {
-    const doorlinks = this.querySelectorAll('a-doorlink');
-    const rooms = this.querySelectorAll('a-room');
+    this.updateReady = false;
+    this.el.addEventListener('loaded', () => {
+      const rooms = this.el.querySelectorAll('a-room');
+      const doorlinks = this.el.querySelectorAll('a-doorlink');
 
-    this.object3D.updateMatrixWorld();
+      this.el.object3D.updateMatrixWorld();
 
-    for (const roomEl of rooms) {
-      buildRoom(roomEl);
-    }
+      for (const roomEl of rooms) {
+        buildRoom(roomEl);
+      }
 
-    for (const doorlinkEl of doorlinks) {
-      buildDoorlink(doorlinkEl);
-    }
+      for (const doorlinkEl of doorlinks) {
+        buildDoorlink(doorlinkEl);
+      }
 
-    this.updateReady = true;
+      this.updateReady = true;
+    });
   },
   buildRoom: function (roomEl) {
-    if (this.el.updateReady) buildRoom(roomEl);
+    if (this.updateReady) buildRoom(roomEl);
   },
   buildDoorlink: function (doorlinkEl) {
-    if (this.el.updateReady) buildDoorlink(doorlinkEl);
+    if (this.updateReady) buildDoorlink(doorlinkEl);
   }
 });

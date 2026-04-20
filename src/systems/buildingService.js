@@ -36,8 +36,6 @@ const makePlaneUvs = (geom, uKey, vKey, uMult, vMult) => {
 
 const finishGeometry = (geom) => {
   geom.computeVertexNormals();
-  // geom.computeBoundingBox();
-  // geom.computeBoundingSphere();
 };
 
 const addDoorlinkWorldVertex = (vertex, doorlinkChildEl, positions) => {
@@ -81,7 +79,6 @@ const positionDoorhole = (doorholeEl) => {
   let localLinkX = doorlinkGapX * Math.cos(-wallAngle) - doorlinkGapZ * Math.sin(-wallAngle);
   localLinkX = Math.max(localLinkX, doorHalf + HAIR);
   localLinkX = Math.min(localLinkX, wallLength - doorHalf - HAIR);
-  // const localLinkZ = doorlinkGapX*Math.sin(-wallAngle) + doorlinkGapZ*Math.cos(-wallAngle);
 
   doorholeEl.object3D.position.set(localLinkX, 0, 0);
 };
@@ -138,7 +135,7 @@ const buildCap = (walls, cap, isCeiling, isOutside) => {
   makePlaneUvs(geom, 'x', 'z', isCeiling ? 1 : -1, 1);
   finishGeometry(geom);
 
-  const material = cap?.components?.material?.material || cap?.parentEl?.components?.material?.material;
+  const material = cap.components?.material?.material || cap.parentEl?.components?.material?.material;
   if (cap.mesh) {
     cap.mesh.geometry = geom;
     cap.mesh.material = material;
@@ -150,8 +147,8 @@ const buildCap = (walls, cap, isCeiling, isOutside) => {
 };
 
 const buildRoom = (roomEl) => {
-  const { outside, length, width } = roomEl?.getAttribute('room');
-  const walls = roomEl?.walls;
+  const { outside, length, width } = roomEl.getAttribute('room');
+  const walls = roomEl.walls;
 
   if (width && length) {
     walls[0].object3D.position.set(0, 0, 0);
@@ -212,17 +209,17 @@ const buildRoom = (roomEl) => {
 
     wallShape.lineTo(
       wallLength,
-      nextWallEl?.object3D?.position?.y - wallEl?.object3D?.position?.y
+      nextWallEl.object3D.position.y - wallEl.object3D.position.y
     );
     wallShape.lineTo(
       wallLength,
-      (nextWallEl?.object3D?.position?.y - wallEl?.object3D?.position?.y) + nextWallEl.getHeight()
+      (nextWallEl.object3D.position.y - wallEl.object3D.position.y) + nextWallEl.getHeight()
     );
 
     const wallGeom = new THREE.ShapeGeometry(wallShape);
     makePlaneUvs(wallGeom, 'x', 'y', 1, 1);
     finishGeometry(wallGeom);
-    const material = wallEl?.components?.material?.material || wallEl?.parentEl?.components?.material?.material;
+    const material = wallEl.components?.material?.material || wallEl.parentEl?.components?.material?.material;
     if (wallEl.mesh) {
       wallEl.mesh.geometry = wallGeom;
       wallEl.mesh.material = material;
@@ -233,8 +230,8 @@ const buildRoom = (roomEl) => {
   }
 
   // build ceiling and floor
-  buildCap(walls, roomEl?.floor, false, outside);
-  buildCap(walls, roomEl?.ceiling, true, outside);
+  buildCap(walls, roomEl.floor, false, outside);
+  buildCap(walls, roomEl.ceiling, true, outside);
 };
 
 const buildDoorlink = (doorlinkEl) => {

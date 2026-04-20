@@ -7,7 +7,7 @@ AFRAME.registerComponent('room', {
   },
   init: function () {
     const roomEl = this.el;
-    const { length, width } = roomEl?.getAttribute('room');
+    const { length, width } = this.data;
     const walls = Array.from(roomEl.querySelectorAll('a-wall'));
 
     if ((width || length) && !(width && length)) {

@@ -12,8 +12,8 @@ AFRAME.registerComponent('wall', {
     }
 
     const doorholes = Array.from(this.el.querySelectorAll('a-doorhole'));
-    this.el.doorholes = doorholes.sort((a, b) => a?.object3D?.position?.x - b?.object3D?.position?.x);
+    this.el.doorholes = doorholes.sort((a, b) => a.object3D.position.x - b.object3D.position.x);
 
-    this.el.getHeight = () => this.el.getAttribute('wall')?.height || this.el.parentEl?.getAttribute('room')?.height;
+    this.el.getHeight = () => this.el.getAttribute('wall').height || this.el.parentEl.getAttribute('room').height;
   }
 });
