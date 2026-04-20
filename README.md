@@ -11,116 +11,84 @@ A set of [A-Frame](https://aframe.io) components for quickly creating rooms conn
 
 ### Browser
 
-Install and use by directly including the [browser files](dist):
-
 ```html
 <head>
-  <title>My A-Frame Scene</title>
-  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-room-component/dist/aframe-room-component.min.js"></script>
 </head>
 
 <body>
   <a-scene>
-  <rw-room position="-2 0 -2" material="color:#866">
-   <rw-wall position="4 0 0"></rw-wall>
-   <rw-wall position="4 0 4"></rw-wall>
-   <rw-wall position="0 0 4"></rw-wall>
-   <rw-wall position="0 0 0">
-      <rw-doorhole id="holeA"></rw-doorhole>
-      <rw-doorlink from="#holeA" to="#holeB" position="2.5 0 0"></rw-doorlink>
-   </rw-wall>
-  </rw-room>
-  <rw-room position="0 0 -3">
-   <rw-wall position=" 1 0 -1" material="color:#787"></rw-wall>
-   <rw-wall position=" 1 0  1" material="color:#877">
-    <rw-doorhole id="holeB"></rw-doorhole>
-   </rw-wall>
-   <rw-wall position="-1 0  1" material="color:#878"></rw-wall>
-   <rw-wall position="-1 0 -1" material="color:#778"></rw-wall>
-  </rw-room>
- </a-scene>
+    <a-room position="-2 0 -2" material="color:#866">
+      <a-wall position="4 0 0"></a-wall>
+      <a-wall position="4 0 4"></a-wall>
+      <a-wall position="0 0 4"></a-wall>
+      <a-wall position="0 0 0">
+        <a-doorhole id="holeA"></a-doorhole>
+        <a-doorlink from="#holeA" to="#holeB" position="2.5 0 0"></a-doorlink>
+      </a-wall>
+    </a-room>
+    <a-room position="0 0 -3">
+      <a-wall position=" 1 0 -1" material="color:#787"></a-wall>
+      <a-wall position=" 1 0  1" material="color:#877">
+        <a-doorhole id="holeB"></a-doorhole>
+      </a-wall>
+      <a-wall position="-1 0  1" material="color:#878"></a-wall>
+      <a-wall position="-1 0 -1" material="color:#778"></a-wall>
+    </a-room>
+  </a-scene>
 </body>
 ```
 
 ### npm
 
-Install via npm:
-
 ```bash
 npm install aframe-room-component
 ```
 
-Then require and use.
-
 ```js
-require('aframe');
-require('aframe-room-component');
+import 'aframe';
+import 'aframe-room-component';
 ```
 
 ## Usage
 
 ### Overview
 
-This is set of primitives (also usable as components) that can be used to easily lay out rooms connected by doors in A-Frame. Here is an overview of their usage. (Attributes in *italics* are redundant shorthands; see below.)
+A set of primitives (also usable as components) for laying out rooms connected by doors in A-Frame. Attributes in *italics* are material/height shorthands inherited from the parent element.
 
-| Primitive   | Component | Purpose | Attributes &amp; Components |
+| Primitive | Component | Purpose | Attributes |
 | - | - | - | - |
-| rw-room     | room      | Contains a set of walls, and other objects. | position, outside, *material, height, width, length* |
-| rw-wall     | wall      | Marks one corner of a wall, which will connect to the next. | position, material, height |
-| rw-doorhole | doorhole  | Marks a wall so that a doorlink can connect to it. | (none) |
-| rw-doorlink | doorlink  | Connects two doorholes, as well as positioning them as close to it as possible. | from, to, position, width, height |
-| rw-floor, rw-ceiling, rw-sides | floor, ceiling, sides | Used to assign materials to the floor and ceiling of rooms and doorlinks, and to the sides of doorlinks. | material |
+| `a-room` | `room` | Contains a set of walls and other objects. | `position`, `outside`, `height`, `width`, `length`, *`material`* |
+| `a-wall` | `wall` | Marks one corner of a wall, connecting to the next. | `position`, `height`, *`material`* |
+| `a-doorhole` | `doorhole` | Marks a wall so a doorlink can connect to it. | (none) |
+| `a-doorlink` | `doorlink` | Connects two doorholes and positions them along their walls. | `from`, `to`, `position`, `width`, `height` |
+| `a-floor`, `a-ceiling`, `a-sides` | `floor`, `ceiling`, `sides` | Attach materials to room/doorlink surfaces. | *`material`* |
 
 ### Hierarchy
 
-An `a-scene` can contain multiple `rw-room`s.
+An `a-scene` can contain multiple `a-room`s.
 
-An `rw-room` must contain at least three `rw-wall`s. You can add `outside="true"` to the room if you want its walls to describe the outside of a building rather than the interior of a room.
+An `a-room` must contain at least three `a-wall`s. Set `outside="true"` on a room to make its walls describe the exterior of a building rather than an interior.
 
-An `rw-wall` can have any a-frame entity as a child. `rw-wall`s are oriented so that their `x` direction always points toward the next wall; i.e., when an object is parented to an `rw-wall`, its `x` coordinate controls how far along the wall it is, its `y` coordinate controls how high off the ground it is, and its `z` coordinate controls how distant from the wall it is.
+An `a-wall` can have any A-Frame entity as a child. Walls are oriented so their local `x` axis points toward the next wall — meaning a child entity's `x` coordinate is its distance along the wall, `y` is height off the ground, and `z` is distance from the wall surface.
 
-An `rw-doorhole` must be the child of an `rw-wall`. It is used to indicate on which wall a door connection should exist. An `rw-doorhole` can also have any a-frame entity as a child (for example, a model of a literal door). Note: do **not** apply a `position` to an `rw-doorhole`! Their position will be assigned by the `rw-doorlink` they are linked to.
+An `a-doorhole` must be a child of an `a-wall`. It marks where a door connection exists. It can have any A-Frame entity as a child (e.g. a door model). Do **not** set a `position` on an `a-doorhole` — its position is controlled by the `a-doorlink` it is connected to.
 
-An `rw-doorlink` can be a child of an `a-scene` (i.e. outside of a room), or a child of an `rw-wall`. (It **cannot** be the child of an `rw-doorhole`!) Its position is used to automatically set the position of the two `rw-doorhole`s that it is connected to: they will be moved as close as possible to it on their walls. This allows doorways to always automatically be directly connected by the shortest distance (rather than forcing you to manually position both of the doorholes to line up). Choosing whether to parent the `rw-doorlink` to the scene or to one of the two walls that it's connecting is up to you, depending on the building layout you're creating. (It may be simpler to make adjustments a room depending on whether or not the door moves with it or tries to stay in place.)
+An `a-doorlink` can be a child of an `a-scene` or of an `a-wall` (but **not** of an `a-doorhole`). Its world position is used to automatically place the two connected doorholes as close to it as possible on their respective walls. Whether to parent the doorlink to the scene or to one of the walls depends on your layout — it affects whether the doorway moves with a room or stays fixed.
 
-An `rw-floor` and an `rw-ceiling` must be the child of either an `rw-room` or an `rw-doorlink`. They exist as a place to attach the material you wish to have applied to the floor or ceiling of the room (or doorlink). An `rw-sides` is similar, but is only used in doorlinks. You can omit them if you wish (i.e. if you would rather manually create a single floorplane for your entire building instead).
+An `a-floor` and `a-ceiling` must be a child of either an `a-room` or an `a-doorlink`. An `a-sides` is only used inside `a-doorlink`s. All three exist solely to carry a `material` component for their surface. They can be omitted if you prefer to handle surfaces manually.
 
 ### Shorthands
 
-If an `rw-wall` does not have a `material` component, it will use its parent `rw-room`'s material component. (A material component **must** be supplied on either the `rw-wall` or the `rw-room`.) The same goes for `rw-floor`, `rw-ceiling` and `rw-sides` (and their parent `rw-doorlink` or `rw-room`).
+If an `a-wall` has no `material` component, it inherits from its parent `a-room`. If an `a-floor`, `a-ceiling`, or `a-sides` has no `material`, it inherits from its parent `a-doorlink` or `a-room`.
 
-Similarly, if an `rw-wall` does not have a `height` attribute, it will use its parent `rw-room`'s height attribute. (If neither has a height attribute, a default height of 2.4m will be used.)
+If an `a-wall` has no `height` attribute, it inherits from its parent `a-room`'s `height`. The default room height is `2.4m`.
 
-If an `rw-room` has a `width` attribute **and** a `length` attribute, and four `rw-wall`s inside, the `position`s can be ommitted from the walls; they will be set automatically, to form a rectangle with one corner at `0,0` and the opposite corner at `width,length`. (This is just to save typing in the relatively common case of rectangular, axis-aligned rooms.)
+If an `a-room` has both a `width` and a `length` attribute and contains exactly four `a-wall`s, wall `position`s can be omitted — they will be set automatically to form a rectangle from `(0,0)` to `(width, length)`.
 
-## Notes
+## Tips
 
-### Tips
-
-Have a look at the source to [this example](https://oparamo.github.io/aframe-room-component/example/) to see some ways that this system can be used.
-
-You may find it helpful to use a mixin for a commonly-occuring material (such as a floor material).
-
-If you want to make a door to the outside world, make an `rw-room` around your other rooms, with `outside="true"` on it, and put the other doorhole on one of its walls.
-
-These primitives should all correctly respect changes made in the Inspector; however, at the moment, there seems to be a bug where changes are only propagated to the objects a few times a second. If you have made changes in the inspector but things look like they aren't fitting right, make a minor change to one of the numerical properties to force everything to update.
-
-### Planned features
-
-- Greater control over UV generation (world space, scale to surface, etc)
-- Automatically assign collision for movement and teleportation systems
-- Create doors above ground level (i.e. windows)
-- Specify shapes to be extruded to automatically create doorframes and baseboards
-
-### Known issues
-
-Room corners (i.e. `rw-wall`s) can be specified in either clockwise or counterclockwise order; however, they will be rearranged internally to always wind clockwise, so you may find that the x axis is pointing to the previous wall rather than the next wall if you list them in counterclockwise order. (This doesn't hurt anything; it's just something to be aware of in case you're confused why it's happening.) This will also happen if you copy a room but set it to `outside`.
-
-Walls can have non-zero `y` coordinates, which for the most part should be handled gracefully — however, there is no simple way to offer control over the triangulation of the ceiling and floor, so rooms whose wall slopes aren't constant may have unpredictable floor and ceiling shapes.
-
-In general, this system is still **very early**, so it contains very little error reporting or sanity checks, and generally has not yet been thoroughly tested, so use with caution, and let me know what issues you run into.
-
-### In closing
-
-I hope this lets you express your ideas in virtual reality more easily! Creating wall with doors has always been one of the most frustratingly time-consuming steps in sketching out a basic building, for me; so hopefully this will allow more people to create and share the fictional spaces of their dreams, or re-creations of real places they wish more people could see! Please do let me know if this has helped you to create something; I'd love to see it.
+- Use a mixin for commonly repeated materials (e.g. a floor texture shared across rooms).
+- To connect a room to the outside world, wrap your rooms in an `a-room outside="true"` and put one doorhole on one of its walls.
+- Have a look at the [example source](https://oparamo.github.io/aframe-room-component/example/) for a walkthrough of the available features.
