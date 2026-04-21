@@ -25,6 +25,7 @@ AFRAME.registerComponent('room', {
     roomEl.ceiling = roomEl.querySelector('a-ceiling');
     roomEl.floor = roomEl.querySelector('a-floor');
     roomEl.walls = walls;
+    roomEl.object3D.visible = false;
   },
   update: function () {
     this.el.sceneEl.systems?.building?.buildRoom(this.el);

@@ -11,6 +11,7 @@ AFRAME.registerSystem('building', {
 
       for (const roomEl of rooms) {
         buildRoom(roomEl);
+        roomEl.object3D.visible = true;
       }
 
       for (const doorlinkEl of doorlinks) {
