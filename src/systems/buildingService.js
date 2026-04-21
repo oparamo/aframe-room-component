@@ -84,6 +84,7 @@ const positionDoorhole = (doorholeEl) => {
   const doorlinkGapZ = doorlinkWorldPosition.z - wallWorldPosition.z;
 
   const wallGapX = nextWallWorldPosition.x - wallWorldPosition.x;
+  const wallGapY = nextWallWorldPosition.y - wallWorldPosition.y;
   const wallGapZ = nextWallWorldPosition.z - wallWorldPosition.z;
 
   const wallLength = Math.hypot(wallGapX, wallGapZ);
@@ -97,7 +98,8 @@ const positionDoorhole = (doorholeEl) => {
   doorlinkLocalX = Math.max(doorlinkLocalX, doorlinkHalfWidth + HAIR);
   doorlinkLocalX = Math.min(doorlinkLocalX, wallLength - doorlinkHalfWidth - HAIR);
 
-  doorholeEl.object3D.position.set(doorlinkLocalX, 0, 0);
+  const floorY = (doorlinkLocalX / wallLength) * wallGapY;
+  doorholeEl.object3D.position.set(doorlinkLocalX, floorY, 0);
 };
 
 // Determines the correct winding order for walls so that faces point inward.
@@ -245,14 +247,8 @@ const buildRoom = (roomEl) => {
     }
 
     // Close the shape at the top-right and bottom-right corners.
-    wallShape.lineTo(
-      wallLength,
-      nextWallEl.object3D.position.y - wallEl.object3D.position.y
-    );
-    wallShape.lineTo(
-      wallLength,
-      (nextWallEl.object3D.position.y - wallEl.object3D.position.y) + nextWallEl.getHeight()
-    );
+    wallShape.lineTo(wallLength, wallGapY);
+    wallShape.lineTo(wallLength, wallGapY + nextWallEl.getHeight());
 
     const wallGeom = new THREE.ShapeGeometry(wallShape);
     makePlaneUvs(wallGeom, 'x', 'y', 1, 1);

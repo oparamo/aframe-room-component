@@ -20,8 +20,8 @@ const makeCap = (parentMaterial) => ({
   setObject3D (_name, mesh) { this.mesh = mesh; }
 });
 
-const makeWall = (x = 0, z = 0, height = 3, doorholes = []) => ({
-  object3D: makeObject3D(x, 0, z),
+const makeWall = (x = 0, z = 0, height = 3, doorholes = [], y = 0) => ({
+  object3D: makeObject3D(x, y, z),
   doorholes,
   getHeight () { return height; },
   components: {},
@@ -47,6 +47,17 @@ const makeSquareRoom = (opts) => makeRoom([
   makeWall(5, 5),
   makeWall(0, 5)
 ], opts);
+
+const makeDoorhole = (doorlinkEl) => {
+  const doorhole = {
+    object3D: makeObject3D(),
+    vertices: [],
+    getDoorlink () { return doorlinkEl; },
+    parentEl: null,
+    setObject3D () {}
+  };
+  return doorhole;
+};
 
 // --- buildRoom ---
 
@@ -169,6 +180,36 @@ describe('buildRoom', () => {
 
       // Assert
       expect(room.walls[0].mesh.geometry).not.toBe(firstGeom);
+    });
+  });
+
+  describe('sloped walls', () => {
+    it('positions doorhole Y to match wall slope at its X', () => {
+      // Arrange — wall runs from (0,0,0) to (4,0,4) in XZ, with a Y rise of 2 over length ~5.66
+      const doorlinkEl = {
+        getAttribute (attr) {
+          if (attr === 'doorlink') return { width: 1, height: 2 };
+          return null;
+        },
+        object3D: makeObject3D(2, 0, 2)
+      };
+      const doorhole = makeDoorhole(doorlinkEl);
+      // Wall at (0,0,0), next wall at (4,2,4) — slopes upward by 2 units over XZ length ~5.66
+      const wall0 = makeWall(0, 0, 3, [doorhole], 0);
+      const wall1 = makeWall(4, 4, 3, [], 2);
+      const wall2 = makeWall(0, 4, 3, [], 0);
+      doorhole.parentEl = wall0;
+      const room = makeRoom([wall0, wall1, wall2]);
+
+      // Act
+      buildRoom(room);
+
+      // Assert — doorhole X should be ~half the wall length, Y should be ~half the Y rise
+      const wallLength = Math.hypot(4, 4); // ~5.66
+      const expectedX = wallLength / 2;
+      const expectedY = (expectedX / wallLength) * 2; // = 1
+      expect(doorhole.object3D.position.x).toBeCloseTo(expectedX, 2);
+      expect(doorhole.object3D.position.y).toBeCloseTo(expectedY, 2);
     });
   });
 
