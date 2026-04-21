@@ -170,6 +170,12 @@ const buildCap = (walls, capEl, isCeiling, isOutside) => {
 const buildRoom = (roomEl) => {
   const { outside, length, width } = roomEl.getAttribute('room');
   const walls = roomEl.walls;
+  const roomId = roomEl.id ? `#${roomEl.id}` : '<a-room>';
+
+  if (!walls || walls.length < 3) {
+    console.error(`${roomId}: a room needs at least 3 walls (found ${walls?.length ?? 0}).`);
+    return;
+  }
 
   // If width and length are set, auto-position the four wall corners as a rectangle.
   if (width && length) {
@@ -261,8 +267,8 @@ const buildRoom = (roomEl) => {
     }
   }
 
-  buildCap(walls, roomEl.floor, false, outside);
-  buildCap(walls, roomEl.ceiling, true, outside);
+  if (roomEl.floor) buildCap(walls, roomEl.floor, false, outside);
+  if (roomEl.ceiling) buildCap(walls, roomEl.ceiling, true, outside);
 };
 
 // Builds the tunnel geometry connecting two doorhole openings. The fromEl and
@@ -270,9 +276,13 @@ const buildRoom = (roomEl) => {
 // by buildRoom. Each child element (floor, ceiling, sides) gets its own quad mesh.
 const buildDoorlink = (doorlinkEl) => {
   const { from: fromEl, to: toEl } = doorlinkEl.getAttribute('doorlink');
+  const doorlinkId = doorlinkEl.id ? `#${doorlinkEl.id}` : '<a-doorlink>';
   const fromVerts = fromEl?.vertices;
   const toVerts = toEl?.vertices;
-  if (!fromVerts || !toVerts) { return; }
+  if (!fromVerts?.length || !toVerts?.length) {
+    console.error(`${doorlinkId}: doorhole vertices not found — ensure both doorholes exist and their rooms have been built.`);
+    return;
+  }
 
   for (const childEl of doorlinkEl.children) {
     const type = CHILD_TYPES.find(t => childEl.components[t]);

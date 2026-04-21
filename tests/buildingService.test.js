@@ -1,4 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+
+afterEach(() => vi.restoreAllMocks());
 import { buildRoom, buildDoorlink } from '../src/systems/buildingService.js';
 
 // --- Minimal A-Frame element mocks ---
@@ -143,6 +145,7 @@ describe('buildRoom', () => {
     it('still creates meshes for all walls', () => {
       // Arrange
       const room = makeSquareRoom({ outside: true });
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       // Act
       buildRoom(room);
@@ -166,6 +169,41 @@ describe('buildRoom', () => {
 
       // Assert
       expect(room.walls[0].mesh.geometry).not.toBe(firstGeom);
+    });
+  });
+
+  describe('input validation', () => {
+    it('logs an error and returns when fewer than 3 walls are given', () => {
+      // Arrange
+      const room = makeRoom([makeWall(0, 0), makeWall(5, 0)]);
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      expect(errorSpy).toHaveBeenCalledOnce();
+      expect(room.floor.mesh).toBeNull();
+    });
+
+    it('skips floor when floor is null', () => {
+      // Arrange
+      const room = makeSquareRoom();
+      room.floor = null;
+
+      // Act & Assert — should not throw
+      expect(() => buildRoom(room)).not.toThrow();
+      expect(room.ceiling.mesh).not.toBeNull();
+    });
+
+    it('skips ceiling when ceiling is null', () => {
+      // Arrange
+      const room = makeSquareRoom();
+      room.ceiling = null;
+
+      // Act & Assert — should not throw
+      expect(() => buildRoom(room)).not.toThrow();
+      expect(room.floor.mesh).not.toBeNull();
     });
   });
 });
@@ -278,27 +316,31 @@ describe('buildDoorlink', () => {
     expect(sidesChild.mesh.geometry.attributes.position.count).toBe(8);
   });
 
-  it('does nothing when from vertices are missing', () => {
+  it('logs an error and does nothing when from element is missing', () => {
     // Arrange
     const floorChild = makeDoorlinkChild('floor');
     const doorlink = makeDoorlink(null, toVerts, [floorChild]);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Act
     buildDoorlink(doorlink);
 
     // Assert
+    expect(errorSpy).toHaveBeenCalledOnce();
     expect(floorChild.mesh).toBeNull();
   });
 
-  it('does nothing when to vertices are missing', () => {
+  it('logs an error and does nothing when to element is missing', () => {
     // Arrange
     const floorChild = makeDoorlinkChild('floor');
     const doorlink = makeDoorlink(fromVerts, null, [floorChild]);
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Act
     buildDoorlink(doorlink);
 
     // Assert
+    expect(errorSpy).toHaveBeenCalledOnce();
     expect(floorChild.mesh).toBeNull();
   });
 
