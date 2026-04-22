@@ -1,0 +1,28 @@
+name: PR Title
+
+on:
+  pull_request:
+    types: [ opened, edited, synchronize, reopened ]
+
+env:
+  CONVENTIONAL_COMMITS_PATTERN: '^(feat|fix|docs|style|refactor|perf|test|chore|ci|build|revert)(\([^)]+\))?(!)?: .+'
+
+jobs:
+  validate-title:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          if ! echo "$PR_TITLE" | grep -qE "$CONVENTIONAL_COMMITS_PATTERN"; then
+            echo "PR title does not follow conventional commits format."
+            echo "Expected: type(optional-scope): description"
+            echo "Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build, revert"
+            echo "Examples:"
+            echo "  feat: add door width property"
+            echo "  fix(wall): correct winding order"
+            echo "  feat!: remove legacy random-building component"
+            echo "Got: $PR_TITLE"
+            exit 1
+          fi
+          echo "PR title is valid: $PR_TITLE"
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
