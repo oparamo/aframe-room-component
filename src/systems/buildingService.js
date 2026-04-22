@@ -214,6 +214,7 @@ const buildRoom = (roomEl) => {
 
     for (const doorholeEl of wallEl.doorholes) {
       positionDoorhole(doorholeEl);
+      doorholeEl.vertices = [];
 
       const doorlinkEl = doorholeEl.getDoorlink();
       if (!doorlinkEl) { continue; }

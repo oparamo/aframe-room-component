@@ -9,6 +9,12 @@ AFRAME.registerComponent('doorhole', {
     }
 
     this.el.vertices = [];
-    this.el.getDoorlink = () => this.el.sceneEl.querySelector(`a-doorlink[from="#${this.el.id}"], a-doorlink[to="#${this.el.id}"]`);
+    this.el.getDoorlink = () => {
+      for (const dl of this.el.sceneEl.querySelectorAll('a-doorlink')) {
+        const data = dl.components?.doorlink?.data;
+        if (data?.from === this.el || data?.to === this.el) return dl;
+      }
+      return null;
+    };
   }
 });

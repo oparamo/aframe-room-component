@@ -14,6 +14,12 @@ AFRAME.registerComponent('doorlink', {
       const message = `<a-doorlink> must be a child of a <${SCENE}> or <${WALL}>.`;
       throw new Error(message);
     }
+
+    this.el.addEventListener('componentchanged', (e) => {
+      if (e.detail.name === 'position' || e.detail.name === 'rotation' || e.detail.name === 'scale') {
+        this.el.sceneEl.systems?.building?.buildDoorlink(this.el);
+      }
+    });
   },
   update: function () {
     this.el.sceneEl.systems?.building?.buildDoorlink(this.el);

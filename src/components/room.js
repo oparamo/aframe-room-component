@@ -26,6 +26,12 @@ AFRAME.registerComponent('room', {
     roomEl.floor = roomEl.querySelector('a-floor');
     roomEl.walls = walls;
     roomEl.object3D.visible = false;
+
+    roomEl.addEventListener('componentchanged', (e) => {
+      if (e.detail.name === 'position' || e.detail.name === 'rotation' || e.detail.name === 'scale') {
+        roomEl.sceneEl.systems?.building?.buildRoom(roomEl);
+      }
+    });
   },
   update: function () {
     this.el.sceneEl.systems?.building?.buildRoom(this.el);
