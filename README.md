@@ -1,11 +1,11 @@
 # aframe-room-component
 
-[![Version](http://img.shields.io/npm/v/aframe-room-component.svg?style=flat-square)](https://npmjs.org/package/aframe-room-component)
-[![License](http://img.shields.io/npm/l/aframe-room-component.svg?style=flat-square)](https://npmjs.org/package/aframe-room-component)
+[![Version](http://img.shields.io/npm/v/@oparamo%2faframe-room-component.svg?style=flat-square)](https://npmjs.org/package/@oparamo/aframe-room-component)
+[![License](http://img.shields.io/npm/l/@oparamo%2faframe-room-component.svg?style=flat-square)](https://npmjs.org/package/@oparamo/aframe-room-component)
 
 A set of [A-Frame](https://aframe.io) components for quickly creating rooms connected by doors.
 
-[Click here to see an example](https://oparamo.github.io/aframe-room-component/example/)
+[Click here to see an example](https://oparamo.github.io/aframe-room-component/)
 
 ## Installation
 
@@ -14,7 +14,7 @@ A set of [A-Frame](https://aframe.io) components for quickly creating rooms conn
 ```html
 <head>
   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/oparamo/aframe-room-component@v0.6.0/dist/aframe-room-component.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/oparamo/aframe-room-component@v1.0.0/dist/aframe-room-component.min.js"></script>
 </head>
 
 <body>
@@ -43,12 +43,12 @@ A set of [A-Frame](https://aframe.io) components for quickly creating rooms conn
 ### npm
 
 ```bash
-npm install aframe-room-component
+npm install @oparamo/aframe-room-component
 ```
 
 ```js
 import 'aframe';
-import 'aframe-room-component';
+import '@oparamo/aframe-room-component';
 ```
 
 ## Usage
@@ -91,4 +91,4 @@ If an `a-room` has both a `width` and a `length` attribute and contains exactly 
 
 - Use a mixin for commonly repeated materials (e.g. a floor texture shared across rooms).
 - To connect a room to the outside world, wrap your rooms in an `a-room outside="true"` and put one doorhole on one of its walls.
-- Have a look at the [example source](https://oparamo.github.io/aframe-room-component/example/) for a walkthrough of the available features.
+- Have a look at the [example source](https://github.com/oparamo/aframe-room-component/blob/master/example/index.html) for a walkthrough of the available features.
