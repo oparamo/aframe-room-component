@@ -9,10 +9,10 @@ AFRAME.registerSystem('building', {
   buildRoom: function (roomEl) {
     this.dirtyRooms.add(roomEl);
 
-    // Room rebuild recalculates doorhole vertices, so connected doorlinks need a matching rebuild.
+    // Room rebuild recalculates opening vertices, so connected doorlinks need a matching rebuild.
     for (const wall of roomEl.walls || []) {
-      for (const doorhole of wall.doorholes || []) {
-        const dl = doorhole.getDoorlink();
+      for (const opening of wall.openings || []) {
+        const dl = opening.getDoorlink();
         if (dl) this.dirtyDoorlinks.add(dl);
       }
     }
@@ -37,7 +37,7 @@ AFRAME.registerSystem('building', {
     requestAnimationFrame(() => {
       this.buildPending = false;
 
-      // Rooms must always build before doorlinks — room builds populate the doorhole vertices that doorlinks consume.
+      // Rooms must always build before doorlinks — room builds populate the opening vertices that doorlinks consume.
       for (const roomEl of this.dirtyRooms) {
         buildRoom(roomEl);
         roomEl.object3D.visible = true;

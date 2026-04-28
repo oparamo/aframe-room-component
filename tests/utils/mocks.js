@@ -15,9 +15,9 @@ export const makeCap = (parentMaterial) => ({
   setObject3D (_name, mesh) { this.mesh = mesh; }
 });
 
-export const makeWall = (x = 0, z = 0, height = 3, doorholes = [], y = 0) => ({
+export const makeWall = (x = 0, z = 0, height = 3, openings = [], y = 0) => ({
   object3D: makeObject3D(x, y, z),
-  doorholes,
+  openings,
   getHeight () { return height; },
   getAttribute (attr) { if (attr === 'wall') return { height, uvScale: 1 }; return null; },
   components: {},
@@ -48,9 +48,9 @@ export const makeSquareRoom = (opts) => makeRoom([
 
 // Convenience for building system tests: builds a room with one wall per doorlink.
 export const makeRoomWithLinks = (...doorlinks) =>
-  makeRoom(doorlinks.map(dl => makeWall(0, 0, 3, [makeDoorhole(dl)])));
+  makeRoom(doorlinks.map(dl => makeWall(0, 0, 3, [makeOpening(dl)])));
 
-export const makeDoorhole = (doorlinkEl) => ({
+export const makeOpening = (doorlinkEl) => ({
   object3D: makeObject3D(),
   vertices: [],
   getDoorlink () { return doorlinkEl; },
@@ -60,7 +60,7 @@ export const makeDoorhole = (doorlinkEl) => ({
 
 export const makeVertex = (x, y, z) => new THREE.Vector3(x, y, z);
 
-export const makeDoorholeVerts = (x, width, height) => [
+export const makeOpeningVerts = (x, width, height) => [
   makeVertex(x - width / 2, 0, 0),
   makeVertex(x - width / 2, height, 0),
   makeVertex(x + width / 2, 0, 0),
@@ -84,7 +84,7 @@ export const makeDoorlinkChild = (type) => ({
 // (getAttribute interface) and system tests via roomA/roomB (components.doorlink.data interface).
 export const makeDoorlink = ({ fromVerts, toVerts, children, roomA, roomB } = {}) => ({
   getAttribute (attr) {
-    if (attr === 'doorlink') return { from: { vertices: fromVerts }, to: { vertices: toVerts } };
+    if (attr === 'doorlink') return { from: { vertices: fromVerts }, to: { vertices: toVerts }, floorHeight: 0 };
     return null;
   },
   components: {

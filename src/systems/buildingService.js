@@ -1,4 +1,4 @@
-const HAIR = 0.0001; // Small epsilon to prevent z-fighting at doorhole edges.
+const HAIR = 0.0001; // Small epsilon to prevent z-fighting at opening edges.
 const CHILD_TYPES = ['sides', 'floor', 'ceiling'];
 
 // Reverses face winding, flipping surfaces from outward- to inward-facing (or vice versa).
@@ -55,19 +55,19 @@ const addDoorlinkWorldVertex = (vertex, childEl, positions) => {
 };
 
 // Converts a wall-local (ptX, ptY) coordinate to world space and stores it on
-// the doorhole element so buildDoorlink can connect the two openings later.
-const addDoorholeWorldVertex = (wallEl, doorholeEl, ptX, ptY) => {
+// the opening element so buildDoorlink can connect the two openings later.
+const addOpeningWorldVertex = (wallEl, openingEl, ptX, ptY) => {
   const vertex = new THREE.Vector3(ptX, ptY, 0);
   wallEl.object3D.localToWorld(vertex);
-  doorholeEl.vertices.push(vertex);
+  openingEl.vertices.push(vertex);
 };
 
 // Projects the doorlink's world position onto the wall's local X axis to find
-// where along the wall the doorhole should be centred, then clamps it so the
+// where along the wall the opening should be centred, then clamps it so the
 // opening always fits within the wall bounds.
-const positionDoorhole = (doorholeEl) => {
-  const doorlinkEl = doorholeEl.getDoorlink();
-  const wallEl = doorholeEl.parentEl;
+const positionOpening = (openingEl) => {
+  const doorlinkEl = openingEl.getDoorlink();
+  const wallEl = openingEl.parentEl;
   const nextWallEl = wallEl?.nextWallEl;
   if (!doorlinkEl || !nextWallEl) { return; }
 
@@ -99,7 +99,7 @@ const positionDoorhole = (doorholeEl) => {
   doorlinkLocalX = Math.min(doorlinkLocalX, wallLength - doorlinkHalfWidth - HAIR);
 
   const floorY = (doorlinkLocalX / wallLength) * wallGapY;
-  doorholeEl.object3D.position.set(doorlinkLocalX, floorY, 0);
+  openingEl.object3D.position.set(doorlinkLocalX, floorY, 0);
 };
 
 // Determines the correct winding order for walls so that faces point inward.
@@ -209,10 +209,10 @@ const buildRoom = (roomEl) => {
   sortWalls(walls, outside);
 
   // Build each wall as a 2D shape profile in the wall's local XY plane (X along
-  // the wall, Y upward). Doorhole openings are punched in as the shape is traced.
+  // the wall, Y upward). Openings are punched in as the shape is traced.
   for (let i = 0; i < walls.length; i++) {
     const wallEl = walls[i];
-    // Store a reference to the next wall so positionDoorhole can access it.
+    // Store a reference to the next wall so positionOpening can access it.
     const nextWallEl = wallEl.nextWallEl = walls[(i + 1) % walls.length];
 
     const wallGapX = nextWallEl.object3D.position.x - wallEl.object3D.position.x;
@@ -231,37 +231,41 @@ const buildRoom = (roomEl) => {
     wallShape.moveTo(0, wallEl.getHeight());
     wallShape.lineTo(0, 0);
 
-    for (const doorholeEl of wallEl.doorholes) {
-      positionDoorhole(doorholeEl);
-      doorholeEl.vertices = [];
+    for (const openingEl of wallEl.openings) {
+      positionOpening(openingEl);
+      openingEl.vertices = [];
 
-      const doorlinkEl = doorholeEl.getDoorlink();
+      const doorlinkEl = openingEl.getDoorlink();
       if (!doorlinkEl) { continue; }
 
-      const { width: doorlinkWidth, height: doorlinkHeight } = doorlinkEl.getAttribute('doorlink');
-      // side = -1 is the left edge of the doorhole, side = +1 is the right edge.
+      const { width: doorlinkWidth, height: doorlinkHeight, floorHeight = 0 } = doorlinkEl.getAttribute('doorlink');
+      // side = -1 is the left edge of the opening, side = +1 is the right edge.
       for (let side = -1; side <= 1; side += 2) {
-        const ptX = doorholeEl.object3D.position.x + doorlinkWidth / 2 * side;
-        // Interpolate floor Y for sloped walls (non-zero wallGapY).
-        const floorY = (ptX / wallLength) * wallGapY;
-        let topY = floorY + doorlinkHeight;
+        const ptX = openingEl.object3D.position.x + doorlinkWidth / 2 * side;
+        // Interpolate wall-base Y for sloped walls (non-zero wallGapY).
+        const baseY = (ptX / wallLength) * wallGapY;
+        const bottomY = baseY + floorHeight;
+        let topY = bottomY + doorlinkHeight;
 
         // Clamp the top of the opening to the ceiling, leaving a HAIR seam.
         const ceilingY = wallEl.getHeight() + (ptX / wallLength) * heightGap;
-        const maxTopY = floorY + ceilingY - HAIR;
+        const maxTopY = baseY + ceilingY - HAIR;
         if (topY > maxTopY) { topY = maxTopY; }
 
         // Record world-space vertices for buildDoorlink to use later.
-        addDoorholeWorldVertex(wallEl, doorholeEl, ptX, floorY);
-        addDoorholeWorldVertex(wallEl, doorholeEl, ptX, topY);
+        addOpeningWorldVertex(wallEl, openingEl, ptX, bottomY);
+        addOpeningWorldVertex(wallEl, openingEl, ptX, topY);
 
-        // Trace the opening into the shape: left side goes up, right side goes down.
+        // Trace the opening into the shape. For raised openings (windows), include
+        // the solid wall section below the opening on both sides.
         if (side < 0) {
-          wallShape.lineTo(ptX, floorY);
+          wallShape.lineTo(ptX, baseY);
+          wallShape.lineTo(ptX, bottomY);
           wallShape.lineTo(ptX, topY);
         } else {
           wallShape.lineTo(ptX, topY);
-          wallShape.lineTo(ptX, floorY);
+          wallShape.lineTo(ptX, bottomY);
+          wallShape.lineTo(ptX, baseY);
         }
       }
     }
@@ -292,16 +296,16 @@ const buildRoom = (roomEl) => {
   if (roomEl.ceiling) buildCap(walls, roomEl.ceiling, true, outside);
 };
 
-// Builds the tunnel geometry connecting two doorhole openings. The fromEl and
-// toEl doorhole elements must already have their world-space vertices populated
-// by buildRoom. Each child element (floor, ceiling, sides) gets its own quad mesh.
+// Builds the tunnel geometry connecting two openings. The fromEl and toEl opening
+// elements must already have their world-space vertices populated by buildRoom.
+// Each child element (floor, ceiling, sides) gets its own quad mesh.
 const buildDoorlink = (doorlinkEl) => {
   const { from: fromEl, to: toEl } = doorlinkEl.getAttribute('doorlink');
   const doorlinkId = doorlinkEl.id ? `#${doorlinkEl.id}` : '<a-doorlink>';
   const fromVerts = fromEl?.vertices;
   const toVerts = toEl?.vertices;
   if (!fromVerts?.length || !toVerts?.length) {
-    console.error(`${doorlinkId}: doorhole vertices not found — ensure both doorholes exist and their rooms have been built.`);
+    console.error(`${doorlinkId}: opening vertices not found — ensure both openings exist and their rooms have been built.`);
     return;
   }
 
@@ -320,7 +324,7 @@ const buildDoorlink = (doorlinkEl) => {
     childEl.setObject3D(type, childEl.mesh);
 
     // Collect vertex positions in world space, then convert to the child's local space.
-    // Vertex layout per doorhole: [0]=left-floor, [1]=left-top, [2]=right-floor, [3]=right-top.
+    // Vertex layout per opening: [0]=left-bottom, [1]=left-top, [2]=right-bottom, [3]=right-top.
     const positions = [];
     const uvScale = childEl.getAttribute(type)?.uvScale ?? 1;
     let uvCallback;

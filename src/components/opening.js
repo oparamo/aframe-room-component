@@ -1,10 +1,10 @@
 const WALL = 'a-wall';
 
-AFRAME.registerComponent('doorhole', {
+AFRAME.registerComponent('opening', {
   init: function () {
     const parentName = this.el.parentEl?.localName;
     if (parentName !== WALL) {
-      const message = `<a-doorhole> must be a child of a <${WALL}>.`;
+      const message = `<a-opening> must be a child of a <${WALL}>.`;
       throw new Error(message);
     }
 

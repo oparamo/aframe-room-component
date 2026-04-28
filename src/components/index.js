@@ -1,6 +1,6 @@
 import './ceiling';
 import './collision';
-import './doorhole';
+import './opening';
 import './doorlink';
 import './floor';
 import './room';

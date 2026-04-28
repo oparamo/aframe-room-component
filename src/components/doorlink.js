@@ -7,7 +7,8 @@ AFRAME.registerComponent('doorlink', {
     from: { type: 'selector' },
     to: { type: 'selector' },
     height: { type: 'number', default: 2.0 },
-    width: { type: 'number', default: 0.8 }
+    width: { type: 'number', default: 0.8 },
+    floorHeight: { type: 'number', default: 0 }
   },
   init: function () {
     const parentName = this.el.parentEl?.localName;

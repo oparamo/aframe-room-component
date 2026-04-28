@@ -1,5 +1,5 @@
 import './a-ceiling';
-import './a-doorhole';
+import './a-opening';
 import './a-doorlink';
 import './a-floor';
 import './a-room';

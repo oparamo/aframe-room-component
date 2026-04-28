@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   makeObject3D, makeCap, makeWall, makeRoom, makeSquareRoom,
-  makeDoorhole, makeVertex, makeDoorholeVerts, makeDoorlinkChild, makeDoorlink
+  makeOpening, makeVertex, makeOpeningVerts, makeDoorlinkChild, makeDoorlink
 } from './utils/mocks.js';
 
 afterEach(() => vi.restoreAllMocks());
@@ -132,7 +132,7 @@ describe('buildRoom', () => {
   });
 
   describe('sloped walls', () => {
-    it('positions doorhole Y to match wall slope at its X', () => {
+    it('positions opening Y to match wall slope at its X', () => {
       // Arrange — wall runs from (0,0,0) to (4,0,4) in XZ, with a Y rise of 2 over length ~5.66
       const doorlinkEl = {
         getAttribute (attr) {
@@ -141,23 +141,23 @@ describe('buildRoom', () => {
         },
         object3D: makeObject3D(2, 0, 2)
       };
-      const doorhole = makeDoorhole(doorlinkEl);
+      const opening = makeOpening(doorlinkEl);
       // Wall at (0,0,0), next wall at (4,2,4) — slopes upward by 2 units over XZ length ~5.66
-      const wall0 = makeWall(0, 0, 3, [doorhole], 0);
+      const wall0 = makeWall(0, 0, 3, [opening], 0);
       const wall1 = makeWall(4, 4, 3, [], 2);
       const wall2 = makeWall(0, 4, 3, [], 0);
-      doorhole.parentEl = wall0;
+      opening.parentEl = wall0;
       const room = makeRoom([wall0, wall1, wall2]);
 
       // Act
       buildRoom(room);
 
-      // Assert — doorhole X should be ~half the wall length, Y should be ~half the Y rise
+      // Assert — opening X should be ~half the wall length, Y should be ~half the Y rise
       const wallLength = Math.hypot(4, 4); // ~5.66
       const expectedX = wallLength / 2;
       const expectedY = (expectedX / wallLength) * 2; // = 1
-      expect(doorhole.object3D.position.x).toBeCloseTo(expectedX, 2);
-      expect(doorhole.object3D.position.y).toBeCloseTo(expectedY, 2);
+      expect(opening.object3D.position.x).toBeCloseTo(expectedX, 2);
+      expect(opening.object3D.position.y).toBeCloseTo(expectedY, 2);
     });
   });
 
@@ -221,8 +221,8 @@ describe('buildRoom', () => {
 // --- buildDoorlink ---
 
 describe('buildDoorlink', () => {
-  const fromVerts = makeDoorholeVerts(0, 2, 2.5);
-  const toVerts = makeDoorholeVerts(0, 2, 2.5);
+  const fromVerts = makeOpeningVerts(0, 2, 2.5);
+  const toVerts = makeOpeningVerts(0, 2, 2.5);
 
   it('creates a mesh on a floor child', () => {
     // Arrange

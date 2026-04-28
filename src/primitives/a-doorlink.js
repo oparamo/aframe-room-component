@@ -4,6 +4,7 @@ AFRAME.registerPrimitive('a-doorlink', {
     from: 'doorlink.from',
     to: 'doorlink.to',
     height: 'doorlink.height',
-    width: 'doorlink.width'
+    width: 'doorlink.width',
+    'floor-height': 'doorlink.floorHeight'
   }
 });
