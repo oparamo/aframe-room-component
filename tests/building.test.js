@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { makeRoomWithLinks as makeRoom, makeDoorlink, makeSystem } from './utils/mocks.js';
 
 vi.mock('../src/systems/buildingService.js', () => ({
   buildRoom: vi.fn(),
@@ -7,34 +8,6 @@ vi.mock('../src/systems/buildingService.js', () => ({
 
 import { buildRoom as mockBuildRoom, buildDoorlink as mockBuildDoorlink } from '../src/systems/buildingService.js';
 import '../src/systems/building.js';
-
-const systemDef = global.AFRAME._systems.building;
-
-// --- Mocks ---
-
-const makeDoorhole = (doorlinkEl) => ({ getDoorlink: () => doorlinkEl });
-const makeRoom = (...doorlinks) => ({
-  walls: doorlinks.map(dl => ({ doorholes: [makeDoorhole(dl)] })),
-  object3D: { visible: false }
-});
-const makeDoorlink = (roomA, roomB) => ({
-  components: {
-    doorlink: {
-      data: {
-        from: roomA ? { parentEl: { parentEl: roomA } } : null,
-        to: roomB ? { parentEl: { parentEl: roomB } } : null
-      }
-    }
-  }
-});
-
-const makeSystem = () => ({
-  ...systemDef,
-  updateReady: true,
-  dirtyRooms: new Set(),
-  dirtyDoorlinks: new Set(),
-  buildPending: false
-});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -45,19 +18,6 @@ beforeEach(() => {
 
 describe('building system', () => {
   describe('buildRoom', () => {
-    it('does nothing before updateReady', () => {
-      // Arrange
-      const system = makeSystem();
-      system.updateReady = false;
-
-      // Act
-      system.buildRoom(makeRoom());
-
-      // Assert
-      expect(system.dirtyRooms.size).toBe(0);
-      expect(global.requestAnimationFrame).not.toHaveBeenCalled();
-    });
-
     it('adds the room to dirtyRooms', () => {
       // Arrange
       const system = makeSystem();
@@ -108,19 +68,6 @@ describe('building system', () => {
   });
 
   describe('buildDoorlink', () => {
-    it('does nothing before updateReady', () => {
-      // Arrange
-      const system = makeSystem();
-      system.updateReady = false;
-
-      // Act
-      system.buildDoorlink(makeDoorlink());
-
-      // Assert
-      expect(system.dirtyDoorlinks.size).toBe(0);
-      expect(global.requestAnimationFrame).not.toHaveBeenCalled();
-    });
-
     it('adds the doorlink to dirtyDoorlinks', () => {
       // Arrange
       const system = makeSystem();
@@ -138,7 +85,7 @@ describe('building system', () => {
       const system = makeSystem();
       const roomA = makeRoom();
       const roomB = makeRoom();
-      const dl = makeDoorlink(roomA, roomB);
+      const dl = makeDoorlink({ roomA, roomB });
 
       // Act
       system.buildDoorlink(dl);

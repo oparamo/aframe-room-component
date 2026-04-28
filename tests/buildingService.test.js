@@ -1,63 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import {
+  makeObject3D, makeCap, makeWall, makeRoom, makeSquareRoom,
+  makeDoorhole, makeVertex, makeDoorholeVerts, makeDoorlinkChild, makeDoorlink
+} from './utils/mocks.js';
 
 afterEach(() => vi.restoreAllMocks());
 import { buildRoom, buildDoorlink } from '../src/systems/buildingService.js';
-
-// --- Minimal A-Frame element mocks ---
-
-const makeObject3D = (x = 0, y = 0, z = 0) => ({
-  position: { x, y, z, set (nx, ny, nz) { this.x = nx; this.y = ny; this.z = nz; } },
-  rotation: { y: 0 },
-  localToWorld (v) { return v; },
-  worldToLocal (v) { return v; },
-  getWorldPosition (target) { target.x = this.position.x; target.y = this.position.y; target.z = this.position.z; return target; }
-});
-
-const makeCap = (parentMaterial) => ({
-  mesh: null,
-  components: {},
-  parentEl: { components: { material: { material: parentMaterial } } },
-  setObject3D (_name, mesh) { this.mesh = mesh; }
-});
-
-const makeWall = (x = 0, z = 0, height = 3, doorholes = [], y = 0) => ({
-  object3D: makeObject3D(x, y, z),
-  doorholes,
-  getHeight () { return height; },
-  components: {},
-  parentEl: { components: {} },
-  mesh: null,
-  nextWallEl: null,
-  setObject3D (_name, mesh) { this.mesh = mesh; }
-});
-
-const makeRoom = (walls, { outside = false, width = null, length = null } = {}) => ({
-  getAttribute (attr) {
-    if (attr === 'room') return { outside, width, length };
-    return null;
-  },
-  walls,
-  floor: makeCap(null),
-  ceiling: makeCap(null)
-});
-
-const makeSquareRoom = (opts) => makeRoom([
-  makeWall(0, 0),
-  makeWall(5, 0),
-  makeWall(5, 5),
-  makeWall(0, 5)
-], opts);
-
-const makeDoorhole = (doorlinkEl) => {
-  const doorhole = {
-    object3D: makeObject3D(),
-    vertices: [],
-    getDoorlink () { return doorlinkEl; },
-    parentEl: null,
-    setObject3D () {}
-  };
-  return doorhole;
-};
 
 // --- buildRoom ---
 
@@ -251,36 +199,6 @@ describe('buildRoom', () => {
 
 // --- buildDoorlink ---
 
-const makeVertex = (x, y, z) => new THREE.Vector3(x, y, z);
-
-const makeDoorholeVerts = (x, width, height) => [
-  makeVertex(x - width / 2, 0, 0),
-  makeVertex(x - width / 2, height, 0),
-  makeVertex(x + width / 2, 0, 0),
-  makeVertex(x + width / 2, height, 0)
-];
-
-const makeDoorlinkChild = (type) => ({
-  components: {
-    [type]: {},
-    material: { material: null }
-  },
-  parentEl: { components: {} },
-  object3D: makeObject3D(),
-  mesh: null,
-  setObject3D (_name, mesh) { this.mesh = mesh; }
-});
-
-const makeDoorlink = (fromVerts, toVerts, children) => ({
-  getAttribute (attr) {
-    if (attr === 'doorlink') {
-      return { from: { vertices: fromVerts }, to: { vertices: toVerts } };
-    }
-    return null;
-  },
-  children
-});
-
 describe('buildDoorlink', () => {
   const fromVerts = makeDoorholeVerts(0, 2, 2.5);
   const toVerts = makeDoorholeVerts(0, 2, 2.5);
@@ -288,7 +206,7 @@ describe('buildDoorlink', () => {
   it('creates a mesh on a floor child', () => {
     // Arrange
     const floorChild = makeDoorlinkChild('floor');
-    const doorlink = makeDoorlink(fromVerts, toVerts, [floorChild]);
+    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [floorChild] });
 
     // Act
     buildDoorlink(doorlink);
@@ -300,7 +218,7 @@ describe('buildDoorlink', () => {
   it('creates a mesh on a ceiling child', () => {
     // Arrange
     const ceilingChild = makeDoorlinkChild('ceiling');
-    const doorlink = makeDoorlink(fromVerts, toVerts, [ceilingChild]);
+    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [ceilingChild] });
 
     // Act
     buildDoorlink(doorlink);
@@ -312,7 +230,7 @@ describe('buildDoorlink', () => {
   it('creates a mesh on a sides child', () => {
     // Arrange
     const sidesChild = makeDoorlinkChild('sides');
-    const doorlink = makeDoorlink(fromVerts, toVerts, [sidesChild]);
+    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [sidesChild] });
 
     // Act
     buildDoorlink(doorlink);
@@ -324,7 +242,7 @@ describe('buildDoorlink', () => {
   it('floor geometry has 4 vertices', () => {
     // Arrange
     const floorChild = makeDoorlinkChild('floor');
-    const doorlink = makeDoorlink(fromVerts, toVerts, [floorChild]);
+    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [floorChild] });
 
     // Act
     buildDoorlink(doorlink);
@@ -336,7 +254,7 @@ describe('buildDoorlink', () => {
   it('ceiling geometry has 4 vertices', () => {
     // Arrange
     const ceilingChild = makeDoorlinkChild('ceiling');
-    const doorlink = makeDoorlink(fromVerts, toVerts, [ceilingChild]);
+    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [ceilingChild] });
 
     // Act
     buildDoorlink(doorlink);
@@ -348,7 +266,7 @@ describe('buildDoorlink', () => {
   it('sides geometry has 8 vertices', () => {
     // Arrange
     const sidesChild = makeDoorlinkChild('sides');
-    const doorlink = makeDoorlink(fromVerts, toVerts, [sidesChild]);
+    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [sidesChild] });
 
     // Act
     buildDoorlink(doorlink);
@@ -360,7 +278,7 @@ describe('buildDoorlink', () => {
   it('logs an error and does nothing when from element is missing', () => {
     // Arrange
     const floorChild = makeDoorlinkChild('floor');
-    const doorlink = makeDoorlink(null, toVerts, [floorChild]);
+    const doorlink = makeDoorlink({ fromVerts: null, toVerts, children: [floorChild] });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Act
@@ -374,7 +292,7 @@ describe('buildDoorlink', () => {
   it('logs an error and does nothing when to element is missing', () => {
     // Arrange
     const floorChild = makeDoorlinkChild('floor');
-    const doorlink = makeDoorlink(fromVerts, null, [floorChild]);
+    const doorlink = makeDoorlink({ fromVerts, toVerts: null, children: [floorChild] });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Act
@@ -390,7 +308,7 @@ describe('buildDoorlink', () => {
     const floorChild = makeDoorlinkChild('floor');
     const ceilingChild = makeDoorlinkChild('ceiling');
     const sidesChild = makeDoorlinkChild('sides');
-    const doorlink = makeDoorlink(fromVerts, toVerts, [floorChild, ceilingChild, sidesChild]);
+    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [floorChild, ceilingChild, sidesChild] });
 
     // Act
     buildDoorlink(doorlink);
