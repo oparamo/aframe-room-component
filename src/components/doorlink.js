@@ -1,5 +1,6 @@
 const SCENE = 'a-scene';
 const WALL = 'a-wall';
+const TRANSFORM_PROPS = new Set(['position', 'rotation', 'scale']);
 
 AFRAME.registerComponent('doorlink', {
   schema: {
@@ -15,13 +16,17 @@ AFRAME.registerComponent('doorlink', {
       throw new Error(message);
     }
 
-    this.el.addEventListener('componentchanged', (e) => {
-      if (e.detail.name === 'position' || e.detail.name === 'rotation' || e.detail.name === 'scale') {
+    this._onTransformChanged = (e) => {
+      if (TRANSFORM_PROPS.has(e.detail.name)) {
         this.el.sceneEl.systems?.building?.buildDoorlink(this.el);
       }
-    });
+    };
+    this.el.addEventListener('componentchanged', this._onTransformChanged);
   },
   update: function () {
     this.el.sceneEl.systems?.building?.buildDoorlink(this.el);
+  },
+  remove: function () {
+    this.el.removeEventListener('componentchanged', this._onTransformChanged);
   }
 });

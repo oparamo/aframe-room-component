@@ -1,3 +1,5 @@
+const TRANSFORM_PROPS = new Set(['position', 'rotation', 'scale']);
+
 AFRAME.registerComponent('room', {
   schema: {
     outside: { type: 'boolean' },
@@ -27,13 +29,17 @@ AFRAME.registerComponent('room', {
     roomEl.walls = walls;
     roomEl.object3D.visible = false;
 
-    roomEl.addEventListener('componentchanged', (e) => {
-      if (e.detail.name === 'position' || e.detail.name === 'rotation' || e.detail.name === 'scale') {
+    this._onTransformChanged = (e) => {
+      if (TRANSFORM_PROPS.has(e.detail.name)) {
         roomEl.sceneEl.systems?.building?.buildRoom(roomEl);
       }
-    });
+    };
+    roomEl.addEventListener('componentchanged', this._onTransformChanged);
   },
   update: function () {
     this.el.sceneEl.systems?.building?.buildRoom(this.el);
+  },
+  remove: function () {
+    this.el.removeEventListener('componentchanged', this._onTransformChanged);
   }
 });
