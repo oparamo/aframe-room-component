@@ -262,9 +262,13 @@ const buildRoom = (roomEl) => {
       wallEl.mesh = new THREE.Mesh(wallGeom, material);
       wallEl.setObject3D('wallMesh', wallEl.mesh);
     }
+    wallEl.classList.add('collidable');
   }
 
-  if (roomEl.floor) buildCap(walls, roomEl.floor, false, outside);
+  if (roomEl.floor) {
+    buildCap(walls, roomEl.floor, false, outside);
+    roomEl.floor.classList.add('walkable');
+  }
   if (roomEl.ceiling) buildCap(walls, roomEl.ceiling, true, outside);
 };
 
@@ -338,6 +342,8 @@ const buildDoorlink = (doorlinkEl) => {
     geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
     makeGeometryUvs(geom, uvCallback);
     finishGeometry(geom);
+    if (type === 'sides') childEl.classList.add('collidable');
+    else if (type === 'floor') childEl.classList.add('walkable');
   }
 };
 
