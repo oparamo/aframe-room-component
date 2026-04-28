@@ -161,6 +161,27 @@ describe('buildRoom', () => {
     });
   });
 
+  describe('quad cap triangulation', () => {
+    it('chooses the better diagonal for a non-coplanar quad ceiling', () => {
+      // Arrange — wall 2 is taller, making ceiling vertices non-coplanar.
+      // Diagonal 1-3 (through the three same-height corners) is more coplanar
+      // than the default fan diagonal 0-2, so the index buffer should be overridden.
+      const room = makeRoom([
+        makeWall(0, 0, 2), // ceiling V0: (0, 2, 0)
+        makeWall(4, 0, 2), // ceiling V1: (4, 2, 0)
+        makeWall(4, 4, 4), // ceiling V2: (4, 4, 4) — tall corner
+        makeWall(0, 4, 2)  // ceiling V3: (0, 2, 4)
+      ]);
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      const idx = Array.from(room.ceiling.mesh.geometry.getIndex().array);
+      expect(idx).toEqual([0, 1, 3, 1, 2, 3]);
+    });
+  });
+
   describe('input validation', () => {
     it('logs an error and returns when fewer than 3 walls are given', () => {
       // Arrange

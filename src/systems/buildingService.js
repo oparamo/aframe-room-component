@@ -152,6 +152,24 @@ const buildCap = (walls, capEl, isCeiling, isOutside) => {
     geom.attributes.position.setXYZ(i, vertex.x, vertex.y, vertex.z);
   }
 
+  // For quads the default fan triangulation (diagonal 0–2) may produce a visible seam
+  // when the four cap vertices are non-coplanar (e.g. asymmetric wall heights). Compare
+  // both diagonals and switch to 1–3 if its triangles are more coplanar.
+  if (walls.length === 4) {
+    const v = [0, 1, 2, 3].map(i => new THREE.Vector3(
+      geom.attributes.position.getX(i),
+      geom.attributes.position.getY(i),
+      geom.attributes.position.getZ(i)
+    ));
+    const n = new THREE.Vector3(), m = new THREE.Vector3();
+    new THREE.Triangle(v[0], v[1], v[2]).getNormal(n);
+    new THREE.Triangle(v[0], v[2], v[3]).getNormal(m);
+    const dot02 = n.dot(m);
+    new THREE.Triangle(v[0], v[1], v[3]).getNormal(n);
+    new THREE.Triangle(v[1], v[2], v[3]).getNormal(m);
+    if (n.dot(m) > dot02) geom.setIndex([0, 1, 3, 1, 2, 3]);
+  }
+
   // Floor and ceiling face opposite directions; outside rooms also flip normals.
   if (isCeiling === isOutside) { flipGeometry(geom); }
 

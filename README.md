@@ -125,6 +125,8 @@ The same path handles both the initial build on page load and runtime rebuilds t
 
 Rooms are always built before doorlinks because building a room populates the world-space vertices on its doorholes, and doorlinks consume those vertices to construct the tunnel geometry connecting them. When a room is rebuilt at runtime, its connected doorlinks are automatically added to the dirty set so their geometry stays in sync.
 
+Floor and ceiling caps are triangulated using Three.js's earcut algorithm. For four-walled rooms, `buildingService` also evaluates the alternative quad diagonal and switches to it when its two triangles are more coplanar — this eliminates visible seams on non-planar ceilings (e.g. when opposite walls have different heights).
+
 ### Collision system
 
 The `room-collision` component (`src/components/collision.js`) uses raycasting rather than a physics engine. Each tick it reads the entity's position delta since the last frame and casts a ray in the direction of movement. If a wall mesh is hit within `radius + moveLength`, the move is blocked and the component attempts to slide by projecting the movement vector onto the wall's XZ normal. After resolving horizontal movement, a second ray is cast straight down to snap the player's Y position to the nearest floor surface, which handles sloped floors and different floor heights between rooms.
