@@ -2,7 +2,8 @@ const ROOM = 'a-room';
 
 AFRAME.registerComponent('wall', {
   schema: {
-    height: { type: 'number' }
+    height: { type: 'number' },
+    uvScale: { type: 'number', default: 1 }
   },
   init: function () {
     const parentName = this.el.parentEl?.localName;

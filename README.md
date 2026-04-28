@@ -60,10 +60,10 @@ A set of primitives (also usable as components) for laying out rooms connected b
 | Primitive | Component | Purpose | Attributes |
 | - | - | - | - |
 | `a-room` | `room` | Contains a set of walls and other objects. | `position`, `outside`, `height`, `width`, `length`, *`material`* |
-| `a-wall` | `wall` | Marks one corner of a wall, connecting to the next. | `position`, `height`, *`material`* |
+| `a-wall` | `wall` | Marks one corner of a wall, connecting to the next. | `position`, `height`, `uv-scale`, *`material`* |
 | `a-doorhole` | `doorhole` | Marks a wall so a doorlink can connect to it. | (none) |
 | `a-doorlink` | `doorlink` | Connects two doorholes and positions them along their walls. | `from`, `to`, `position`, `width`, `height` |
-| `a-floor`, `a-ceiling`, `a-sides` | `floor`, `ceiling`, `sides` | Attach materials to room/doorlink surfaces. | *`material`* |
+| `a-floor`, `a-ceiling`, `a-sides` | `floor`, `ceiling`, `sides` | Attach materials to room/doorlink surfaces. | `uv-scale`, *`material`* |
 
 ### Hierarchy
 
@@ -86,6 +86,8 @@ If an `a-wall` has no `material` component, it inherits from its parent `a-room`
 If an `a-wall` has no `height` attribute, it inherits from its parent `a-room`'s `height`. The default room height is `2.4m`.
 
 If an `a-room` has both a `width` and a `length` attribute and contains exactly four `a-wall`s, wall `position`s can be omitted — they will be set automatically to form a rectangle from `(0,0)` to `(width, length)`.
+
+`uv-scale` on `a-wall`, `a-floor`, `a-ceiling`, and `a-sides` controls how many times the texture tiles per world unit. The default is `1` (one repeat per meter). Use `uv-scale="0.5"` to tile once every two meters, or `uv-scale="2"` to tile twice per meter.
 
 ## Walking collision
 

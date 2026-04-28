@@ -155,7 +155,8 @@ const buildCap = (walls, capEl, isCeiling, isOutside) => {
   // Floor and ceiling face opposite directions; outside rooms also flip normals.
   if (isCeiling === isOutside) { flipGeometry(geom); }
 
-  makePlaneUvs(geom, 'x', 'z', isCeiling ? 1 : -1, 1);
+  const uvScale = capEl.getAttribute(isCeiling ? 'ceiling' : 'floor')?.uvScale ?? 1;
+  makePlaneUvs(geom, 'x', 'z', (isCeiling ? 1 : -1) * uvScale, uvScale);
   finishGeometry(geom);
 
   const material = capEl.components?.material?.material || capEl.parentEl?.components?.material?.material;
@@ -252,7 +253,8 @@ const buildRoom = (roomEl) => {
     wallShape.lineTo(wallLength, wallGapY + nextWallEl.getHeight());
 
     const wallGeom = new THREE.ShapeGeometry(wallShape);
-    makePlaneUvs(wallGeom, 'x', 'y', 1, 1);
+    const uvScale = wallEl.getAttribute('wall')?.uvScale ?? 1;
+    makePlaneUvs(wallGeom, 'x', 'y', uvScale, uvScale);
     finishGeometry(wallGeom);
     const material = wallEl.components?.material?.material || wallEl.parentEl?.components?.material?.material;
     if (wallEl.mesh) {
@@ -302,6 +304,7 @@ const buildDoorlink = (doorlinkEl) => {
     // Collect vertex positions in world space, then convert to the child's local space.
     // Vertex layout per doorhole: [0]=left-floor, [1]=left-top, [2]=right-floor, [3]=right-top.
     const positions = [];
+    const uvScale = childEl.getAttribute(type)?.uvScale ?? 1;
     let uvCallback;
 
     switch (type) {
@@ -310,14 +313,14 @@ const buildDoorlink = (doorlinkEl) => {
         addDoorlinkWorldVertex(toVerts[2], childEl, positions);
         addDoorlinkWorldVertex(fromVerts[2], childEl, positions);
         addDoorlinkWorldVertex(fromVerts[0], childEl, positions);
-        uvCallback = (point, vertIndex) => ([1 - (vertIndex % 2), 1 - Math.floor(vertIndex / 2)]);
+        uvCallback = (point, vertIndex) => ([(1 - (vertIndex % 2)) * uvScale, (1 - Math.floor(vertIndex / 2)) * uvScale]);
         break;
       case 'ceiling':
         addDoorlinkWorldVertex(toVerts[3], childEl, positions);
         addDoorlinkWorldVertex(toVerts[1], childEl, positions);
         addDoorlinkWorldVertex(fromVerts[1], childEl, positions);
         addDoorlinkWorldVertex(fromVerts[3], childEl, positions);
-        uvCallback = (point, vertIndex) => ([vertIndex % 2, 1 - Math.floor(vertIndex / 2)]);
+        uvCallback = (point, vertIndex) => ([(vertIndex % 2) * uvScale, (1 - Math.floor(vertIndex / 2)) * uvScale]);
         break;
       case 'sides':
         addDoorlinkWorldVertex(toVerts[2], childEl, positions);
@@ -330,11 +333,9 @@ const buildDoorlink = (doorlinkEl) => {
         addDoorlinkWorldVertex(toVerts[0], childEl, positions);
         addDoorlinkWorldVertex(toVerts[1], childEl, positions);
         uvCallback = (point, vertIndex) => {
-          const uv = [];
-          uv[0] = Math.floor(vertIndex / 2);
-          uv[1] = vertIndex % 2;
-          if (vertIndex < 4) { uv[0] = 1 - uv[0]; }
-          return uv;
+          let u = Math.floor(vertIndex / 2);
+          if (vertIndex < 4) { u = 1 - u; }
+          return [u * uvScale, (vertIndex % 2) * uvScale];
         };
         break;
     }

@@ -11,6 +11,7 @@ export const makeCap = (parentMaterial) => ({
   components: {},
   classList: { add: () => {} },
   parentEl: { components: { material: { material: parentMaterial } } },
+  getAttribute () { return { uvScale: 1 }; },
   setObject3D (_name, mesh) { this.mesh = mesh; }
 });
 
@@ -18,6 +19,7 @@ export const makeWall = (x = 0, z = 0, height = 3, doorholes = [], y = 0) => ({
   object3D: makeObject3D(x, y, z),
   doorholes,
   getHeight () { return height; },
+  getAttribute (attr) { if (attr === 'wall') return { height, uvScale: 1 }; return null; },
   components: {},
   parentEl: { components: {} },
   mesh: null,
@@ -74,6 +76,7 @@ export const makeDoorlinkChild = (type) => ({
   object3D: makeObject3D(),
   mesh: null,
   classList: { add: () => {} },
+  getAttribute () { return { uvScale: 1 }; },
   setObject3D (_name, mesh) { this.mesh = mesh; }
 });
 
