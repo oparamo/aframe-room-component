@@ -46,9 +46,9 @@ export const makeSquareRoom = (opts) => makeRoom([
   makeWall(0, 5)
 ], opts);
 
-// Convenience for building system tests: builds a room with one wall per doorlink.
-export const makeRoomWithLinks = (...doorlinks) =>
-  makeRoom(doorlinks.map(dl => makeWall(0, 0, 3, [makeOpening(dl)])));
+// Convenience for building system tests: builds a room with one wall per portal.
+export const makeRoomWithLinks = (...portals) =>
+  makeRoom(portals.map(p => makeWall(0, 0, 3, [makeOpening(p)])));
 
 export const makeOpening = (doorlinkEl) => ({
   object3D: makeObject3D(),
@@ -67,7 +67,7 @@ export const makeOpeningVerts = (x, width, height) => [
   makeVertex(x + width / 2, height, 0)
 ];
 
-export const makeDoorlinkChild = (type) => ({
+export const makePortalChild = (type) => ({
   components: {
     [type]: {},
     material: { material: null }
@@ -80,15 +80,15 @@ export const makeDoorlinkChild = (type) => ({
   setObject3D (_name, mesh) { this.mesh = mesh; }
 });
 
-// Unified doorlink mock. Supports geometry tests via fromVerts/toVerts/children
-// (getAttribute interface) and system tests via roomA/roomB (components.doorlink.data interface).
-export const makeDoorlink = ({ fromVerts, toVerts, children, roomA, roomB } = {}) => ({
+// Unified portal mock. Supports geometry tests via fromVerts/toVerts/children
+// (getAttribute interface) and system tests via roomA/roomB (components.portal.data interface).
+export const makePortal = ({ fromVerts, toVerts, children, roomA, roomB } = {}) => ({
   getAttribute (attr) {
-    if (attr === 'doorlink') return { from: { vertices: fromVerts }, to: { vertices: toVerts }, floorHeight: 0 };
+    if (attr === 'portal') return { from: { vertices: fromVerts }, to: { vertices: toVerts }, floorHeight: 0 };
     return null;
   },
   components: {
-    doorlink: {
+    portal: {
       data: {
         from: roomA ? { parentEl: { parentEl: roomA } } : null,
         to: roomB ? { parentEl: { parentEl: roomB } } : null
@@ -102,7 +102,7 @@ export const makeSystem = () => ({
   ...global.AFRAME._systems.building,
   el: { emit: () => {}, object3D: { updateMatrixWorld: () => {} } },
   dirtyRooms: new Set(),
-  dirtyDoorlinks: new Set(),
+  dirtyPortals: new Set(),
   buildPending: false
 });
 

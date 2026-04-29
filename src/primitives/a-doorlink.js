@@ -1,10 +1,10 @@
-AFRAME.registerPrimitive('a-doorlink', {
-  defaultComponents: { doorlink: {} },
+AFRAME.registerPrimitive('a-portal', {
+  defaultComponents: { portal: {} },
   mappings: {
-    from: 'doorlink.from',
-    to: 'doorlink.to',
-    height: 'doorlink.height',
-    width: 'doorlink.width',
-    'floor-height': 'doorlink.floorHeight'
+    from: 'portal.from',
+    to: 'portal.to',
+    height: 'portal.height',
+    width: 'portal.width',
+    'floor-height': 'portal.floorHeight'
   }
 });

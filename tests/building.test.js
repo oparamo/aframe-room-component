@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { makeRoomWithLinks as makeRoom, makeDoorlink, makeSystem } from './utils/mocks.js';
+import { makeRoomWithLinks as makeRoom, makePortal, makeSystem } from './utils/mocks.js';
 
 vi.mock('../src/systems/buildingService.js', () => ({
   buildRoom: vi.fn(),
-  buildDoorlink: vi.fn()
+  buildPortal: vi.fn()
 }));
 
-import { buildRoom as mockBuildRoom, buildDoorlink as mockBuildDoorlink } from '../src/systems/buildingService.js';
+import { buildRoom as mockBuildRoom, buildPortal as mockBuildPortal } from '../src/systems/buildingService.js';
 import '../src/systems/building.js';
 
 beforeEach(() => {
@@ -30,17 +30,17 @@ describe('building system', () => {
       expect(system.dirtyRooms.has(room)).toBe(true);
     });
 
-    it('adds connected doorlinks to dirtyDoorlinks', () => {
+    it('adds connected doorlinks to dirtyPortals', () => {
       // Arrange
       const system = makeSystem();
-      const dl = makeDoorlink();
+      const dl = makePortal();
       const room = makeRoom(dl);
 
       // Act
       system.buildRoom(room);
 
       // Assert
-      expect(system.dirtyDoorlinks.has(dl)).toBe(true);
+      expect(system.dirtyPortals.has(dl)).toBe(true);
     });
 
     it('schedules a build', () => {
@@ -68,16 +68,16 @@ describe('building system', () => {
   });
 
   describe('buildDoorlink', () => {
-    it('adds the doorlink to dirtyDoorlinks', () => {
+    it('adds the doorlink to dirtyPortals', () => {
       // Arrange
       const system = makeSystem();
-      const dl = makeDoorlink();
+      const dl = makePortal();
 
       // Act
-      system.buildDoorlink(dl);
+      system.buildPortal(dl);
 
       // Assert
-      expect(system.dirtyDoorlinks.has(dl)).toBe(true);
+      expect(system.dirtyPortals.has(dl)).toBe(true);
     });
 
     it('adds connected rooms to dirtyRooms', () => {
@@ -85,10 +85,10 @@ describe('building system', () => {
       const system = makeSystem();
       const roomA = makeRoom();
       const roomB = makeRoom();
-      const dl = makeDoorlink({ roomA, roomB });
+      const dl = makePortal({ roomA, roomB });
 
       // Act
-      system.buildDoorlink(dl);
+      system.buildPortal(dl);
 
       // Assert
       expect(system.dirtyRooms.has(roomA)).toBe(true);
@@ -98,10 +98,10 @@ describe('building system', () => {
     it('does not throw when from/to are null', () => {
       // Arrange
       const system = makeSystem();
-      const dl = makeDoorlink();
+      const dl = makePortal();
 
       // Act / Assert
-      expect(() => system.buildDoorlink(dl)).not.toThrow();
+      expect(() => system.buildPortal(dl)).not.toThrow();
     });
 
     it('schedules a build', () => {
@@ -109,7 +109,7 @@ describe('building system', () => {
       const system = makeSystem();
 
       // Act
-      system.buildDoorlink(makeDoorlink());
+      system.buildPortal(makePortal());
 
       // Assert
       expect(global.requestAnimationFrame).toHaveBeenCalledOnce();
@@ -135,13 +135,13 @@ describe('building system', () => {
       // Arrange
       global.requestAnimationFrame = vi.fn(cb => cb());
       const system = makeSystem();
-      const dl = makeDoorlink();
+      const dl = makePortal();
 
       // Act
-      system.buildDoorlink(dl);
+      system.buildPortal(dl);
 
       // Assert
-      expect(mockBuildDoorlink).toHaveBeenCalledWith(dl);
+      expect(mockBuildPortal).toHaveBeenCalledWith(dl);
     });
 
     it('clears dirty sets and resets the scheduled flag after flush', () => {
@@ -154,7 +154,7 @@ describe('building system', () => {
 
       // Assert
       expect(system.dirtyRooms.size).toBe(0);
-      expect(system.dirtyDoorlinks.size).toBe(0);
+      expect(system.dirtyPortals.size).toBe(0);
       expect(system.buildPending).toBe(false);
     });
 

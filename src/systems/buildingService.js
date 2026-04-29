@@ -89,7 +89,7 @@ const positionOpening = (openingEl) => {
 
   const wallLength = Math.hypot(wallGapX, wallGapZ);
 
-  const doorlinkHalfWidth = doorlinkEl.getAttribute('doorlink')?.width / 2;
+  const doorlinkHalfWidth = doorlinkEl.getAttribute('portal')?.width / 2;
 
   // Project the doorlink offset onto the wall axis to get its local X position.
   const wallDir = new THREE.Vector2(wallGapX, wallGapZ).normalize();
@@ -238,7 +238,7 @@ const buildRoom = (roomEl) => {
       const doorlinkEl = openingEl.getDoorlink();
       if (!doorlinkEl) { continue; }
 
-      const { width: doorlinkWidth, height: doorlinkHeight, floorHeight = 0 } = doorlinkEl.getAttribute('doorlink');
+      const { width: doorlinkWidth, height: doorlinkHeight, floorHeight = 0 } = doorlinkEl.getAttribute('portal');
       // side = -1 is the left edge of the opening, side = +1 is the right edge.
       for (let side = -1; side <= 1; side += 2) {
         const ptX = openingEl.object3D.position.x + doorlinkWidth / 2 * side;
@@ -299,17 +299,17 @@ const buildRoom = (roomEl) => {
 // Builds the tunnel geometry connecting two openings. The fromEl and toEl opening
 // elements must already have their world-space vertices populated by buildRoom.
 // Each child element (floor, ceiling, sides) gets its own quad mesh.
-const buildDoorlink = (doorlinkEl) => {
-  const { from: fromEl, to: toEl } = doorlinkEl.getAttribute('doorlink');
-  const doorlinkId = doorlinkEl.id ? `#${doorlinkEl.id}` : '<a-doorlink>';
+const buildPortal = (portalEl) => {
+  const { from: fromEl, to: toEl } = portalEl.getAttribute('portal');
+  const portalId = portalEl.id ? `#${portalEl.id}` : '<a-portal>';
   const fromVerts = fromEl?.vertices;
   const toVerts = toEl?.vertices;
   if (!fromVerts?.length || !toVerts?.length) {
-    console.error(`${doorlinkId}: opening vertices not found — ensure both openings exist and their rooms have been built.`);
+    console.error(`${portalId}: opening vertices not found — ensure both openings exist and their rooms have been built.`);
     return;
   }
 
-  for (const childEl of doorlinkEl.children) {
+  for (const childEl of portalEl.children) {
     const type = CHILD_TYPES.find(t => childEl.components[t]);
     if (!type) { continue; }
 
@@ -370,4 +370,4 @@ const buildDoorlink = (doorlinkEl) => {
   }
 };
 
-export { buildDoorlink, buildRoom };
+export { buildPortal, buildRoom };

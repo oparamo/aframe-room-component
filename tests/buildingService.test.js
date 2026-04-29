@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   makeObject3D, makeCap, makeWall, makeRoom, makeSquareRoom,
-  makeOpening, makeVertex, makeOpeningVerts, makeDoorlinkChild, makeDoorlink
+  makeOpening, makeVertex, makeOpeningVerts, makePortalChild, makePortal
 } from './utils/mocks.js';
 
 afterEach(() => vi.restoreAllMocks());
-import { buildRoom, buildDoorlink } from '../src/systems/buildingService.js';
+import { buildRoom, buildPortal } from '../src/systems/buildingService.js';
 
 // --- buildRoom ---
 
@@ -136,7 +136,7 @@ describe('buildRoom', () => {
       // Arrange — wall runs from (0,0,0) to (4,0,4) in XZ, with a Y rise of 2 over length ~5.66
       const doorlinkEl = {
         getAttribute (attr) {
-          if (attr === 'doorlink') return { width: 1, height: 2 };
+          if (attr === 'portal') return { width: 1, height: 2 };
           return null;
         },
         object3D: makeObject3D(2, 0, 2)
@@ -220,17 +220,17 @@ describe('buildRoom', () => {
 
 // --- buildDoorlink ---
 
-describe('buildDoorlink', () => {
+describe('buildPortal', () => {
   const fromVerts = makeOpeningVerts(0, 2, 2.5);
   const toVerts = makeOpeningVerts(0, 2, 2.5);
 
   it('creates a mesh on a floor child', () => {
     // Arrange
-    const floorChild = makeDoorlinkChild('floor');
-    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [floorChild] });
+    const floorChild = makePortalChild('floor');
+    const doorlink = makePortal({ fromVerts, toVerts, children: [floorChild] });
 
     // Act
-    buildDoorlink(doorlink);
+    buildPortal(doorlink);
 
     // Assert
     expect(floorChild.mesh).not.toBeNull();
@@ -238,11 +238,11 @@ describe('buildDoorlink', () => {
 
   it('creates a mesh on a ceiling child', () => {
     // Arrange
-    const ceilingChild = makeDoorlinkChild('ceiling');
-    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [ceilingChild] });
+    const ceilingChild = makePortalChild('ceiling');
+    const doorlink = makePortal({ fromVerts, toVerts, children: [ceilingChild] });
 
     // Act
-    buildDoorlink(doorlink);
+    buildPortal(doorlink);
 
     // Assert
     expect(ceilingChild.mesh).not.toBeNull();
@@ -250,11 +250,11 @@ describe('buildDoorlink', () => {
 
   it('creates a mesh on a sides child', () => {
     // Arrange
-    const sidesChild = makeDoorlinkChild('sides');
-    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [sidesChild] });
+    const sidesChild = makePortalChild('sides');
+    const doorlink = makePortal({ fromVerts, toVerts, children: [sidesChild] });
 
     // Act
-    buildDoorlink(doorlink);
+    buildPortal(doorlink);
 
     // Assert
     expect(sidesChild.mesh).not.toBeNull();
@@ -262,11 +262,11 @@ describe('buildDoorlink', () => {
 
   it('floor geometry has 4 vertices', () => {
     // Arrange
-    const floorChild = makeDoorlinkChild('floor');
-    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [floorChild] });
+    const floorChild = makePortalChild('floor');
+    const doorlink = makePortal({ fromVerts, toVerts, children: [floorChild] });
 
     // Act
-    buildDoorlink(doorlink);
+    buildPortal(doorlink);
 
     // Assert
     expect(floorChild.mesh.geometry.attributes.position.count).toBe(4);
@@ -274,11 +274,11 @@ describe('buildDoorlink', () => {
 
   it('ceiling geometry has 4 vertices', () => {
     // Arrange
-    const ceilingChild = makeDoorlinkChild('ceiling');
-    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [ceilingChild] });
+    const ceilingChild = makePortalChild('ceiling');
+    const doorlink = makePortal({ fromVerts, toVerts, children: [ceilingChild] });
 
     // Act
-    buildDoorlink(doorlink);
+    buildPortal(doorlink);
 
     // Assert
     expect(ceilingChild.mesh.geometry.attributes.position.count).toBe(4);
@@ -286,11 +286,11 @@ describe('buildDoorlink', () => {
 
   it('sides geometry has 8 vertices', () => {
     // Arrange
-    const sidesChild = makeDoorlinkChild('sides');
-    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [sidesChild] });
+    const sidesChild = makePortalChild('sides');
+    const doorlink = makePortal({ fromVerts, toVerts, children: [sidesChild] });
 
     // Act
-    buildDoorlink(doorlink);
+    buildPortal(doorlink);
 
     // Assert
     expect(sidesChild.mesh.geometry.attributes.position.count).toBe(8);
@@ -298,12 +298,12 @@ describe('buildDoorlink', () => {
 
   it('logs an error and does nothing when from element is missing', () => {
     // Arrange
-    const floorChild = makeDoorlinkChild('floor');
-    const doorlink = makeDoorlink({ fromVerts: null, toVerts, children: [floorChild] });
+    const floorChild = makePortalChild('floor');
+    const doorlink = makePortal({ fromVerts: null, toVerts, children: [floorChild] });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Act
-    buildDoorlink(doorlink);
+    buildPortal(doorlink);
 
     // Assert
     expect(errorSpy).toHaveBeenCalledOnce();
@@ -312,12 +312,12 @@ describe('buildDoorlink', () => {
 
   it('logs an error and does nothing when to element is missing', () => {
     // Arrange
-    const floorChild = makeDoorlinkChild('floor');
-    const doorlink = makeDoorlink({ fromVerts, toVerts: null, children: [floorChild] });
+    const floorChild = makePortalChild('floor');
+    const doorlink = makePortal({ fromVerts, toVerts: null, children: [floorChild] });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Act
-    buildDoorlink(doorlink);
+    buildPortal(doorlink);
 
     // Assert
     expect(errorSpy).toHaveBeenCalledOnce();
@@ -326,13 +326,13 @@ describe('buildDoorlink', () => {
 
   it('processes multiple children in one call', () => {
     // Arrange
-    const floorChild = makeDoorlinkChild('floor');
-    const ceilingChild = makeDoorlinkChild('ceiling');
-    const sidesChild = makeDoorlinkChild('sides');
-    const doorlink = makeDoorlink({ fromVerts, toVerts, children: [floorChild, ceilingChild, sidesChild] });
+    const floorChild = makePortalChild('floor');
+    const ceilingChild = makePortalChild('ceiling');
+    const sidesChild = makePortalChild('sides');
+    const doorlink = makePortal({ fromVerts, toVerts, children: [floorChild, ceilingChild, sidesChild] });
 
     // Act
-    buildDoorlink(doorlink);
+    buildPortal(doorlink);
 
     // Assert
     expect(floorChild.mesh).not.toBeNull();
