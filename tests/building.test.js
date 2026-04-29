@@ -30,7 +30,7 @@ describe('building system', () => {
       expect(system.dirtyRooms.has(room)).toBe(true);
     });
 
-    it('adds connected doorlinks to dirtyPortals', () => {
+    it('adds connected portals to dirtyPortals', () => {
       // Arrange
       const system = makeSystem();
       const dl = makePortal();
@@ -67,8 +67,8 @@ describe('building system', () => {
     });
   });
 
-  describe('buildDoorlink', () => {
-    it('adds the doorlink to dirtyPortals', () => {
+  describe('buildPortal', () => {
+    it('adds the portal to dirtyPortals', () => {
       // Arrange
       const system = makeSystem();
       const dl = makePortal();
@@ -131,7 +131,7 @@ describe('building system', () => {
       expect(room.object3D.visible).toBe(true);
     });
 
-    it('calls buildDoorlink for each dirty doorlink', () => {
+    it('calls buildPortal for each dirty portal', () => {
       // Arrange
       global.requestAnimationFrame = vi.fn(cb => cb());
       const system = makeSystem();

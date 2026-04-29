@@ -1,4 +1,4 @@
-const DOORLINK = 'a-doorlink';
+const PORTAL = 'a-portal';
 const ROOM = 'a-room';
 
 AFRAME.registerComponent('floor', {
@@ -7,8 +7,8 @@ AFRAME.registerComponent('floor', {
   },
   init: function () {
     const parentName = this.el.parentEl?.localName;
-    if (parentName !== DOORLINK && parentName !== ROOM) {
-      const message = `<a-floor> must be a child of a <${DOORLINK}> or <${ROOM}>.`;
+    if (parentName !== PORTAL && parentName !== ROOM) {
+      const message = `<a-floor> must be a child of a <${PORTAL}> or <${ROOM}>.`;
       throw new Error(message);
     }
   }

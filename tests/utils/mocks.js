@@ -50,10 +50,10 @@ export const makeSquareRoom = (opts) => makeRoom([
 export const makeRoomWithLinks = (...portals) =>
   makeRoom(portals.map(p => makeWall(0, 0, 3, [makeOpening(p)])));
 
-export const makeOpening = (doorlinkEl) => ({
+export const makeOpening = (portalEl) => ({
   object3D: makeObject3D(),
   vertices: [],
-  getDoorlink () { return doorlinkEl; },
+  getPortal () { return portalEl; },
   parentEl: null,
   setObject3D () {}
 });

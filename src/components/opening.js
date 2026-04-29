@@ -9,9 +9,9 @@ AFRAME.registerComponent('opening', {
     }
 
     this.el.vertices = [];
-    this.el.getDoorlink = () => {
-      for (const dl of this.el.sceneEl.querySelectorAll('a-doorlink')) {
-        const data = dl.components?.doorlink?.data;
+    this.el.getPortal = () => {
+      for (const dl of this.el.sceneEl.querySelectorAll('a-portal')) {
+        const data = dl.components?.portal?.data;
         if (data?.from === this.el || data?.to === this.el) return dl;
       }
       return null;

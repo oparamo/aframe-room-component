@@ -1,4 +1,4 @@
-const DOORLINK = 'a-doorlink';
+const PORTAL = 'a-portal';
 
 AFRAME.registerComponent('sides', {
   schema: {
@@ -6,8 +6,8 @@ AFRAME.registerComponent('sides', {
   },
   init: function () {
     const parentName = this.el.parentEl?.localName;
-    if (parentName !== DOORLINK) {
-      const message = `<a-sides> must be a child of a <${DOORLINK}>.`;
+    if (parentName !== PORTAL) {
+      const message = `<a-sides> must be a child of a <${PORTAL}>.`;
       throw new Error(message);
     }
   }

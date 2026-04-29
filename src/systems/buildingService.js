@@ -27,7 +27,7 @@ const makeGeometryUvs = (geom, callback) => {
 
     // vertexIndex % 3 gives position within triangle (0–2); callbacks use this
     // to derive UV coordinates. Note: for quads, vertex 3 maps to 0 — may need
-    // revisiting if UV seams appear on doorlink surfaces.
+    // revisiting if UV seams appear on portal surfaces.
     const [u, v] = callback(vertex, vertexIndex % 3);
     uvs[vertexIndex * 2 + 0] = u;
     uvs[vertexIndex * 2 + 1] = v;
@@ -48,7 +48,7 @@ const finishGeometry = (geom) => {
 
 // Converts a world-space vertex into the local space of childEl and appends it
 // to the positions array, ready for a BufferGeometry position attribute.
-const addDoorlinkWorldVertex = (vertex, childEl, positions) => {
+const addPortalWorldVertex = (vertex, childEl, positions) => {
   const point = vertex.clone();
   childEl.object3D.worldToLocal(point);
   positions.push(point.x, point.y, point.z);
@@ -62,14 +62,14 @@ const addOpeningWorldVertex = (wallEl, openingEl, ptX, ptY) => {
   openingEl.vertices.push(vertex);
 };
 
-// Projects the doorlink's world position onto the wall's local X axis to find
+// Projects the portal's world position onto the wall's local X axis to find
 // where along the wall the opening should be centred, then clamps it so the
 // opening always fits within the wall bounds.
 const positionOpening = (openingEl) => {
-  const doorlinkEl = openingEl.getDoorlink();
+  const portalEl = openingEl.getPortal();
   const wallEl = openingEl.parentEl;
   const nextWallEl = wallEl?.nextWallEl;
-  if (!doorlinkEl || !nextWallEl) { return; }
+  if (!portalEl || !nextWallEl) { return; }
 
   const wallWorldPosition = new THREE.Vector3();
   wallEl.object3D.getWorldPosition(wallWorldPosition);
@@ -77,11 +77,11 @@ const positionOpening = (openingEl) => {
   const nextWallWorldPosition = new THREE.Vector3();
   nextWallEl.object3D.getWorldPosition(nextWallWorldPosition);
 
-  const doorlinkWorldPosition = new THREE.Vector3();
-  doorlinkEl.object3D.getWorldPosition(doorlinkWorldPosition);
+  const portalWorldPosition = new THREE.Vector3();
+  portalEl.object3D.getWorldPosition(portalWorldPosition);
 
-  const doorlinkGapX = doorlinkWorldPosition.x - wallWorldPosition.x;
-  const doorlinkGapZ = doorlinkWorldPosition.z - wallWorldPosition.z;
+  const portalGapX = portalWorldPosition.x - wallWorldPosition.x;
+  const portalGapZ = portalWorldPosition.z - wallWorldPosition.z;
 
   const wallGapX = nextWallWorldPosition.x - wallWorldPosition.x;
   const wallGapY = nextWallWorldPosition.y - wallWorldPosition.y;
@@ -89,17 +89,17 @@ const positionOpening = (openingEl) => {
 
   const wallLength = Math.hypot(wallGapX, wallGapZ);
 
-  const doorlinkHalfWidth = doorlinkEl.getAttribute('portal')?.width / 2;
+  const portalHalfWidth = portalEl.getAttribute('portal')?.width / 2;
 
-  // Project the doorlink offset onto the wall axis to get its local X position.
+  // Project the portal offset onto the wall axis to get its local X position.
   const wallDir = new THREE.Vector2(wallGapX, wallGapZ).normalize();
-  const doorlinkOffset = new THREE.Vector2(doorlinkGapX, doorlinkGapZ);
-  let doorlinkLocalX = doorlinkOffset.dot(wallDir);
-  doorlinkLocalX = Math.max(doorlinkLocalX, doorlinkHalfWidth + HAIR);
-  doorlinkLocalX = Math.min(doorlinkLocalX, wallLength - doorlinkHalfWidth - HAIR);
+  const portalOffset = new THREE.Vector2(portalGapX, portalGapZ);
+  let portalLocalX = portalOffset.dot(wallDir);
+  portalLocalX = Math.max(portalLocalX, portalHalfWidth + HAIR);
+  portalLocalX = Math.min(portalLocalX, wallLength - portalHalfWidth - HAIR);
 
-  const floorY = (doorlinkLocalX / wallLength) * wallGapY;
-  openingEl.object3D.position.set(doorlinkLocalX, floorY, 0);
+  const floorY = (portalLocalX / wallLength) * wallGapY;
+  openingEl.object3D.position.set(portalLocalX, floorY, 0);
 };
 
 // Determines the correct winding order for walls so that faces point inward.
@@ -226,53 +226,76 @@ const buildRoom = (roomEl) => {
     // Rotate the wall to face inward along its XZ direction.
     wallEl.object3D.rotation.y = -wallAngle;
 
-    // Start the wall shape at the top-left corner, trace down to the bottom-left.
+    // Build the outer wall outline without opening cuts.
     const wallShape = new THREE.Shape();
     wallShape.moveTo(0, wallEl.getHeight());
     wallShape.lineTo(0, 0);
+    wallShape.lineTo(wallLength, wallGapY);
+    wallShape.lineTo(wallLength, wallGapY + nextWallEl.getHeight());
 
     for (const openingEl of wallEl.openings) {
       positionOpening(openingEl);
       openingEl.vertices = [];
 
-      const doorlinkEl = openingEl.getDoorlink();
-      if (!doorlinkEl) { continue; }
+      // Remove stale window-blocker mesh from a previous build.
+      if (openingEl.mesh) {
+        openingEl.mesh.parent?.remove(openingEl.mesh);
+        openingEl.mesh = null;
+      }
 
-      const { width: doorlinkWidth, height: doorlinkHeight, floorHeight = 0 } = doorlinkEl.getAttribute('portal');
+      const portalEl = openingEl.getPortal();
+      if (!portalEl) { continue; }
+
+      const { width: portalWidth, height: portalHeight, floorHeight = 0 } = portalEl.getAttribute('portal');
+      const pts = [];
       // side = -1 is the left edge of the opening, side = +1 is the right edge.
       for (let side = -1; side <= 1; side += 2) {
-        const ptX = openingEl.object3D.position.x + doorlinkWidth / 2 * side;
+        const ptX = openingEl.object3D.position.x + portalWidth / 2 * side;
         // Interpolate wall-base Y for sloped walls (non-zero wallGapY).
         const baseY = (ptX / wallLength) * wallGapY;
         const bottomY = baseY + floorHeight;
-        let topY = bottomY + doorlinkHeight;
+        let topY = bottomY + portalHeight;
 
         // Clamp the top of the opening to the ceiling, leaving a HAIR seam.
         const ceilingY = wallEl.getHeight() + (ptX / wallLength) * heightGap;
-        const maxTopY = baseY + ceilingY - HAIR;
-        if (topY > maxTopY) { topY = maxTopY; }
+        if (topY > baseY + ceilingY - HAIR) topY = baseY + ceilingY - HAIR;
 
-        // Record world-space vertices for buildDoorlink to use later.
+        // Record world-space vertices for buildPortal to use later.
         addOpeningWorldVertex(wallEl, openingEl, ptX, bottomY);
         addOpeningWorldVertex(wallEl, openingEl, ptX, topY);
+        pts.push({ ptX, bottomY, topY });
+      }
 
-        // Trace the opening into the shape. For raised openings (windows), include
-        // the solid wall section below the opening on both sides.
-        if (side < 0) {
-          wallShape.lineTo(ptX, baseY);
-          wallShape.lineTo(ptX, bottomY);
-          wallShape.lineTo(ptX, topY);
-        } else {
-          wallShape.lineTo(ptX, topY);
-          wallShape.lineTo(ptX, bottomY);
-          wallShape.lineTo(ptX, baseY);
-        }
+      // Cut the opening as a Shape hole — correctly handles both doors (floorHeight=0)
+      // and windows (floorHeight>0) without leaving unintended gaps in the wall mesh.
+      const hole = new THREE.Path();
+      hole.moveTo(pts[0].ptX, pts[0].bottomY);
+      hole.lineTo(pts[0].ptX, pts[0].topY);
+      hole.lineTo(pts[1].ptX, pts[1].topY);
+      hole.lineTo(pts[1].ptX, pts[1].bottomY);
+      hole.closePath();
+      wallShape.holes.push(hole);
+
+      // For windows (raised floor), add an invisible collidable blocker so the
+      // player cannot walk through the opening at torso height.
+      if (floorHeight > 0) {
+        const blockGeom = new THREE.BufferGeometry();
+        blockGeom.setIndex([0, 1, 2, 1, 3, 2]);
+        blockGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+          pts[0].ptX, pts[0].bottomY, 0,
+          pts[0].ptX, pts[0].topY,    0,
+          pts[1].ptX, pts[1].bottomY, 0,
+          pts[1].ptX, pts[1].topY,    0
+        ]), 3));
+        // MeshBasicMaterial required — Mesh.raycast returns early if material===undefined.
+        // DoubleSide so raycasts from both the room interior and exterior are caught.
+        const blockMesh = new THREE.Mesh(blockGeom, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+        blockMesh.visible = false;
+        wallEl.object3D.add(blockMesh);
+        openingEl.mesh = blockMesh;
+        openingEl.classList.add('collidable');
       }
     }
-
-    // Close the shape at the top-right and bottom-right corners.
-    wallShape.lineTo(wallLength, wallGapY);
-    wallShape.lineTo(wallLength, wallGapY + nextWallEl.getHeight());
 
     const wallGeom = new THREE.ShapeGeometry(wallShape);
     const uvScale = wallEl.getAttribute('wall')?.uvScale ?? 1;
@@ -313,7 +336,10 @@ const buildPortal = (portalEl) => {
     const type = CHILD_TYPES.find(t => childEl.components[t]);
     if (!type) { continue; }
 
-    const material = childEl.components?.material?.material || childEl.parentEl?.components?.material?.material;
+    const material = childEl.components?.material?.material
+      || childEl.parentEl?.components?.material?.material
+      || fromEl?.parentEl?.components?.material?.material
+      || fromEl?.parentEl?.parentEl?.components?.material?.material;
 
     // sides needs two quads (left and right walls); floor and ceiling need one each.
     const indices = (type === 'sides') ? [0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6] : [0, 1, 2, 1, 3, 2];
@@ -331,29 +357,29 @@ const buildPortal = (portalEl) => {
 
     switch (type) {
       case 'floor':
-        addDoorlinkWorldVertex(toVerts[0], childEl, positions);
-        addDoorlinkWorldVertex(toVerts[2], childEl, positions);
-        addDoorlinkWorldVertex(fromVerts[2], childEl, positions);
-        addDoorlinkWorldVertex(fromVerts[0], childEl, positions);
+        addPortalWorldVertex(toVerts[0], childEl, positions);
+        addPortalWorldVertex(toVerts[2], childEl, positions);
+        addPortalWorldVertex(fromVerts[2], childEl, positions);
+        addPortalWorldVertex(fromVerts[0], childEl, positions);
         uvCallback = (point, vertIndex) => ([(1 - (vertIndex % 2)) * uvScale, (1 - Math.floor(vertIndex / 2)) * uvScale]);
         break;
       case 'ceiling':
-        addDoorlinkWorldVertex(toVerts[3], childEl, positions);
-        addDoorlinkWorldVertex(toVerts[1], childEl, positions);
-        addDoorlinkWorldVertex(fromVerts[1], childEl, positions);
-        addDoorlinkWorldVertex(fromVerts[3], childEl, positions);
+        addPortalWorldVertex(toVerts[3], childEl, positions);
+        addPortalWorldVertex(toVerts[1], childEl, positions);
+        addPortalWorldVertex(fromVerts[1], childEl, positions);
+        addPortalWorldVertex(fromVerts[3], childEl, positions);
         uvCallback = (point, vertIndex) => ([(vertIndex % 2) * uvScale, (1 - Math.floor(vertIndex / 2)) * uvScale]);
         break;
       case 'sides':
-        addDoorlinkWorldVertex(toVerts[2], childEl, positions);
-        addDoorlinkWorldVertex(toVerts[3], childEl, positions);
-        addDoorlinkWorldVertex(fromVerts[0], childEl, positions);
-        addDoorlinkWorldVertex(fromVerts[1], childEl, positions);
+        addPortalWorldVertex(toVerts[2], childEl, positions);
+        addPortalWorldVertex(toVerts[3], childEl, positions);
+        addPortalWorldVertex(fromVerts[0], childEl, positions);
+        addPortalWorldVertex(fromVerts[1], childEl, positions);
 
-        addDoorlinkWorldVertex(fromVerts[2], childEl, positions);
-        addDoorlinkWorldVertex(fromVerts[3], childEl, positions);
-        addDoorlinkWorldVertex(toVerts[0], childEl, positions);
-        addDoorlinkWorldVertex(toVerts[1], childEl, positions);
+        addPortalWorldVertex(fromVerts[2], childEl, positions);
+        addPortalWorldVertex(fromVerts[3], childEl, positions);
+        addPortalWorldVertex(toVerts[0], childEl, positions);
+        addPortalWorldVertex(toVerts[1], childEl, positions);
         uvCallback = (point, vertIndex) => {
           let u = Math.floor(vertIndex / 2);
           if (vertIndex < 4) { u = 1 - u; }

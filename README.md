@@ -73,7 +73,7 @@ An `a-room` must contain at least three `a-wall`s. Set `outside="true"` on a roo
 
 An `a-wall` can have any A-Frame entity as a child. Walls are oriented so their local `x` axis points toward the next wall — meaning a child entity's `x` coordinate is its distance along the wall, `y` is height off the ground, and `z` is distance from the wall surface.
 
-An `a-opening` must be a child of an `a-wall`. It marks where a doorlink connection cuts through the wall. It can have any A-Frame entity as a child (e.g. a door model or window frame). Do **not** set a `position` on an `a-opening` — its position is controlled by the `a-portal` it is connected to.
+An `a-opening` must be a child of an `a-wall`. It marks where a portal connection cuts through the wall. It can have any A-Frame entity as a child (e.g. a door model or window frame). Do **not** set a `position` on an `a-opening` — its position is controlled by the `a-portal` it is connected to.
 
 An `a-portal` can be a child of an `a-scene` or of an `a-wall` (but **not** of an `a-opening`). Its world position is used to automatically place the two connected openings as close to it as possible on their respective walls. Whether to parent the portal to the scene or to one of the walls depends on your layout — it affects whether the doorway moves with a room or stays fixed. Set `floor-height` to raise the opening above the wall baseline to create a window.
 
@@ -81,7 +81,7 @@ An `a-floor` and `a-ceiling` must be a child of either an `a-room` or an `a-port
 
 ### Shorthands
 
-If an `a-wall` has no `material` component, it inherits from its parent `a-room`. If an `a-floor`, `a-ceiling`, or `a-sides` has no `material`, it inherits from its parent `a-portal` or `a-room`.
+If an `a-wall` has no `material` component, it inherits from its parent `a-room`. If an `a-floor`, `a-ceiling`, or `a-sides` has no `material`, it inherits in order from: its parent `a-portal`, then the `from` opening's wall, then the `from` opening's room.
 
 If an `a-wall` has no `height` attribute, it inherits from its parent `a-room`'s `height`. The default room height is `2.4m`.
 
@@ -123,6 +123,8 @@ Set `floor-height` on `a-portal` to raise the opening above the wall baseline. T
 ```
 
 A window still requires two `a-opening` elements and a connecting `a-portal` — one opening on each side of the wall. For a solid window with no tunnel, omit the `a-floor`, `a-ceiling`, and `a-sides` children from the portal so no geometry is generated for the passage itself.
+
+Window portals (any portal with `floor-height > 0`) automatically block player movement — `room-collision` treats the opening as a solid surface. Door portals (`floor-height="0"`, the default) remain passable.
 
 ## Walking collision
 
@@ -166,7 +168,7 @@ Floor and ceiling caps are triangulated using Three.js's earcut algorithm. For f
 
 The `room-collision` component (`src/components/collision.js`) uses raycasting rather than a physics engine. Each tick it reads the entity's position delta since the last frame and casts a ray in the direction of movement. If a wall mesh is hit within `radius + moveLength`, the move is blocked and the component attempts to slide by projecting the movement vector onto the wall's XZ normal. After resolving horizontal movement, a second ray is cast straight down to snap the player's Y position to the nearest floor surface, which handles sloped floors and different floor heights between rooms.
 
-`buildingService` stamps `.collidable` on wall and portal-side meshes, and `.walkable` on room floor and portal floor meshes. The component maintains separate lists for each — wall rays only test `.collidable` meshes, floor rays only test `.walkable` meshes. Both lists are built at scene load and refreshed whenever the building system completes a runtime rebuild.
+`buildingService` stamps `.collidable` on wall meshes, portal-side meshes, and window-blocker meshes, and `.walkable` on room floor and portal floor meshes. The component maintains separate lists for each — wall rays only test `.collidable` meshes, floor rays only test `.walkable` meshes. Both lists are built at scene load and refreshed whenever the building system completes a runtime rebuild.
 
 In the rig pattern the player entity sits at floor level, so floor snap sets Y directly to the hit point. In the direct camera pattern the camera's Y at scene load is snapshotted as the eye height and added to each floor-snap result.
 
