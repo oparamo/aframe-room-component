@@ -137,7 +137,7 @@ const buildCap = (walls, capEl, isCeiling, isOutside) => {
   }
 
   // Centroid vertex appended last; fan triangles reference it as vertex n.
-  let cx = 0, cy = 0, cz = 0;
+  let cx = 0; let cy = 0; let cz = 0;
   for (let i = 0; i < positions.length; i += 3) {
     cx += positions[i]; cy += positions[i + 1]; cz += positions[i + 2];
   }
@@ -262,9 +262,9 @@ const buildRoom = (roomEl) => {
         blockGeom.setIndex([0, 1, 2, 1, 3, 2]);
         blockGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
           pts[0].ptX, pts[0].bottomY, 0,
-          pts[0].ptX, pts[0].topY,    0,
+          pts[0].ptX, pts[0].topY, 0,
           pts[1].ptX, pts[1].bottomY, 0,
-          pts[1].ptX, pts[1].topY,    0
+          pts[1].ptX, pts[1].topY, 0
         ]), 3));
         // MeshBasicMaterial required — Mesh.raycast returns early if material===undefined.
         // DoubleSide so raycasts from both the room interior and exterior are caught.
@@ -315,10 +315,10 @@ const buildPortal = (portalEl) => {
     const type = CHILD_TYPES.find(t => childEl.components[t]);
     if (!type) { continue; }
 
-    const material = childEl.components?.material?.material
-      || childEl.parentEl?.components?.material?.material
-      || fromEl?.parentEl?.components?.material?.material
-      || fromEl?.parentEl?.parentEl?.components?.material?.material;
+    const material = childEl.components?.material?.material ||
+      childEl.parentEl?.components?.material?.material ||
+      fromEl?.parentEl?.components?.material?.material ||
+      fromEl?.parentEl?.parentEl?.components?.material?.material;
 
     // sides needs two quads (left and right walls); floor and ceiling need one each.
     const indices = (type === 'sides') ? [0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6] : [0, 1, 2, 1, 3, 2];
