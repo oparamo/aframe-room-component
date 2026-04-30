@@ -18,7 +18,6 @@ AFRAME.registerComponent('room-collision', {
     // Supports rig pattern (room-collision on parent, camera is a child)
     // and direct pattern (room-collision on the camera entity itself).
     this._cameraEl = this.el.querySelector('[camera]') || this.el;
-    this._isRig = this._cameraEl !== this.el;
 
     this._raycaster = new THREE.Raycaster();
     this._floorRaycaster = new THREE.Raycaster();
@@ -36,7 +35,7 @@ AFRAME.registerComponent('room-collision', {
       this._previousPosition.copy(this.el.object3D.position);
       // In rig mode the rig sits at floor level so no eye-height offset is needed.
       // In direct camera mode snapshot the camera's actual Y as eye height above floor.
-      this._eyeHeight = this._isRig ? 0 : this._cameraEl.object3D.position.y;
+      this._eyeHeight = this._cameraEl !== this.el ? 0 : this._cameraEl.object3D.position.y;
       this._refreshMeshes();
     };
     this._onBuildComplete = () => this._refreshMeshes();

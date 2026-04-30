@@ -1,7 +1,6 @@
 const HAIR = 0.0001; // Small epsilon to prevent z-fighting at opening edges.
 const CHILD_TYPES = ['sides', 'floor', 'ceiling'];
 
-// Reverses face winding, flipping surfaces from outward- to inward-facing (or vice versa).
 const flipGeometry = (geom) => {
   const indices = geom.getIndex().array;
   for (let i = 0; i < indices.length; i += 3) {
@@ -13,8 +12,6 @@ const flipGeometry = (geom) => {
   geom.getIndex().needsUpdate = true;
 };
 
-// Calls callback(vertex, vertexIndex) for each indexed vertex to produce [u, v] pairs,
-// then writes them as a uv attribute on the geometry.
 const makeGeometryUvs = (geom, callback) => {
   const indices = geom.getIndex().array;
   const uvs = [];
@@ -25,9 +22,6 @@ const makeGeometryUvs = (geom, callback) => {
       geom.attributes.position.getZ(vertexIndex)
     );
 
-    // vertexIndex % 3 gives position within triangle (0–2); callbacks use this
-    // to derive UV coordinates. Note: for quads, vertex 3 maps to 0 — may need
-    // revisiting if UV seams appear on portal surfaces.
     const [u, v] = callback(vertex, vertexIndex % 3);
     uvs[vertexIndex * 2 + 0] = u;
     uvs[vertexIndex * 2 + 1] = v;
@@ -36,7 +30,6 @@ const makeGeometryUvs = (geom, callback) => {
   geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
 };
 
-// Convenience wrapper for simple planar UV projection along two axes.
 const makePlaneUvs = (geom, uKey, vKey, uMult, vMult) => {
   const callback = (point) => ([point[uKey] * uMult, point[vKey] * vMult]);
   makeGeometryUvs(geom, callback);
@@ -46,16 +39,13 @@ const finishGeometry = (geom) => {
   geom.computeVertexNormals();
 };
 
-// Converts a world-space vertex into the local space of childEl and appends it
-// to the positions array, ready for a BufferGeometry position attribute.
 const addPortalWorldVertex = (vertex, childEl, positions) => {
   const point = vertex.clone();
   childEl.object3D.worldToLocal(point);
   positions.push(point.x, point.y, point.z);
 };
 
-// Converts a wall-local (ptX, ptY) coordinate to world space and stores it on
-// the opening element so buildDoorlink can connect the two openings later.
+// Stores world-space vertices on the opening so buildPortal can connect the two openings later.
 const addOpeningWorldVertex = (wallEl, openingEl, ptX, ptY) => {
   const vertex = new THREE.Vector3(ptX, ptY, 0);
   wallEl.object3D.localToWorld(vertex);
@@ -65,8 +55,7 @@ const addOpeningWorldVertex = (wallEl, openingEl, ptX, ptY) => {
 // Projects the portal's world position onto the wall's local X axis to find
 // where along the wall the opening should be centred, then clamps it so the
 // opening always fits within the wall bounds.
-const positionOpening = (openingEl) => {
-  const portalEl = openingEl.getPortal();
+const positionOpening = (openingEl, portalEl) => {
   const wallEl = openingEl.parentEl;
   const nextWallEl = wallEl?.nextWallEl;
   if (!portalEl || !nextWallEl) { return; }
@@ -121,6 +110,8 @@ const sortWalls = (walls, isOutside) => {
   if ((cwSum > 0) !== isOutside) { walls.reverse(); }
 };
 
+const getMaterial = (el) => el?.components?.material?.material;
+
 // Builds the floor or ceiling mesh for a room. Places corner vertices directly in
 // 3D space and fans triangles from the centroid, producing smooth results for any
 // convex room regardless of wall count or height variation.
@@ -156,7 +147,7 @@ const buildCap = (walls, capEl, isCeiling, isOutside) => {
   makePlaneUvs(geom, 'x', 'z', (isCeiling ? 1 : -1) * uvScale, uvScale);
   finishGeometry(geom);
 
-  const material = capEl.components?.material?.material || capEl.parentEl?.components?.material?.material;
+  const material = getMaterial(capEl) || getMaterial(capEl.parentEl);
   if (capEl.mesh) {
     capEl.mesh.geometry = geom;
     capEl.mesh.material = material;
@@ -191,7 +182,6 @@ const buildRoom = (roomEl) => {
   // the wall, Y upward). Openings are punched in as the shape is traced.
   for (let i = 0; i < walls.length; i++) {
     const wallEl = walls[i];
-    // Store a reference to the next wall so positionOpening can access it.
     const nextWallEl = wallEl.nextWallEl = walls[(i + 1) % walls.length];
 
     const wallGapX = nextWallEl.object3D.position.x - wallEl.object3D.position.x;
@@ -202,10 +192,8 @@ const buildRoom = (roomEl) => {
     const wallAngle = Math.atan2(wallGapZ, wallGapX);
     const wallLength = Math.hypot(wallGapX, wallGapZ);
 
-    // Rotate the wall to face inward along its XZ direction.
     wallEl.object3D.rotation.y = -wallAngle;
 
-    // Build the outer wall outline without opening cuts.
     const wallShape = new THREE.Shape();
     wallShape.moveTo(0, wallEl.getHeight());
     wallShape.lineTo(0, 0);
@@ -213,7 +201,8 @@ const buildRoom = (roomEl) => {
     wallShape.lineTo(wallLength, wallGapY + nextWallEl.getHeight());
 
     for (const openingEl of wallEl.openings) {
-      positionOpening(openingEl);
+      const portalEl = openingEl.getPortal();
+      positionOpening(openingEl, portalEl);
       openingEl.vertices = [];
 
       // Remove stale window-blocker mesh from a previous build.
@@ -222,7 +211,6 @@ const buildRoom = (roomEl) => {
         openingEl.mesh = null;
       }
 
-      const portalEl = openingEl.getPortal();
       if (!portalEl) { continue; }
 
       const { width: portalWidth, height: portalHeight, floorHeight = 0 } = portalEl.getAttribute('portal');
@@ -280,7 +268,7 @@ const buildRoom = (roomEl) => {
     const uvScale = wallEl.getAttribute('wall')?.uvScale ?? 1;
     makePlaneUvs(wallGeom, 'x', 'y', uvScale, uvScale);
     finishGeometry(wallGeom);
-    const material = wallEl.components?.material?.material || wallEl.parentEl?.components?.material?.material;
+    const material = getMaterial(wallEl) || getMaterial(wallEl.parentEl);
     if (wallEl.mesh) {
       wallEl.mesh.geometry = wallGeom;
       wallEl.mesh.material = material;
@@ -315,10 +303,8 @@ const buildPortal = (portalEl) => {
     const type = CHILD_TYPES.find(t => childEl.components[t]);
     if (!type) { continue; }
 
-    const material = childEl.components?.material?.material ||
-      childEl.parentEl?.components?.material?.material ||
-      fromEl?.parentEl?.components?.material?.material ||
-      fromEl?.parentEl?.parentEl?.components?.material?.material;
+    const material = getMaterial(childEl) || getMaterial(childEl.parentEl) ||
+      getMaterial(fromEl?.parentEl) || getMaterial(fromEl?.parentEl?.parentEl);
 
     // sides needs two quads (left and right walls); floor and ceiling need one each.
     const indices = (type === 'sides') ? [0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6] : [0, 1, 2, 1, 3, 2];

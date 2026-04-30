@@ -1,4 +1,4 @@
-const TRANSFORM_PROPS = new Set(['position', 'rotation', 'scale']);
+import { TRANSFORM_PROPS } from './shared';
 
 AFRAME.registerComponent('room', {
   schema: {

@@ -1,4 +1,4 @@
-const ROOM = 'a-room';
+import { requireParent } from './shared';
 
 AFRAME.registerComponent('wall', {
   schema: {
@@ -6,11 +6,7 @@ AFRAME.registerComponent('wall', {
     uvScale: { type: 'number', default: 1 }
   },
   init: function () {
-    const parentName = this.el.parentEl?.localName;
-    if (parentName !== ROOM) {
-      const message = `<a-wall> must be a child of a <${ROOM}>`;
-      throw new Error(message);
-    }
+    requireParent(this.el, 'a-room');
 
     const openings = Array.from(this.el.querySelectorAll('a-opening'));
     this.el.openings = openings.sort((a, b) => a.object3D.position.x - b.object3D.position.x);

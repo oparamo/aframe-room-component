@@ -1,20 +1,24 @@
 (function(factory) {
 	typeof define === "function" && define.amd ? define([], factory) : factory();
 })(function() {
+	//#region src/components/shared.js
+	var TRANSFORM_PROPS = new Set([
+		"position",
+		"rotation",
+		"scale"
+	]);
+	var requireParent = (el, ...allowed) => {
+		if (!allowed.includes(el.parentEl?.localName)) throw new Error(`<${el.localName}> must be a child of a ${allowed.map((n) => `<${n}>`).join(" or ")}.`);
+	};
+	//#endregion
 	//#region src/components/ceiling.js
-	var PORTAL$2 = "a-portal";
-	var ROOM$2 = "a-room";
 	AFRAME.registerComponent("ceiling", {
 		schema: { uvScale: {
 			type: "number",
 			default: 1
 		} },
 		init: function() {
-			const parentName = this.el.parentEl?.localName;
-			if (parentName !== PORTAL$2 && parentName !== ROOM$2) {
-				const message = `<a-ceiling> must be a child of a <${PORTAL$2}> or <${ROOM$2}>.`;
-				throw new Error(message);
-			}
+			requireParent(this.el, "a-portal", "a-room");
 		}
 	});
 	//#endregion
@@ -33,7 +37,6 @@
 			this.wallMeshes = [];
 			this.floorMeshes = [];
 			this._cameraEl = this.el.querySelector("[camera]") || this.el;
-			this._isRig = this._cameraEl !== this.el;
 			this._raycaster = new THREE.Raycaster();
 			this._floorRaycaster = new THREE.Raycaster();
 			this._previousPosition = new THREE.Vector3();
@@ -47,7 +50,7 @@
 			this._floorOrigin = new THREE.Vector3();
 			this._onLoaded = () => {
 				this._previousPosition.copy(this.el.object3D.position);
-				this._eyeHeight = this._isRig ? 0 : this._cameraEl.object3D.position.y;
+				this._eyeHeight = this._cameraEl !== this.el ? 0 : this._cameraEl.object3D.position.y;
 				this._refreshMeshes();
 			};
 			this._onBuildComplete = () => this._refreshMeshes();
@@ -98,29 +101,19 @@
 	});
 	//#endregion
 	//#region src/components/floor.js
-	var PORTAL$1 = "a-portal";
-	var ROOM$1 = "a-room";
 	AFRAME.registerComponent("floor", {
 		schema: { uvScale: {
 			type: "number",
 			default: 1
 		} },
 		init: function() {
-			const parentName = this.el.parentEl?.localName;
-			if (parentName !== PORTAL$1 && parentName !== ROOM$1) {
-				const message = `<a-floor> must be a child of a <${PORTAL$1}> or <${ROOM$1}>.`;
-				throw new Error(message);
-			}
+			requireParent(this.el, "a-portal", "a-room");
 		}
 	});
 	//#endregion
 	//#region src/components/opening.js
-	var WALL$1 = "a-wall";
 	AFRAME.registerComponent("opening", { init: function() {
-		if (this.el.parentEl?.localName !== WALL$1) {
-			const message = `<a-opening> must be a child of a <${WALL$1}>.`;
-			throw new Error(message);
-		}
+		requireParent(this.el, "a-wall");
 		this.el.vertices = [];
 		this.el.getPortal = () => {
 			for (const dl of this.el.sceneEl.querySelectorAll("a-portal")) {
@@ -132,13 +125,6 @@
 	} });
 	//#endregion
 	//#region src/components/portal.js
-	var SCENE = "a-scene";
-	var WALL = "a-wall";
-	var TRANSFORM_PROPS$1 = new Set([
-		"position",
-		"rotation",
-		"scale"
-	]);
 	AFRAME.registerComponent("portal", {
 		schema: {
 			from: { type: "selector" },
@@ -157,13 +143,9 @@
 			}
 		},
 		init: function() {
-			const parentName = this.el.parentEl?.localName;
-			if (parentName !== SCENE && parentName !== WALL) {
-				const message = `<a-portal> must be a child of a <${SCENE}> or <${WALL}>.`;
-				throw new Error(message);
-			}
+			requireParent(this.el, "a-scene", "a-wall");
 			this._onTransformChanged = (e) => {
-				if (TRANSFORM_PROPS$1.has(e.detail.name)) this.el.sceneEl.systems?.building?.buildPortal(this.el);
+				if (TRANSFORM_PROPS.has(e.detail.name)) this.el.sceneEl.systems?.building?.buildPortal(this.el);
 			};
 			this.el.addEventListener("componentchanged", this._onTransformChanged);
 		},
@@ -176,11 +158,6 @@
 	});
 	//#endregion
 	//#region src/components/room.js
-	var TRANSFORM_PROPS = new Set([
-		"position",
-		"rotation",
-		"scale"
-	]);
 	AFRAME.registerComponent("room", {
 		schema: {
 			outside: { type: "boolean" },
@@ -223,22 +200,17 @@
 	});
 	//#endregion
 	//#region src/components/sides.js
-	var PORTAL = "a-portal";
 	AFRAME.registerComponent("sides", {
 		schema: { uvScale: {
 			type: "number",
 			default: 1
 		} },
 		init: function() {
-			if (this.el.parentEl?.localName !== PORTAL) {
-				const message = `<a-sides> must be a child of a <${PORTAL}>.`;
-				throw new Error(message);
-			}
+			requireParent(this.el, "a-portal");
 		}
 	});
 	//#endregion
 	//#region src/components/wall.js
-	var ROOM = "a-room";
 	AFRAME.registerComponent("wall", {
 		schema: {
 			height: { type: "number" },
@@ -248,10 +220,7 @@
 			}
 		},
 		init: function() {
-			if (this.el.parentEl?.localName !== ROOM) {
-				const message = `<a-wall> must be a child of a <${ROOM}>`;
-				throw new Error(message);
-			}
+			requireParent(this.el, "a-room");
 			const openings = Array.from(this.el.querySelectorAll("a-opening"));
 			this.el.openings = openings.sort((a, b) => a.object3D.position.x - b.object3D.position.x);
 			this.el.getHeight = () => this.el.getAttribute("wall").height || this.el.parentEl.getAttribute("room").height;
@@ -354,8 +323,7 @@
 		wallEl.object3D.localToWorld(vertex);
 		openingEl.vertices.push(vertex);
 	};
-	var positionOpening = (openingEl) => {
-		const portalEl = openingEl.getPortal();
+	var positionOpening = (openingEl, portalEl) => {
 		const wallEl = openingEl.parentEl;
 		const nextWallEl = wallEl?.nextWallEl;
 		if (!portalEl || !nextWallEl) return;
@@ -390,11 +358,14 @@
 		}
 		if (cwSum > 0 !== isOutside) walls.reverse();
 	};
+	var getMaterial = (el) => el?.components?.material?.material;
 	var buildCap = (walls, capEl, isCeiling, isOutside) => {
 		const n = walls.length;
 		const positions = [];
 		for (const wallEl of walls) positions.push(wallEl.object3D.position.x, wallEl.object3D.position.y + (isCeiling ? wallEl.getHeight() : 0), wallEl.object3D.position.z);
-		let cx = 0, cy = 0, cz = 0;
+		let cx = 0;
+		let cy = 0;
+		let cz = 0;
 		for (let i = 0; i < positions.length; i += 3) {
 			cx += positions[i];
 			cy += positions[i + 1];
@@ -410,7 +381,7 @@
 		const uvScale = capEl.getAttribute(isCeiling ? "ceiling" : "floor")?.uvScale ?? 1;
 		makePlaneUvs(geom, "x", "z", (isCeiling ? 1 : -1) * uvScale, uvScale);
 		finishGeometry(geom);
-		const material = capEl.components?.material?.material || capEl.parentEl?.components?.material?.material;
+		const material = getMaterial(capEl) || getMaterial(capEl.parentEl);
 		if (capEl.mesh) {
 			capEl.mesh.geometry = geom;
 			capEl.mesh.material = material;
@@ -451,13 +422,13 @@
 			wallShape.lineTo(wallLength, wallGapY);
 			wallShape.lineTo(wallLength, wallGapY + nextWallEl.getHeight());
 			for (const openingEl of wallEl.openings) {
-				positionOpening(openingEl);
+				const portalEl = openingEl.getPortal();
+				positionOpening(openingEl, portalEl);
 				openingEl.vertices = [];
 				if (openingEl.mesh) {
 					openingEl.mesh.parent?.remove(openingEl.mesh);
 					openingEl.mesh = null;
 				}
-				const portalEl = openingEl.getPortal();
 				if (!portalEl) continue;
 				const { width: portalWidth, height: portalHeight, floorHeight = 0 } = portalEl.getAttribute("portal");
 				const pts = [];
@@ -518,7 +489,7 @@
 			const uvScale = wallEl.getAttribute("wall")?.uvScale ?? 1;
 			makePlaneUvs(wallGeom, "x", "y", uvScale, uvScale);
 			finishGeometry(wallGeom);
-			const material = wallEl.components?.material?.material || wallEl.parentEl?.components?.material?.material;
+			const material = getMaterial(wallEl) || getMaterial(wallEl.parentEl);
 			if (wallEl.mesh) {
 				wallEl.mesh.geometry = wallGeom;
 				wallEl.mesh.material = material;
@@ -546,7 +517,7 @@
 		for (const childEl of portalEl.children) {
 			const type = CHILD_TYPES.find((t) => childEl.components[t]);
 			if (!type) continue;
-			const material = childEl.components?.material?.material || childEl.parentEl?.components?.material?.material || fromEl?.parentEl?.components?.material?.material || fromEl?.parentEl?.parentEl?.components?.material?.material;
+			const material = getMaterial(childEl) || getMaterial(childEl.parentEl) || getMaterial(fromEl?.parentEl) || getMaterial(fromEl?.parentEl?.parentEl);
 			const indices = type === "sides" ? [
 				0,
 				1,

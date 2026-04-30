@@ -1,12 +1,8 @@
-const WALL = 'a-wall';
+import { requireParent } from './shared';
 
 AFRAME.registerComponent('opening', {
   init: function () {
-    const parentName = this.el.parentEl?.localName;
-    if (parentName !== WALL) {
-      const message = `<a-opening> must be a child of a <${WALL}>.`;
-      throw new Error(message);
-    }
+    requireParent(this.el, 'a-wall');
 
     this.el.vertices = [];
     this.el.getPortal = () => {

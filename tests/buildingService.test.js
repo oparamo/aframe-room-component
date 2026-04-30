@@ -230,7 +230,7 @@ describe('buildRoom', () => {
   });
 });
 
-// --- buildDoorlink ---
+// --- buildPortal ---
 
 describe('buildPortal', () => {
   const fromVerts = makeOpeningVerts(0, 2, 2.5);

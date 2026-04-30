@@ -1,6 +1,4 @@
-const SCENE = 'a-scene';
-const WALL = 'a-wall';
-const TRANSFORM_PROPS = new Set(['position', 'rotation', 'scale']);
+import { TRANSFORM_PROPS, requireParent } from './shared';
 
 AFRAME.registerComponent('portal', {
   schema: {
@@ -11,11 +9,7 @@ AFRAME.registerComponent('portal', {
     floorHeight: { type: 'number', default: 0 }
   },
   init: function () {
-    const parentName = this.el.parentEl?.localName;
-    if (parentName !== SCENE && parentName !== WALL) {
-      const message = `<a-portal> must be a child of a <${SCENE}> or <${WALL}>.`;
-      throw new Error(message);
-    }
+    requireParent(this.el, 'a-scene', 'a-wall');
 
     this._onTransformChanged = (e) => {
       if (TRANSFORM_PROPS.has(e.detail.name)) {
