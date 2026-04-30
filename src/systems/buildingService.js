@@ -121,56 +121,35 @@ const sortWalls = (walls, isOutside) => {
   if ((cwSum > 0) !== isOutside) { walls.reverse(); }
 };
 
-// Builds the floor or ceiling mesh for a room. Traces the wall corner positions
-// as a 2D shape in the XZ plane, then lifts each vertex to the correct Y height.
-// Ceiling vertices are raised by the wall height at that corner.
+// Builds the floor or ceiling mesh for a room. Places corner vertices directly in
+// 3D space and fans triangles from the centroid, producing smooth results for any
+// convex room regardless of wall count or height variation.
 const buildCap = (walls, capEl, isCeiling, isOutside) => {
-  const shape = new THREE.Shape();
-  for (let i = 0; i < walls.length; i++) {
-    const wallEl = walls[i];
-    const x = wallEl.object3D.position.x;
-    const z = wallEl.object3D.position.z;
-    if (i) {
-      shape.lineTo(x, z);
-    } else {
-      shape.moveTo(x, z);
-    }
-  }
+  const n = walls.length;
+  const positions = [];
 
-  // ShapeGeometry is flat (XY plane); lift each vertex into the correct 3D position.
-  const geom = new THREE.ShapeGeometry(shape);
-  for (let i = 0; i < walls.length; i++) {
-    const wallEl = walls[i];
-    const vertex = new THREE.Vector3(
-      geom.attributes.position.getX(i),
-      geom.attributes.position.getY(i),
-      geom.attributes.position.getZ(i)
+  for (const wallEl of walls) {
+    positions.push(
+      wallEl.object3D.position.x,
+      wallEl.object3D.position.y + (isCeiling ? wallEl.getHeight() : 0),
+      wallEl.object3D.position.z
     );
-    // ShapeGeometry uses XY; remap to XZ, using the wall's Y as the base height.
-    vertex.set(vertex.x, wallEl.object3D.position.y, vertex.y);
-    if (isCeiling) { vertex.y += wallEl.getHeight(); }
-    geom.attributes.position.setXYZ(i, vertex.x, vertex.y, vertex.z);
   }
 
-  // For quads the default fan triangulation (diagonal 0–2) may produce a visible seam
-  // when the four cap vertices are non-coplanar (e.g. asymmetric wall heights). Compare
-  // both diagonals and switch to 1–3 if its triangles are more coplanar.
-  if (walls.length === 4) {
-    const v = [0, 1, 2, 3].map(i => new THREE.Vector3(
-      geom.attributes.position.getX(i),
-      geom.attributes.position.getY(i),
-      geom.attributes.position.getZ(i)
-    ));
-    const n = new THREE.Vector3(), m = new THREE.Vector3();
-    new THREE.Triangle(v[0], v[1], v[2]).getNormal(n);
-    new THREE.Triangle(v[0], v[2], v[3]).getNormal(m);
-    const dot02 = n.dot(m);
-    new THREE.Triangle(v[0], v[1], v[3]).getNormal(n);
-    new THREE.Triangle(v[1], v[2], v[3]).getNormal(m);
-    if (n.dot(m) > dot02) geom.setIndex([0, 1, 3, 1, 2, 3]);
+  // Centroid vertex appended last; fan triangles reference it as vertex n.
+  let cx = 0, cy = 0, cz = 0;
+  for (let i = 0; i < positions.length; i += 3) {
+    cx += positions[i]; cy += positions[i + 1]; cz += positions[i + 2];
   }
+  positions.push(cx / n, cy / n, cz / n);
 
-  // Floor and ceiling face opposite directions; outside rooms also flip normals.
+  const indices = [];
+  for (let i = 0; i < n; i++) indices.push(i, (i + 1) % n, n);
+
+  const geom = new THREE.BufferGeometry();
+  geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+  geom.setIndex(indices);
+
   if (isCeiling === isOutside) { flipGeometry(geom); }
 
   const uvScale = capEl.getAttribute(isCeiling ? 'ceiling' : 'floor')?.uvScale ?? 1;

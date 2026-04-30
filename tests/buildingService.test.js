@@ -161,24 +161,36 @@ describe('buildRoom', () => {
     });
   });
 
-  describe('quad cap triangulation', () => {
-    it('chooses the better diagonal for a non-coplanar quad ceiling', () => {
-      // Arrange — wall 2 is taller, making ceiling vertices non-coplanar.
-      // Diagonal 1-3 (through the three same-height corners) is more coplanar
-      // than the default fan diagonal 0-2, so the index buffer should be overridden.
+  describe('cap triangulation', () => {
+    it('uses centroid fan for a 4-wall room', () => {
       const room = makeRoom([
-        makeWall(0, 0, 2), // ceiling V0: (0, 2, 0)
-        makeWall(4, 0, 2), // ceiling V1: (4, 2, 0)
-        makeWall(4, 4, 4), // ceiling V2: (4, 4, 4) — tall corner
-        makeWall(0, 4, 2)  // ceiling V3: (0, 2, 4)
+        makeWall(0, 0, 2),
+        makeWall(4, 0, 2),
+        makeWall(4, 4, 4),
+        makeWall(0, 4, 2)
       ]);
 
-      // Act
       buildRoom(room);
 
-      // Assert
-      const idx = Array.from(room.ceiling.mesh.geometry.getIndex().array);
-      expect(idx).toEqual([0, 1, 3, 1, 2, 3]);
+      // 4 corners + 1 centroid = 5 vertices; 4 triangles × 3 indices = 12
+      expect(room.ceiling.mesh.geometry.attributes.position.count).toBe(5);
+      expect(room.ceiling.mesh.geometry.getIndex().count).toBe(12);
+    });
+
+    it('uses centroid fan for a 5-wall room', () => {
+      const room = makeRoom([
+        makeWall(0, 0, 2),
+        makeWall(4, 0, 2),
+        makeWall(6, 2, 2),
+        makeWall(4, 4, 3),
+        makeWall(0, 4, 2)
+      ]);
+
+      buildRoom(room);
+
+      // 5 corners + 1 centroid = 6 vertices; 5 triangles × 3 indices = 15
+      expect(room.ceiling.mesh.geometry.attributes.position.count).toBe(6);
+      expect(room.ceiling.mesh.geometry.getIndex().count).toBe(15);
     });
   });
 
