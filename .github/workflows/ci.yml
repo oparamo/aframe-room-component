@@ -59,8 +59,6 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - run: pnpm publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - run: gh release create ${{ github.ref_name }} --generate-notes dist/*
         env:
@@ -87,8 +85,8 @@ jobs:
       - name: Prepare demo site
         run: |
           cp -r example/ _site/
-          cp dist/aframe-room-component.js _site/
-          sed -i 's|<script type="module" src="/src/index.js"></script>|<script src="aframe-room-component.js"></script>|' _site/index.html
+          install -D dist/aframe-room-component.min.js _site/src/index.js
+          sed -i 's| type="module"||' _site/index.html
 
       - uses: actions/upload-pages-artifact@v3
         with:
