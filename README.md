@@ -162,7 +162,7 @@ The same path handles both the initial build on page load and runtime rebuilds t
 
 Rooms are always built before portals because building a room populates the world-space vertices on its openings, and portals consume those vertices to construct the tunnel geometry connecting them. When a room is rebuilt at runtime, its connected portals are automatically added to the dirty set so their geometry stays in sync.
 
-Floor and ceiling caps are triangulated using Three.js's earcut algorithm. For four-walled rooms, `buildingService` also evaluates the alternative quad diagonal and switches to it when its two triangles are more coplanar — this eliminates visible seams on non-planar ceilings (e.g. when opposite walls have different heights).
+Floor and ceiling caps use centroid fan triangulation: the corner position of each wall is collected in world space, the centroid is computed, and each adjacent pair of corners forms a triangle with the centroid as the apex. This handles any convex room shape regardless of wall count or height variation between walls.
 
 ### Collision system
 
