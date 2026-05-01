@@ -14,14 +14,11 @@ const flipGeometry = (geom) => {
 
 const makeGeometryUvs = (geom, callback) => {
   const indices = geom.getIndex().array;
+  const pos = geom.attributes.position;
+  const vertex = new THREE.Vector3();
   const uvs = [];
   for (const vertexIndex of indices) {
-    const vertex = new THREE.Vector3(
-      geom.attributes.position.getX(vertexIndex),
-      geom.attributes.position.getY(vertexIndex),
-      geom.attributes.position.getZ(vertexIndex)
-    );
-
+    vertex.set(pos.getX(vertexIndex), pos.getY(vertexIndex), pos.getZ(vertexIndex));
     const [u, v] = callback(vertex, vertexIndex % 3);
     uvs[vertexIndex * 2 + 0] = u;
     uvs[vertexIndex * 2 + 1] = v;
@@ -293,12 +290,13 @@ const buildPortal = (portalEl) => {
     return;
   }
 
+  const portalFallbackMaterial = getMaterial(fromEl?.parentEl) || getMaterial(fromEl?.parentEl?.parentEl);
+
   for (const childEl of portalEl.children) {
     const type = CHILD_TYPES.find(t => childEl.components[t]);
     if (!type) { continue; }
 
-    const material = getMaterial(childEl) || getMaterial(childEl.parentEl) ||
-      getMaterial(fromEl?.parentEl) || getMaterial(fromEl?.parentEl?.parentEl);
+    const material = getMaterial(childEl) || getMaterial(childEl.parentEl) || portalFallbackMaterial;
 
     // sides needs two quads (left and right walls); floor and ceiling need one each.
     const indices = (type === 'sides') ? [0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6] : [0, 1, 2, 1, 3, 2];
