@@ -182,6 +182,11 @@
 				console.error(message);
 				throw new Error(message);
 			}
+			if (!width && !length && walls.length < 3) {
+				const message = "<a-room> needs at least 3 walls.";
+				console.error(message);
+				throw new Error(message);
+			}
 			roomEl.ceiling = roomEl.querySelector("a-ceiling");
 			roomEl.floor = roomEl.querySelector("a-floor");
 			roomEl.walls = walls;
@@ -298,9 +303,12 @@
 	};
 	var makeGeometryUvs = (geom, callback) => {
 		const indices = geom.getIndex().array;
+		const pos = geom.attributes.position;
+		const vertex = new THREE.Vector3();
 		const uvs = [];
 		for (const vertexIndex of indices) {
-			const [u, v] = callback(new THREE.Vector3(geom.attributes.position.getX(vertexIndex), geom.attributes.position.getY(vertexIndex), geom.attributes.position.getZ(vertexIndex)), vertexIndex % 3);
+			vertex.set(pos.getX(vertexIndex), pos.getY(vertexIndex), pos.getZ(vertexIndex));
+			const [u, v] = callback(vertex, vertexIndex % 3);
 			uvs[vertexIndex * 2 + 0] = u;
 			uvs[vertexIndex * 2 + 1] = v;
 		}
@@ -378,7 +386,7 @@
 		geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
 		geom.setIndex(indices);
 		if (isCeiling === isOutside) flipGeometry(geom);
-		const uvScale = capEl.getAttribute(isCeiling ? "ceiling" : "floor")?.uvScale ?? 1;
+		const uvScale = capEl.getAttribute(isCeiling ? "ceiling" : "floor").uvScale;
 		makePlaneUvs(geom, "x", "z", (isCeiling ? 1 : -1) * uvScale, uvScale);
 		finishGeometry(geom);
 		const material = getMaterial(capEl) || getMaterial(capEl.parentEl);
@@ -394,11 +402,6 @@
 	var buildRoom = (roomEl) => {
 		const { outside, length, width } = roomEl.getAttribute("room");
 		const walls = roomEl.walls;
-		const roomId = roomEl.id ? `#${roomEl.id}` : "<a-room>";
-		if (!walls || walls.length < 3) {
-			console.error(`${roomId}: a room needs at least 3 walls (found ${walls?.length ?? 0}).`);
-			return;
-		}
 		if (width && length) {
 			walls[0].object3D.position.set(0, 0, 0);
 			walls[1].object3D.position.set(width, 0, 0);
@@ -486,7 +489,7 @@
 				}
 			}
 			const wallGeom = new THREE.ShapeGeometry(wallShape);
-			const uvScale = wallEl.getAttribute("wall")?.uvScale ?? 1;
+			const uvScale = wallEl.getAttribute("wall").uvScale;
 			makePlaneUvs(wallGeom, "x", "y", uvScale, uvScale);
 			finishGeometry(wallGeom);
 			const material = getMaterial(wallEl) || getMaterial(wallEl.parentEl);
@@ -514,10 +517,11 @@
 			console.error(`${portalId}: opening vertices not found — ensure both openings exist and their rooms have been built.`);
 			return;
 		}
+		const portalFallbackMaterial = getMaterial(fromEl?.parentEl) || getMaterial(fromEl?.parentEl?.parentEl);
 		for (const childEl of portalEl.children) {
 			const type = CHILD_TYPES.find((t) => childEl.components[t]);
 			if (!type) continue;
-			const material = getMaterial(childEl) || getMaterial(childEl.parentEl) || getMaterial(fromEl?.parentEl) || getMaterial(fromEl?.parentEl?.parentEl);
+			const material = getMaterial(childEl) || getMaterial(childEl.parentEl) || portalFallbackMaterial;
 			const indices = type === "sides" ? [
 				0,
 				1,
@@ -544,7 +548,7 @@
 			childEl.mesh = new THREE.Mesh(geom, material);
 			childEl.setObject3D(type, childEl.mesh);
 			const positions = [];
-			const uvScale = childEl.getAttribute(type)?.uvScale ?? 1;
+			const uvScale = childEl.getAttribute(type).uvScale;
 			let uvCallback;
 			switch (type) {
 				case "floor":
@@ -571,9 +575,7 @@
 					addPortalWorldVertex(toVerts[0], childEl, positions);
 					addPortalWorldVertex(toVerts[1], childEl, positions);
 					uvCallback = (point, vertIndex) => {
-						let u = Math.floor(vertIndex / 2);
-						if (vertIndex < 4) u = 1 - u;
-						return [u * uvScale, vertIndex % 2 * uvScale];
+						return [(1 - Math.floor(vertIndex / 2)) * uvScale, vertIndex % 2 * uvScale];
 					};
 					break;
 			}
@@ -594,7 +596,7 @@
 		},
 		buildRoom: function(roomEl) {
 			this.dirtyRooms.add(roomEl);
-			for (const wall of roomEl.walls || []) for (const opening of wall.openings || []) {
+			for (const wall of roomEl.walls) for (const opening of wall.openings) {
 				const portal = opening.getPortal();
 				if (portal) this.dirtyPortals.add(portal);
 			}
