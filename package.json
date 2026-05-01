@@ -19,7 +19,8 @@
     "start:https": "vite --https",
     "start": "vite",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "repository": {
     "type": "git",
@@ -54,6 +55,7 @@
   },
   "homepage": "https://github.com/oparamo/aframe-room-component#readme",
   "devDependencies": {
+    "@vitest/coverage-v8": "4.1.4",
     "eslint": "9.39.4",
     "neostandard": "0.13.0",
     "terser": "5.46.1",

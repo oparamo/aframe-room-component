@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { makeRoomWithLinks as makeRoom, makePortal, makeSystem } from './utils/mocks.js';
+import { makeRoomWithLinks as makeRoom, makeRoomWithLinks, makePortal, makeSystem } from '../utils/mocks.js';
 
-vi.mock('../src/systems/buildingService.js', () => ({
+vi.mock('../../src/systems/buildingService.js', () => ({
   buildRoom: vi.fn(),
   buildPortal: vi.fn()
 }));
 
-import { buildRoom as mockBuildRoom, buildPortal as mockBuildPortal } from '../src/systems/buildingService.js';
-import '../src/systems/building.js';
+import { buildRoom as mockBuildRoom, buildPortal as mockBuildPortal } from '../../src/systems/buildingService.js';
+import '../../src/systems/building.js';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -17,6 +17,21 @@ beforeEach(() => {
 // --- Tests ---
 
 describe('building system', () => {
+  describe('init', () => {
+    it('initializes buildPending, dirtyRooms, and dirtyPortals', () => {
+      // Arrange
+      const system = { ...global.AFRAME._systems.building };
+
+      // Act
+      system.init();
+
+      // Assert
+      expect(system.buildPending).toBe(false);
+      expect(system.dirtyRooms).toBeInstanceOf(Set);
+      expect(system.dirtyPortals).toBeInstanceOf(Set);
+    });
+  });
+
   describe('buildRoom', () => {
     it('adds the room to dirtyRooms', () => {
       // Arrange
@@ -41,6 +56,18 @@ describe('building system', () => {
 
       // Assert
       expect(system.dirtyPortals.has(dl)).toBe(true);
+    });
+
+    it('does not add to dirtyPortals when an opening has no portal', () => {
+      // Arrange — makeRoomWithLinks(null) creates a room with an opening whose getPortal() returns null
+      const system = makeSystem();
+      const room = makeRoomWithLinks(null);
+
+      // Act
+      system.buildRoom(room);
+
+      // Assert
+      expect(system.dirtyPortals.size).toBe(0);
     });
 
     it('schedules a build', () => {
@@ -102,6 +129,17 @@ describe('building system', () => {
 
       // Act / Assert
       expect(() => system.buildPortal(dl)).not.toThrow();
+    });
+
+    it('does not throw when portal has no component data', () => {
+      // Arrange — no components.portal.data hits the || {} fallback on line 24
+      const system = makeSystem();
+      const dl = makePortal();
+      dl.components = {};
+
+      // Act / Assert
+      expect(() => system.buildPortal(dl)).not.toThrow();
+      expect(system.dirtyPortals.has(dl)).toBe(true);
     });
 
     it('schedules a build', () => {

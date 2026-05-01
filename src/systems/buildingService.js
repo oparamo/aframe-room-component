@@ -143,7 +143,7 @@ const buildCap = (walls, capEl, isCeiling, isOutside) => {
 
   if (isCeiling === isOutside) { flipGeometry(geom); }
 
-  const uvScale = capEl.getAttribute(isCeiling ? 'ceiling' : 'floor')?.uvScale ?? 1;
+  const uvScale = capEl.getAttribute(isCeiling ? 'ceiling' : 'floor').uvScale;
   makePlaneUvs(geom, 'x', 'z', (isCeiling ? 1 : -1) * uvScale, uvScale);
   finishGeometry(geom);
 
@@ -161,12 +161,6 @@ const buildCap = (walls, capEl, isCeiling, isOutside) => {
 const buildRoom = (roomEl) => {
   const { outside, length, width } = roomEl.getAttribute('room');
   const walls = roomEl.walls;
-  const roomId = roomEl.id ? `#${roomEl.id}` : '<a-room>';
-
-  if (!walls || walls.length < 3) {
-    console.error(`${roomId}: a room needs at least 3 walls (found ${walls?.length ?? 0}).`);
-    return;
-  }
 
   // If width and length are set, auto-position the four wall corners as a rectangle.
   if (width && length) {
@@ -265,7 +259,7 @@ const buildRoom = (roomEl) => {
     }
 
     const wallGeom = new THREE.ShapeGeometry(wallShape);
-    const uvScale = wallEl.getAttribute('wall')?.uvScale ?? 1;
+    const uvScale = wallEl.getAttribute('wall').uvScale;
     makePlaneUvs(wallGeom, 'x', 'y', uvScale, uvScale);
     finishGeometry(wallGeom);
     const material = getMaterial(wallEl) || getMaterial(wallEl.parentEl);
@@ -317,7 +311,7 @@ const buildPortal = (portalEl) => {
     // Collect vertex positions in world space, then convert to the child's local space.
     // Vertex layout per opening: [0]=left-bottom, [1]=left-top, [2]=right-bottom, [3]=right-top.
     const positions = [];
-    const uvScale = childEl.getAttribute(type)?.uvScale ?? 1;
+    const uvScale = childEl.getAttribute(type).uvScale;
     let uvCallback;
 
     switch (type) {
@@ -346,8 +340,7 @@ const buildPortal = (portalEl) => {
         addPortalWorldVertex(toVerts[0], childEl, positions);
         addPortalWorldVertex(toVerts[1], childEl, positions);
         uvCallback = (point, vertIndex) => {
-          let u = Math.floor(vertIndex / 2);
-          if (vertIndex < 4) { u = 1 - u; }
+          const u = 1 - Math.floor(vertIndex / 2);
           return [u * uvScale, (vertIndex % 2) * uvScale];
         };
         break;

@@ -2,10 +2,10 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import {
   makeObject3D, makeCap, makeWall, makeRoom, makeSquareRoom,
   makeOpening, makeVertex, makeOpeningVerts, makePortalChild, makePortal
-} from './utils/mocks.js';
+} from '../utils/mocks.js';
 
 afterEach(() => vi.restoreAllMocks());
-import { buildRoom, buildPortal } from '../src/systems/buildingService.js';
+import { buildRoom, buildPortal } from '../../src/systems/buildingService.js';
 
 // --- buildRoom ---
 
@@ -131,6 +131,29 @@ describe('buildRoom', () => {
     });
   });
 
+  describe('opening ceiling clamp', () => {
+    it('clamps opening top to wall height when portal is taller than the wall', () => {
+      // Arrange — wall height 2, portal height 3 (exceeds wall)
+      const tallPortal = {
+        getAttribute (attr) {
+          if (attr === 'portal') return { width: 1, height: 3, floorHeight: 0 };
+          return null;
+        },
+        object3D: makeObject3D(2.5, 0, 0)
+      };
+      const opening = makeOpening(tallPortal);
+      const wall0 = makeWall(0, 0, 2, [opening], 0);
+      opening.parentEl = wall0;
+      const room = makeRoom([wall0, makeWall(5, 0, 2), makeWall(5, 5, 2), makeWall(0, 5, 2)]);
+
+      // Act
+      buildRoom(room);
+
+      // Assert — top vertex Y should be clamped to just below ceiling height (2 - HAIR)
+      expect(opening.vertices[1].y).toBeCloseTo(2 - 0.0001, 3);
+    });
+  });
+
   describe('sloped walls', () => {
     it('positions opening Y to match wall slope at its X', () => {
       // Arrange — wall runs from (0,0,0) to (4,0,4) in XZ, with a Y rise of 2 over length ~5.66
@@ -194,20 +217,51 @@ describe('buildRoom', () => {
     });
   });
 
-  describe('input validation', () => {
-    it('logs an error and returns when fewer than 3 walls are given', () => {
+  describe('stale mesh cleanup', () => {
+    it('removes and nulls a stale window-blocker mesh before rebuilding', () => {
       // Arrange
-      const room = makeRoom([makeWall(0, 0), makeWall(5, 0)]);
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const opening = makeOpening(null);
+      const staleMesh = { parent: { remove: vi.fn() } };
+      opening.mesh = staleMesh;
+      const room = makeRoom([makeWall(0, 0, 3, [opening]), makeWall(5, 0, 3), makeWall(5, 5, 3), makeWall(0, 5, 3)]);
 
       // Act
       buildRoom(room);
 
       // Assert
-      expect(errorSpy).toHaveBeenCalledOnce();
-      expect(room.floor.mesh).toBeNull();
+      expect(staleMesh.parent.remove).toHaveBeenCalledWith(staleMesh);
+      expect(opening.mesh).toBeNull();
     });
+  });
 
+  describe('window blocker', () => {
+    it('creates an invisible collidable mesh for openings with floorHeight > 0', () => {
+      // Arrange
+      const windowPortal = {
+        getAttribute (attr) {
+          if (attr === 'portal') return { width: 1, height: 1, floorHeight: 0.5 };
+          return null;
+        },
+        object3D: makeObject3D(2.5, 0, 0)
+      };
+      const opening = makeOpening(windowPortal);
+      const addClassSpy = vi.fn();
+      opening.classList = { add: addClassSpy };
+      const wall0 = makeWall(0, 0, 3, [opening], 0);
+      opening.parentEl = wall0;
+      const room = makeRoom([wall0, makeWall(5, 0, 3), makeWall(5, 5, 3), makeWall(0, 5, 3)]);
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      expect(opening.mesh).not.toBeNull();
+      expect(opening.mesh.visible).toBe(false);
+      expect(addClassSpy).toHaveBeenCalledWith('collidable');
+    });
+  });
+
+  describe('input validation', () => {
     it('skips floor when floor is null', () => {
       // Arrange
       const room = makeSquareRoom();
@@ -322,6 +376,20 @@ describe('buildPortal', () => {
     expect(floorChild.mesh).toBeNull();
   });
 
+  it('includes portal id in error message when id is set', () => {
+    // Arrange
+    const floorChild = makePortalChild('floor');
+    const portal = makePortal({ fromVerts: null, toVerts, children: [floorChild] });
+    portal.id = 'my-portal';
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Act
+    buildPortal(portal);
+
+    // Assert
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('#my-portal'));
+  });
+
   it('logs an error and does nothing when to element is missing', () => {
     // Arrange
     const floorChild = makePortalChild('floor');
@@ -334,6 +402,17 @@ describe('buildPortal', () => {
     // Assert
     expect(errorSpy).toHaveBeenCalledOnce();
     expect(floorChild.mesh).toBeNull();
+  });
+
+  it('skips children with no matching type component', () => {
+    // Arrange — child has no floor/ceiling/sides component
+    const unknownChild = makePortalChild('floor');
+    unknownChild.components = {};
+    const portal = makePortal({ fromVerts, toVerts, children: [unknownChild] });
+
+    // Act / Assert — should not throw and mesh remains null
+    expect(() => buildPortal(portal)).not.toThrow();
+    expect(unknownChild.mesh).toBeNull();
   });
 
   it('processes multiple children in one call', () => {

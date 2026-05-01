@@ -10,8 +10,8 @@ AFRAME.registerSystem('building', {
     this.dirtyRooms.add(roomEl);
 
     // Room rebuild recalculates opening vertices, so connected portals need a matching rebuild.
-    for (const wall of roomEl.walls || []) {
-      for (const opening of wall.openings || []) {
+    for (const wall of roomEl.walls) {
+      for (const opening of wall.openings) {
         const portal = opening.getPortal();
         if (portal) this.dirtyPortals.add(portal);
       }

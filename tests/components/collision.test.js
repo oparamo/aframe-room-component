@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { makeCollisionEl, makeCollisionComponent } from './utils/mocks.js';
-import '../src/components/collision.js';
+import { makeCollisionEl, makeCollisionComponent } from '../utils/mocks.js';
+import '../../src/components/collision.js';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -46,6 +46,37 @@ describe('room-collision', () => {
 
       // Assert
       expect(comp.floorMeshes).toEqual([mesh]);
+    });
+  });
+
+  describe('_onBuildComplete', () => {
+    it('refreshes wall and floor mesh lists', () => {
+      // Arrange
+      const el = makeCollisionEl();
+      const comp = makeCollisionComponent(el);
+      const spy = vi.spyOn(comp, '_refreshMeshes');
+
+      // Act
+      comp._onBuildComplete();
+
+      // Assert
+      expect(spy).toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    it('removes loaded and room-building-complete event listeners', () => {
+      // Arrange
+      const el = makeCollisionEl();
+      const comp = makeCollisionComponent(el);
+      const removeSpy = vi.spyOn(el.sceneEl, 'removeEventListener');
+
+      // Act
+      comp.remove.call(comp);
+
+      // Assert
+      expect(removeSpy).toHaveBeenCalledWith('loaded', comp._onLoaded);
+      expect(removeSpy).toHaveBeenCalledWith('room-building-complete', comp._onBuildComplete);
     });
   });
 

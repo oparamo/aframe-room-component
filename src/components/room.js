@@ -24,6 +24,12 @@ AFRAME.registerComponent('room', {
       throw new Error(message);
     }
 
+    if (!width && !length && walls.length < 3) {
+      const message = '<a-room> needs at least 3 walls.';
+      console.error(message);
+      throw new Error(message);
+    }
+
     roomEl.ceiling = roomEl.querySelector('a-ceiling');
     roomEl.floor = roomEl.querySelector('a-floor');
     roomEl.walls = walls;

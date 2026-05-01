@@ -1,6 +1,7 @@
 export const makeObject3D = (x = 0, y = 0, z = 0) => ({
   position: { x, y, z, set (nx, ny, nz) { this.x = nx; this.y = ny; this.z = nz; } },
   rotation: { y: 0 },
+  add () {},
   localToWorld (v) { return v; },
   worldToLocal (v) { return v; },
   getWorldPosition (target) { target.x = this.position.x; target.y = this.position.y; target.z = this.position.z; return target; }
@@ -53,6 +54,8 @@ export const makeRoomWithLinks = (...portals) =>
 export const makeOpening = (portalEl) => ({
   object3D: makeObject3D(),
   vertices: [],
+  mesh: null,
+  classList: { add: () => {} },
   getPortal () { return portalEl; },
   parentEl: null,
   setObject3D () {}
@@ -106,6 +109,46 @@ export const makeSystem = () => ({
   buildPending: false
 });
 
+export const makeSceneEl = ({ portals = [], systems = {} } = {}) => ({
+  systems,
+  querySelector: () => null,
+  querySelectorAll: (sel) => sel === 'a-portal' ? portals : []
+});
+
+export const makeEl = ({
+  tag = 'a-entity',
+  parentTag = null,
+  parentAttrs = {},
+  walls = [],
+  openings = [],
+  ceilingEl = null,
+  floorEl = null,
+  sceneEl = null,
+  attrs = {}
+} = {}) => {
+  const el = {
+    localName: tag,
+    parentEl: parentTag ? { localName: parentTag, getAttribute: (a) => parentAttrs[a] ?? null } : null,
+    object3D: makeObject3D(),
+    sceneEl: sceneEl ?? makeSceneEl(),
+    _listeners: {},
+    addEventListener (event, cb) { this._listeners[event] = cb; },
+    removeEventListener () {},
+    querySelector (sel) {
+      if (sel === 'a-ceiling') return ceilingEl;
+      if (sel === 'a-floor') return floorEl;
+      return null;
+    },
+    querySelectorAll (sel) {
+      if (sel === 'a-wall') return walls;
+      if (sel === 'a-opening') return openings;
+      return [];
+    },
+    getAttribute (a) { return attrs[a] ?? null; }
+  };
+  return el;
+};
+
 export const makeCollisionEl = ({
   position = new THREE.Vector3(),
   cameraY = 1.6,
@@ -139,3 +182,13 @@ export const makeCollisionComponent = (el, data = { radius: 0.4 }) => {
   comp.init.call(comp);
   return comp;
 };
+
+const makeComp = (tag, defaultParentTag, { data = {}, ...elOpts } = {}) => ({
+  el: makeEl({ tag, parentTag: defaultParentTag, ...elOpts }),
+  data
+});
+
+export const makeRoomComp = (opts = {}) => makeComp('a-room', 'a-scene', { walls: [{}, {}, {}], ...opts });
+export const makeWallComp = (opts) => makeComp('a-wall', 'a-room', opts);
+export const makeOpeningComp = (opts) => makeComp('a-opening', 'a-wall', opts);
+export const makePortalComp = (opts) => makeComp('a-portal', 'a-scene', opts);
