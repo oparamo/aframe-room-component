@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { makeOpeningComp, makeSceneEl } from '../utils/mocks.js';
 import '../../src/components/opening.js';
 
@@ -50,6 +50,23 @@ describe('opening', () => {
       const result = comp.el.getPortal();
 
       // Assert
+      expect(result).toBe(portal);
+    });
+
+    it('returns cached result on subsequent calls without re-querying the scene', () => {
+      // Arrange
+      const comp = makeOpeningComp();
+      AFRAME._components.opening.init.call(comp);
+      const portal = { components: { portal: { data: { from: comp.el, to: null } } } };
+      const querySelectorAll = vi.fn(() => [portal]);
+      comp.el.sceneEl = { querySelectorAll };
+
+      // Act
+      comp.el.getPortal();
+      const result = comp.el.getPortal();
+
+      // Assert
+      expect(querySelectorAll).toHaveBeenCalledTimes(1);
       expect(result).toBe(portal);
     });
 

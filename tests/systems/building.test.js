@@ -48,14 +48,14 @@ describe('building system', () => {
     it('adds connected portals to dirtyPortals', () => {
       // Arrange
       const system = makeSystem();
-      const dl = makePortal();
-      const room = makeRoom(dl);
+      const portal = makePortal();
+      const room = makeRoom(portal);
 
       // Act
       system.buildRoom(room);
 
       // Assert
-      expect(system.dirtyPortals.has(dl)).toBe(true);
+      expect(system.dirtyPortals.has(portal)).toBe(true);
     });
 
     it('does not add to dirtyPortals when an opening has no portal', () => {
@@ -98,13 +98,13 @@ describe('building system', () => {
     it('adds the portal to dirtyPortals', () => {
       // Arrange
       const system = makeSystem();
-      const dl = makePortal();
+      const portal = makePortal();
 
       // Act
-      system.buildPortal(dl);
+      system.buildPortal(portal);
 
       // Assert
-      expect(system.dirtyPortals.has(dl)).toBe(true);
+      expect(system.dirtyPortals.has(portal)).toBe(true);
     });
 
     it('adds connected rooms to dirtyRooms', () => {
@@ -112,10 +112,10 @@ describe('building system', () => {
       const system = makeSystem();
       const roomA = makeRoom();
       const roomB = makeRoom();
-      const dl = makePortal({ roomA, roomB });
+      const portal = makePortal({ roomA, roomB });
 
       // Act
-      system.buildPortal(dl);
+      system.buildPortal(portal);
 
       // Assert
       expect(system.dirtyRooms.has(roomA)).toBe(true);
@@ -125,21 +125,21 @@ describe('building system', () => {
     it('does not throw when from/to are null', () => {
       // Arrange
       const system = makeSystem();
-      const dl = makePortal();
+      const portal = makePortal();
 
       // Act / Assert
-      expect(() => system.buildPortal(dl)).not.toThrow();
+      expect(() => system.buildPortal(portal)).not.toThrow();
     });
 
     it('does not throw when portal has no component data', () => {
       // Arrange — no components.portal.data hits the || {} fallback on line 24
       const system = makeSystem();
-      const dl = makePortal();
-      dl.components = {};
+      const portal = makePortal();
+      portal.components = {};
 
       // Act / Assert
-      expect(() => system.buildPortal(dl)).not.toThrow();
-      expect(system.dirtyPortals.has(dl)).toBe(true);
+      expect(() => system.buildPortal(portal)).not.toThrow();
+      expect(system.dirtyPortals.has(portal)).toBe(true);
     });
 
     it('schedules a build', () => {
@@ -173,13 +173,13 @@ describe('building system', () => {
       // Arrange
       global.requestAnimationFrame = vi.fn(cb => cb());
       const system = makeSystem();
-      const dl = makePortal();
+      const portal = makePortal();
 
       // Act
-      system.buildPortal(dl);
+      system.buildPortal(portal);
 
       // Assert
-      expect(mockBuildPortal).toHaveBeenCalledWith(dl);
+      expect(mockBuildPortal).toHaveBeenCalledWith(portal);
     });
 
     it('clears dirty sets and resets the scheduled flag after flush', () => {
