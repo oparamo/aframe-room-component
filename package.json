@@ -1,6 +1,6 @@
 {
   "name": "@oparamo/aframe-room-component",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "An A-Frame component for quickly creating rooms connected by doors.",
   "main": "./dist/aframe-room-component.min.js",
   "module": "./dist/aframe-room-component.esm.js",

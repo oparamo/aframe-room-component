@@ -1,9 +1,8 @@
-name: CICD
+name: CI
 
 on:
   push:
-    branches: [ master ]
-    tags: [ "v*" ]
+    branches: [master]
   pull_request:
 
 jobs:
@@ -39,64 +38,3 @@ jobs:
         with:
           name: dist
           path: dist/
-
-  publish:
-    needs: ci
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/download-artifact@v6
-        with:
-          name: dist
-          path: dist/
-
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 10
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 24
-          registry-url: https://registry.npmjs.org
-
-      - run: pnpm publish --no-git-checks --access public
-
-      - run: gh release create ${{ github.ref_name }} --generate-notes dist/*
-        env:
-          GH_TOKEN: ${{ github.token }}
-
-  pages:
-    needs: ci
-    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: actions/download-artifact@v6
-        with:
-          name: dist
-          path: dist/
-
-      - name: Prepare demo site
-        run: |
-          cp -r example/ _site/
-          install -D dist/aframe-room-component.min.js _site/src/index.js
-          sed -i 's| type="module"||' _site/index.html
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: _site/
-
-      - uses: actions/deploy-pages@v4
-        id: deployment
