@@ -16,7 +16,7 @@
     "dist": "vite build && vite build --mode development",
     "lint:fix": "eslint src --fix",
     "lint": "eslint src",
-    "start:https": "vite --https",
+    "start:https": "vite --mode https",
     "start": "vite",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -55,6 +55,7 @@
   },
   "homepage": "https://github.com/oparamo/aframe-room-component#readme",
   "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
     "@vitest/coverage-v8": "4.1.4",
     "eslint": "9.39.4",
     "neostandard": "0.13.0",
