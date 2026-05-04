@@ -1,32 +1,137 @@
 (function(factory) {
 	typeof define === "function" && define.amd ? define([], factory) : factory();
 })(function() {
+	//#region src/components/shared.js
+	var TRANSFORM_PROPS = new Set([
+		"position",
+		"rotation",
+		"scale"
+	]);
+	var requireParent = (el, ...allowed) => {
+		if (!allowed.includes(el.parentEl?.localName)) throw new Error(`<${el.localName}> must be a child of a ${allowed.map((n) => `<${n}>`).join(" or ")}.`);
+	};
+	//#endregion
 	//#region src/components/ceiling.js
-	var DOORLINK$2 = "a-doorlink";
-	var ROOM$2 = "a-room";
-	AFRAME.registerComponent("ceiling", { init: function() {
-		const parentName = this.el.parentEl?.localName;
-		if (parentName !== DOORLINK$2 && parentName !== ROOM$2) {
-			const message = `<a-ceiling> must be a child of a <${DOORLINK$2}> or <${ROOM$2}>.`;
-			throw new Error(message);
+	AFRAME.registerComponent("ceiling", {
+		schema: { uvScale: {
+			type: "number",
+			default: 1
+		} },
+		init: function() {
+			requireParent(this.el, "a-portal", "a-room");
 		}
-	} });
+	});
 	//#endregion
-	//#region src/components/doorhole.js
-	var WALL$1 = "a-wall";
-	AFRAME.registerComponent("doorhole", { init: function() {
-		if (this.el.parentEl?.localName !== WALL$1) {
-			const message = `<a-doorhole> must be a child of a <${WALL$1}>.`;
-			throw new Error(message);
+	//#region src/components/collision.js
+	var DOWN = new THREE.Vector3(0, -1, 0);
+	var FLOOR_SEARCH_HEIGHT = 1.5;
+	var MIN_MOVE_SQ = 1e-6;
+	var MIN_SLIDE_SQ = 1e-4;
+	var TORSO_OFFSET = .6;
+	AFRAME.registerComponent("room-collision", {
+		schema: { radius: {
+			type: "number",
+			default: .4
+		} },
+		init: function() {
+			this.wallMeshes = [];
+			this.floorMeshes = [];
+			this._cameraEl = this.el.querySelector("[camera]") || this.el;
+			this._raycaster = new THREE.Raycaster();
+			this._floorRaycaster = new THREE.Raycaster();
+			this._previousPosition = new THREE.Vector3();
+			this._move = new THREE.Vector3();
+			this._direction = new THREE.Vector3();
+			this._origin = new THREE.Vector3();
+			this._cameraPosition = new THREE.Vector3();
+			this._slideDirection = new THREE.Vector3();
+			this._normal = new THREE.Vector3();
+			this._normalMatrix = new THREE.Matrix3();
+			this._floorOrigin = new THREE.Vector3();
+			this._onLoaded = () => {
+				this._previousPosition.copy(this.el.object3D.position);
+				this._eyeHeight = this._cameraEl !== this.el ? 0 : this._cameraEl.object3D.position.y;
+				this._refreshMeshes();
+			};
+			this._onBuildComplete = () => this._refreshMeshes();
+			this.el.sceneEl.addEventListener("loaded", this._onLoaded);
+			this.el.sceneEl.addEventListener("room-building-complete", this._onBuildComplete);
+		},
+		remove: function() {
+			this.el.sceneEl.removeEventListener("loaded", this._onLoaded);
+			this.el.sceneEl.removeEventListener("room-building-complete", this._onBuildComplete);
+		},
+		_refreshMeshes: function() {
+			this.wallMeshes = [...this.el.sceneEl.querySelectorAll(".collidable")].flatMap((el) => el.mesh ? [el.mesh] : []);
+			this.floorMeshes = [...this.el.sceneEl.querySelectorAll(".walkable")].flatMap((el) => el.mesh ? [el.mesh] : []);
+		},
+		tick: function() {
+			const position = this.el.object3D.position;
+			this._move.subVectors(position, this._previousPosition);
+			if (this._move.lengthSq() < MIN_MOVE_SQ) return;
+			this._cameraEl.object3D.getWorldPosition(this._cameraPosition);
+			this._origin.set(this._previousPosition.x, this._cameraPosition.y - TORSO_OFFSET, this._previousPosition.z);
+			position.copy(this._previousPosition);
+			if (!this._tryMove(this._move, position)) {
+				this._slideDirection.copy(this._move).projectOnPlane(this._normal);
+				if (this._slideDirection.lengthSq() > MIN_SLIDE_SQ) this._tryMove(this._slideDirection, position);
+			}
+			this._snapToFloor(position);
+			this._previousPosition.copy(position);
+		},
+		_snapToFloor: function(position) {
+			this._floorOrigin.set(position.x, position.y + FLOOR_SEARCH_HEIGHT, position.z);
+			this._floorRaycaster.set(this._floorOrigin, DOWN);
+			const hits = this._floorRaycaster.intersectObjects(this.floorMeshes);
+			if (hits.length === 0) return;
+			position.y = hits[0].point.y + this._eyeHeight;
+		},
+		_tryMove: function(moveVector, position) {
+			this._raycaster.set(this._origin, this._direction.copy(moveVector).normalize());
+			const hits = this._raycaster.intersectObjects(this.wallMeshes);
+			if (hits.length > 0 && hits[0].distance < this.data.radius + moveVector.length()) {
+				this._normalMatrix.getNormalMatrix(hits[0].object.matrixWorld);
+				this._normal.copy(hits[0].face.normal).applyMatrix3(this._normalMatrix).normalize();
+				this._normal.y = 0;
+				return false;
+			}
+			position.add(moveVector);
+			return true;
 		}
+	});
+	//#endregion
+	//#region src/components/floor.js
+	AFRAME.registerComponent("floor", {
+		schema: { uvScale: {
+			type: "number",
+			default: 1
+		} },
+		init: function() {
+			requireParent(this.el, "a-portal", "a-room");
+		}
+	});
+	//#endregion
+	//#region src/components/opening.js
+	AFRAME.registerComponent("opening", { init: function() {
+		requireParent(this.el, "a-wall");
 		this.el.vertices = [];
-		this.el.getDoorlink = () => this.el.sceneEl.querySelector(`a-doorlink[from="#${this.el.id}"], a-doorlink[to="#${this.el.id}"]`);
+		this.el._portalEl = void 0;
+		this.el.getPortal = () => {
+			if (this.el._portalEl !== void 0) return this.el._portalEl;
+			for (const portal of this.el.sceneEl.querySelectorAll("a-portal")) {
+				const data = portal.components?.portal?.data;
+				if (data?.from === this.el || data?.to === this.el) {
+					this.el._portalEl = portal;
+					return portal;
+				}
+			}
+			this.el._portalEl = null;
+			return null;
+		};
 	} });
 	//#endregion
-	//#region src/components/doorlink.js
-	var SCENE = "a-scene";
-	var WALL = "a-wall";
-	AFRAME.registerComponent("doorlink", {
+	//#region src/components/portal.js
+	AFRAME.registerComponent("portal", {
 		schema: {
 			from: { type: "selector" },
 			to: { type: "selector" },
@@ -37,30 +142,26 @@
 			width: {
 				type: "number",
 				default: .8
+			},
+			floorHeight: {
+				type: "number",
+				default: 0
 			}
 		},
 		init: function() {
-			const parentName = this.el.parentEl?.localName;
-			if (parentName !== SCENE && parentName !== WALL) {
-				const message = `<a-doorlink> must be a child of a <${SCENE}> or <${WALL}>.`;
-				throw new Error(message);
-			}
+			requireParent(this.el, "a-scene", "a-wall");
+			this._onTransformChanged = (e) => {
+				if (TRANSFORM_PROPS.has(e.detail.name)) this.el.sceneEl.systems?.building?.buildPortal(this.el);
+			};
+			this.el.addEventListener("componentchanged", this._onTransformChanged);
 		},
 		update: function() {
-			this.el.sceneEl.systems?.building?.buildDoorlink(this.el);
+			this.el.sceneEl.systems?.building?.buildPortal(this.el);
+		},
+		remove: function() {
+			this.el.removeEventListener("componentchanged", this._onTransformChanged);
 		}
 	});
-	//#endregion
-	//#region src/components/floor.js
-	var DOORLINK$1 = "a-doorlink";
-	var ROOM$1 = "a-room";
-	AFRAME.registerComponent("floor", { init: function() {
-		const parentName = this.el.parentEl?.localName;
-		if (parentName !== DOORLINK$1 && parentName !== ROOM$1) {
-			const message = `<a-floor> must be a child of a <${DOORLINK$1}> or <${ROOM$1}>.`;
-			throw new Error(message);
-		}
-	} });
 	//#endregion
 	//#region src/components/room.js
 	AFRAME.registerComponent("room", {
@@ -75,7 +176,7 @@
 		},
 		init: function() {
 			const roomEl = this.el;
-			const { length, width } = roomEl?.getAttribute("room");
+			const { length, width } = this.data;
 			const walls = Array.from(roomEl.querySelectorAll("a-wall"));
 			if ((width || length) && !(width && length)) {
 				const message = "<a-room> with WIDTH must also have LENGTH (and vice versa).";
@@ -87,66 +188,81 @@
 				console.error(message);
 				throw new Error(message);
 			}
+			if (!width && !length && walls.length < 3) {
+				const message = "<a-room> needs at least 3 walls.";
+				console.error(message);
+				throw new Error(message);
+			}
 			roomEl.ceiling = roomEl.querySelector("a-ceiling");
 			roomEl.floor = roomEl.querySelector("a-floor");
 			roomEl.walls = walls;
+			roomEl.object3D.visible = false;
+			this._onTransformChanged = (e) => {
+				if (TRANSFORM_PROPS.has(e.detail.name)) roomEl.sceneEl.systems?.building?.buildRoom(roomEl);
+			};
+			roomEl.addEventListener("componentchanged", this._onTransformChanged);
 		},
 		update: function() {
 			this.el.sceneEl.systems?.building?.buildRoom(this.el);
+		},
+		remove: function() {
+			this.el.removeEventListener("componentchanged", this._onTransformChanged);
 		}
 	});
 	//#endregion
 	//#region src/components/sides.js
-	var DOORLINK = "a-doorlink";
-	AFRAME.registerComponent("sides", { init: function() {
-		if (this.el.parentEl?.localName !== DOORLINK) {
-			const message = `<a-sides> must be a child of a <${DOORLINK}>.`;
-			throw new Error(message);
+	AFRAME.registerComponent("sides", {
+		schema: { uvScale: {
+			type: "number",
+			default: 1
+		} },
+		init: function() {
+			requireParent(this.el, "a-portal");
 		}
-	} });
+	});
 	//#endregion
 	//#region src/components/wall.js
-	var ROOM = "a-room";
 	AFRAME.registerComponent("wall", {
-		schema: { height: { type: "number" } },
-		init: function() {
-			if (this.el.parentEl?.localName !== ROOM) {
-				const message = `<a-wall> must be a child of a <${ROOM}>`;
-				throw new Error(message);
+		schema: {
+			height: { type: "number" },
+			uvScale: {
+				type: "number",
+				default: 1
 			}
-			const doorholes = Array.from(this.el.querySelectorAll("a-doorhole"));
-			this.el.doorholes = doorholes.sort((a, b) => a?.object3D?.position?.x - b?.object3D?.position?.x);
-			this.el.getHeight = () => this.el.getAttribute("wall")?.height || this.el.parentEl?.getAttribute("room")?.height;
+		},
+		init: function() {
+			requireParent(this.el, "a-room");
+			const openings = Array.from(this.el.querySelectorAll("a-opening"));
+			this.el.openings = openings.sort((a, b) => a.object3D.position.x - b.object3D.position.x);
+			this.el.getHeight = () => this.el.getAttribute("wall").height || this.el.parentEl.getAttribute("room").height;
 		}
 	});
 	//#endregion
 	//#region src/primitives/a-ceiling.js
 	AFRAME.registerPrimitive("a-ceiling", {
 		defaultComponents: { ceiling: {} },
-		mappings: {}
-	});
-	//#endregion
-	//#region src/primitives/a-doorhole.js
-	AFRAME.registerPrimitive("a-doorhole", {
-		defaultComponents: { doorhole: {} },
-		mappings: {}
-	});
-	//#endregion
-	//#region src/primitives/a-doorlink.js
-	AFRAME.registerPrimitive("a-doorlink", {
-		defaultComponents: { doorlink: {} },
-		mappings: {
-			from: "doorlink.from",
-			to: "doorlink.to",
-			height: "doorlink.height",
-			width: "doorlink.width"
-		}
+		mappings: { "uv-scale": "ceiling.uvScale" }
 	});
 	//#endregion
 	//#region src/primitives/a-floor.js
 	AFRAME.registerPrimitive("a-floor", {
 		defaultComponents: { floor: {} },
-		mappings: {}
+		mappings: { "uv-scale": "floor.uvScale" }
+	});
+	//#endregion
+	//#region src/primitives/a-opening.js
+	AFRAME.registerPrimitive("a-opening", { defaultComponents: { opening: {} } });
+	//#endregion
+	//#region src/primitives/a-portal.js
+	AFRAME.registerPrimitive("a-portal", {
+		defaultComponents: { portal: {} },
+		mappings: {
+			from: "portal.from",
+			to: "portal.to",
+			height: "portal.height",
+			width: "portal.width",
+			"floor-height": "portal.floorHeight"
+		}
 	});
 	//#endregion
 	//#region src/primitives/a-room.js
@@ -163,17 +279,25 @@
 	//#region src/primitives/a-sides.js
 	AFRAME.registerPrimitive("a-sides", {
 		defaultComponents: { sides: {} },
-		mappings: {}
+		mappings: { "uv-scale": "sides.uvScale" }
 	});
 	//#endregion
 	//#region src/primitives/a-wall.js
 	AFRAME.registerPrimitive("a-wall", {
 		defaultComponents: { wall: {} },
-		mappings: { height: "wall.height" }
+		mappings: {
+			height: "wall.height",
+			"uv-scale": "wall.uvScale"
+		}
 	});
 	//#endregion
 	//#region src/systems/buildingService.js
 	var HAIR = 1e-4;
+	var CHILD_TYPES = [
+		"sides",
+		"floor",
+		"ceiling"
+	];
 	var flipGeometry = (geom) => {
 		const indices = geom.getIndex().array;
 		for (let i = 0; i < indices.length; i += 3) {
@@ -185,9 +309,12 @@
 	};
 	var makeGeometryUvs = (geom, callback) => {
 		const indices = geom.getIndex().array;
+		const pos = geom.attributes.position;
+		const vertex = new THREE.Vector3();
 		const uvs = [];
 		for (const vertexIndex of indices) {
-			const [u, v] = callback(new THREE.Vector3(geom.attributes.position.getX(vertexIndex), geom.attributes.position.getY(vertexIndex), geom.attributes.position.getZ(vertexIndex)), vertexIndex % 3);
+			vertex.set(pos.getX(vertexIndex), pos.getY(vertexIndex), pos.getZ(vertexIndex));
+			const [u, v] = callback(vertex, vertexIndex % 3);
 			uvs[vertexIndex * 2 + 0] = u;
 			uvs[vertexIndex * 2 + 1] = v;
 		}
@@ -200,38 +327,39 @@
 	var finishGeometry = (geom) => {
 		geom.computeVertexNormals();
 	};
-	var addDoorlinkWorldVertex = (vertex, doorlinkChildEl, positions) => {
+	var addPortalWorldVertex = (vertex, childEl, positions) => {
 		const point = vertex.clone();
-		doorlinkChildEl.object3D.worldToLocal(point);
+		childEl.object3D.worldToLocal(point);
 		positions.push(point.x, point.y, point.z);
 	};
-	var addDoorholeWorldVertex = (wall, doorhole, ptX, ptY) => {
+	var addOpeningWorldVertex = (wallEl, openingEl, ptX, ptY) => {
 		const vertex = new THREE.Vector3(ptX, ptY, 0);
-		wall.object3D.localToWorld(vertex);
-		doorhole.vertices.push(vertex);
+		wallEl.object3D.localToWorld(vertex);
+		openingEl.vertices.push(vertex);
 	};
-	var positionDoorhole = (doorholeEl) => {
-		const doorlinkEl = doorholeEl.getDoorlink();
-		const wallEl = doorholeEl.parentEl;
+	var positionOpening = (openingEl, portalEl) => {
+		const wallEl = openingEl.parentEl;
 		const nextWallEl = wallEl?.nextWallEl;
-		if (!doorlinkEl || !nextWallEl) return;
+		if (!portalEl || !nextWallEl) return;
 		const wallWorldPosition = new THREE.Vector3();
 		wallEl.object3D.getWorldPosition(wallWorldPosition);
 		const nextWallWorldPosition = new THREE.Vector3();
 		nextWallEl.object3D.getWorldPosition(nextWallWorldPosition);
-		const doorlinkWorldPosition = new THREE.Vector3();
-		doorlinkEl.object3D.getWorldPosition(doorlinkWorldPosition);
-		const doorlinkGapX = doorlinkWorldPosition.x - wallWorldPosition.x;
-		const doorlinkGapZ = doorlinkWorldPosition.z - wallWorldPosition.z;
+		const portalWorldPosition = new THREE.Vector3();
+		portalEl.object3D.getWorldPosition(portalWorldPosition);
+		const portalGapX = portalWorldPosition.x - wallWorldPosition.x;
+		const portalGapZ = portalWorldPosition.z - wallWorldPosition.z;
 		const wallGapX = nextWallWorldPosition.x - wallWorldPosition.x;
+		const wallGapY = nextWallWorldPosition.y - wallWorldPosition.y;
 		const wallGapZ = nextWallWorldPosition.z - wallWorldPosition.z;
-		const wallAngle = Math.atan2(wallGapZ, wallGapX);
-		const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
-		const doorHalf = doorlinkEl.getAttribute("doorlink")?.width / 2;
-		let localLinkX = doorlinkGapX * Math.cos(-wallAngle) - doorlinkGapZ * Math.sin(-wallAngle);
-		localLinkX = Math.max(localLinkX, doorHalf + HAIR);
-		localLinkX = Math.min(localLinkX, wallLength - doorHalf - HAIR);
-		doorholeEl.object3D.position.set(localLinkX, 0, 0);
+		const wallLength = Math.hypot(wallGapX, wallGapZ);
+		const portalHalfWidth = portalEl.getAttribute("portal")?.width / 2;
+		const wallDir = new THREE.Vector2(wallGapX, wallGapZ).normalize();
+		let portalLocalX = new THREE.Vector2(portalGapX, portalGapZ).dot(wallDir);
+		portalLocalX = Math.max(portalLocalX, portalHalfWidth + HAIR);
+		portalLocalX = Math.min(portalLocalX, wallLength - portalHalfWidth - HAIR);
+		const floorY = portalLocalX / wallLength * wallGapY;
+		openingEl.object3D.position.set(portalLocalX, floorY, 0);
 	};
 	var sortWalls = (walls, isOutside) => {
 		let cwSum = 0;
@@ -242,47 +370,44 @@
 			const { x: nextWallX, z: nextWallZ } = nextWallEl.object3D.position;
 			cwSum += (nextWallX - wallX) * (nextWallZ + wallZ);
 		}
-		let shouldReverse = false;
-		if (cwSum > 0) shouldReverse = !shouldReverse;
-		if (isOutside) shouldReverse = !shouldReverse;
-		if (shouldReverse) walls.reverse();
+		if (cwSum > 0 !== isOutside) walls.reverse();
 	};
-	var buildCap = (walls, cap, isCeiling, isOutside) => {
-		const shape = new THREE.Shape();
-		for (let i = 0; i < walls.length; i++) {
-			const wallEl = walls[i];
-			const ptX = wallEl.object3D.position.x;
-			const ptZ = wallEl.object3D.position.z;
-			if (i) shape.lineTo(ptX, ptZ);
-			else shape.moveTo(ptX, ptZ);
+	var getMaterial = (el) => el?.components?.material?.material;
+	var buildCap = (walls, capEl, isCeiling, isOutside) => {
+		const n = walls.length;
+		const positions = [];
+		for (const wallEl of walls) positions.push(wallEl.object3D.position.x, wallEl.object3D.position.y + (isCeiling ? wallEl.getHeight() : 0), wallEl.object3D.position.z);
+		let cx = 0;
+		let cy = 0;
+		let cz = 0;
+		for (let i = 0; i < positions.length; i += 3) {
+			cx += positions[i];
+			cy += positions[i + 1];
+			cz += positions[i + 2];
 		}
-		const geom = new THREE.ShapeGeometry(shape);
-		for (let i = 0; i < walls.length; i++) {
-			const wallEl = walls[i];
-			const vertex = new THREE.Vector3(geom.attributes.position.getX(i), geom.attributes.position.getY(i), geom.attributes.position.getZ(i));
-			vertex.set(vertex.x, wallEl.object3D.position.y, vertex.y);
-			if (isCeiling) vertex.y += wallEl.getHeight();
-			geom.attributes.position.setXYZ(i, vertex.x, vertex.y, vertex.z);
-		}
-		let shouldReverse = false;
-		if (!isCeiling) shouldReverse = !shouldReverse;
-		if (isOutside) shouldReverse = !shouldReverse;
-		if (shouldReverse) flipGeometry(geom);
-		makePlaneUvs(geom, "x", "z", isCeiling ? 1 : -1, 1);
+		positions.push(cx / n, cy / n, cz / n);
+		const indices = [];
+		for (let i = 0; i < n; i++) indices.push(i, (i + 1) % n, n);
+		const geom = new THREE.BufferGeometry();
+		geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+		geom.setIndex(indices);
+		if (isCeiling === isOutside) flipGeometry(geom);
+		const uvScale = capEl.getAttribute(isCeiling ? "ceiling" : "floor").uvScale;
+		makePlaneUvs(geom, "x", "z", (isCeiling ? 1 : -1) * uvScale, uvScale);
 		finishGeometry(geom);
-		const material = cap?.components?.material?.material || cap?.parentEl?.components?.material?.material;
-		if (cap.mesh) {
-			cap.mesh.geometry = geom;
-			cap.mesh.material = material;
+		const material = getMaterial(capEl) || getMaterial(capEl.parentEl);
+		if (capEl.mesh) {
+			capEl.mesh.geometry = geom;
+			capEl.mesh.material = material;
 		} else {
-			const typeLabel = isCeiling ? "ceiling" : "floor";
-			cap.mesh = new THREE.Mesh(geom, material);
-			cap.setObject3D(typeLabel, cap.mesh);
+			const type = isCeiling ? "ceiling" : "floor";
+			capEl.mesh = new THREE.Mesh(geom, material);
+			capEl.setObject3D(type, capEl.mesh);
 		}
 	};
 	var buildRoom = (roomEl) => {
-		const { outside, length, width } = roomEl?.getAttribute("room");
-		const walls = roomEl?.walls;
+		const { outside, length, width } = roomEl.getAttribute("room");
+		const walls = roomEl.walls;
 		if (width && length) {
 			walls[0].object3D.position.set(0, 0, 0);
 			walls[1].object3D.position.set(width, 0, 0);
@@ -298,38 +423,82 @@
 			const wallGapZ = nextWallEl.object3D.position.z - wallEl.object3D.position.z;
 			const heightGap = nextWallEl.getHeight() - wallEl.getHeight();
 			const wallAngle = Math.atan2(wallGapZ, wallGapX);
-			const wallLength = Math.sqrt(wallGapX * wallGapX + wallGapZ * wallGapZ);
-			wallEl.object3D.rotation.y = THREE.MathUtils.degToRad(-wallAngle / Math.PI * 180);
+			const wallLength = Math.hypot(wallGapX, wallGapZ);
+			wallEl.object3D.rotation.y = -wallAngle;
 			const wallShape = new THREE.Shape();
 			wallShape.moveTo(0, wallEl.getHeight());
 			wallShape.lineTo(0, 0);
-			for (const doorholeEl of wallEl.doorholes) {
-				positionDoorhole(doorholeEl);
-				const doorlinkEl = doorholeEl.getDoorlink();
-				if (!doorlinkEl) continue;
-				for (let holeSide = -1; holeSide <= 1; holeSide += 2) {
-					const ptX = doorholeEl.object3D.position.x + doorlinkEl.getAttribute("doorlink").width / 2 * holeSide;
-					const floorY = ptX / wallLength * wallGapY;
-					let topY = floorY + doorlinkEl.getAttribute("doorlink").height;
-					const maxTopY = floorY + (wallEl.getHeight() + ptX / wallLength * heightGap) - HAIR;
-					if (topY > maxTopY) topY = maxTopY;
-					addDoorholeWorldVertex(wallEl, doorholeEl, ptX, floorY);
-					addDoorholeWorldVertex(wallEl, doorholeEl, ptX, topY);
-					if (holeSide < 0) {
-						wallShape.lineTo(ptX, floorY);
-						wallShape.lineTo(ptX, topY);
-					} else {
-						wallShape.lineTo(ptX, topY);
-						wallShape.lineTo(ptX, floorY);
-					}
+			wallShape.lineTo(wallLength, wallGapY);
+			wallShape.lineTo(wallLength, wallGapY + nextWallEl.getHeight());
+			for (const openingEl of wallEl.openings) {
+				const portalEl = openingEl.getPortal();
+				positionOpening(openingEl, portalEl);
+				openingEl.vertices = [];
+				if (openingEl.mesh) {
+					openingEl.mesh.parent?.remove(openingEl.mesh);
+					openingEl.mesh = null;
+				}
+				if (!portalEl) continue;
+				const { width: portalWidth, height: portalHeight, floorHeight = 0 } = portalEl.getAttribute("portal");
+				const pts = [];
+				for (let side = -1; side <= 1; side += 2) {
+					const ptX = openingEl.object3D.position.x + portalWidth / 2 * side;
+					const baseY = ptX / wallLength * wallGapY;
+					const bottomY = baseY + floorHeight;
+					let topY = bottomY + portalHeight;
+					const ceilingY = wallEl.getHeight() + ptX / wallLength * heightGap;
+					if (topY > baseY + ceilingY - HAIR) topY = baseY + ceilingY - HAIR;
+					addOpeningWorldVertex(wallEl, openingEl, ptX, bottomY);
+					addOpeningWorldVertex(wallEl, openingEl, ptX, topY);
+					pts.push({
+						ptX,
+						bottomY,
+						topY
+					});
+				}
+				const hole = new THREE.Path();
+				hole.moveTo(pts[0].ptX, pts[0].bottomY);
+				hole.lineTo(pts[0].ptX, pts[0].topY);
+				hole.lineTo(pts[1].ptX, pts[1].topY);
+				hole.lineTo(pts[1].ptX, pts[1].bottomY);
+				hole.closePath();
+				wallShape.holes.push(hole);
+				if (floorHeight > 0) {
+					const blockGeom = new THREE.BufferGeometry();
+					blockGeom.setIndex([
+						0,
+						1,
+						2,
+						1,
+						3,
+						2
+					]);
+					blockGeom.setAttribute("position", new THREE.BufferAttribute(new Float32Array([
+						pts[0].ptX,
+						pts[0].bottomY,
+						0,
+						pts[0].ptX,
+						pts[0].topY,
+						0,
+						pts[1].ptX,
+						pts[1].bottomY,
+						0,
+						pts[1].ptX,
+						pts[1].topY,
+						0
+					]), 3));
+					const blockMesh = new THREE.Mesh(blockGeom, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+					blockMesh.visible = false;
+					wallEl.object3D.add(blockMesh);
+					openingEl.mesh = blockMesh;
+					openingEl.classList.add("collidable");
 				}
 			}
-			wallShape.lineTo(wallLength, nextWallEl?.object3D?.position?.y - wallEl?.object3D?.position?.y);
-			wallShape.lineTo(wallLength, nextWallEl?.object3D?.position?.y - wallEl?.object3D?.position?.y + nextWallEl.getHeight());
 			const wallGeom = new THREE.ShapeGeometry(wallShape);
-			makePlaneUvs(wallGeom, "x", "y", 1, 1);
+			const uvScale = wallEl.getAttribute("wall").uvScale;
+			makePlaneUvs(wallGeom, "x", "y", uvScale, uvScale);
 			finishGeometry(wallGeom);
-			const material = wallEl?.components?.material?.material || wallEl?.parentEl?.components?.material?.material;
+			const material = getMaterial(wallEl) || getMaterial(wallEl.parentEl);
 			if (wallEl.mesh) {
 				wallEl.mesh.geometry = wallGeom;
 				wallEl.mesh.material = material;
@@ -337,22 +506,28 @@
 				wallEl.mesh = new THREE.Mesh(wallGeom, material);
 				wallEl.setObject3D("wallMesh", wallEl.mesh);
 			}
+			wallEl.classList.add("collidable");
 		}
-		buildCap(walls, roomEl?.floor, false, outside);
-		buildCap(walls, roomEl?.ceiling, true, outside);
+		if (roomEl.floor) {
+			buildCap(walls, roomEl.floor, false, outside);
+			roomEl.floor.classList.add("walkable");
+		}
+		if (roomEl.ceiling) buildCap(walls, roomEl.ceiling, true, outside);
 	};
-	var buildDoorlink = (doorlinkEl) => {
-		const { from, to } = doorlinkEl.getAttribute("doorlink");
-		const fromVerts = from?.vertices;
-		const toVerts = to?.vertices;
-		if (!fromVerts || !toVerts) return;
-		for (const doorlinkChildEl of doorlinkEl.children) for (const type of [
-			"sides",
-			"floor",
-			"ceiling"
-		]) {
-			if (!doorlinkChildEl.components[type]) continue;
-			const material = doorlinkChildEl?.components?.material?.material || doorlinkChildEl?.parentEl?.components?.material?.material;
+	var buildPortal = (portalEl) => {
+		const { from: fromEl, to: toEl } = portalEl.getAttribute("portal");
+		const portalId = portalEl.id ? `#${portalEl.id}` : "<a-portal>";
+		const fromVerts = fromEl?.vertices;
+		const toVerts = toEl?.vertices;
+		if (!fromVerts?.length || !toVerts?.length) {
+			console.error(`${portalId}: opening vertices not found — ensure both openings exist and their rooms have been built.`);
+			return;
+		}
+		const portalFallbackMaterial = getMaterial(fromEl?.parentEl) || getMaterial(fromEl?.parentEl?.parentEl);
+		for (const childEl of portalEl.children) {
+			const type = CHILD_TYPES.find((t) => childEl.components[t]);
+			if (!type) continue;
+			const material = getMaterial(childEl) || getMaterial(childEl.parentEl) || portalFallbackMaterial;
 			const indices = type === "sides" ? [
 				0,
 				1,
@@ -376,68 +551,86 @@
 			];
 			const geom = new THREE.BufferGeometry();
 			geom.setIndex(indices);
-			doorlinkChildEl.mesh = new THREE.Mesh(geom, material);
-			doorlinkChildEl.setObject3D(type, doorlinkChildEl.mesh);
+			childEl.mesh = new THREE.Mesh(geom, material);
+			childEl.setObject3D(type, childEl.mesh);
 			const positions = [];
+			const uvScale = childEl.getAttribute(type).uvScale;
+			let uvCallback;
 			switch (type) {
 				case "floor":
-					addDoorlinkWorldVertex(toVerts[0], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(toVerts[2], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(fromVerts[2], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(fromVerts[0], doorlinkChildEl, positions);
-					geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
-					makeGeometryUvs(geom, (point, vertIndex) => [1 - vertIndex % 2, 1 - Math.floor(vertIndex / 2)]);
+					addPortalWorldVertex(toVerts[0], childEl, positions);
+					addPortalWorldVertex(toVerts[2], childEl, positions);
+					addPortalWorldVertex(fromVerts[2], childEl, positions);
+					addPortalWorldVertex(fromVerts[0], childEl, positions);
+					uvCallback = (point, vertIndex) => [(1 - vertIndex % 2) * uvScale, (1 - Math.floor(vertIndex / 2)) * uvScale];
 					break;
 				case "ceiling":
-					addDoorlinkWorldVertex(toVerts[3], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(toVerts[1], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(fromVerts[1], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(fromVerts[3], doorlinkChildEl, positions);
-					geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
-					makeGeometryUvs(geom, (point, vertIndex) => [vertIndex % 2, 1 - Math.floor(vertIndex / 2)]);
+					addPortalWorldVertex(toVerts[3], childEl, positions);
+					addPortalWorldVertex(toVerts[1], childEl, positions);
+					addPortalWorldVertex(fromVerts[1], childEl, positions);
+					addPortalWorldVertex(fromVerts[3], childEl, positions);
+					uvCallback = (point, vertIndex) => [vertIndex % 2 * uvScale, (1 - Math.floor(vertIndex / 2)) * uvScale];
 					break;
 				case "sides":
-					addDoorlinkWorldVertex(toVerts[2], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(toVerts[3], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(fromVerts[0], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(fromVerts[1], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(fromVerts[2], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(fromVerts[3], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(toVerts[0], doorlinkChildEl, positions);
-					addDoorlinkWorldVertex(toVerts[1], doorlinkChildEl, positions);
-					geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
-					makeGeometryUvs(geom, (point, vertIndex) => {
-						const uv = [];
-						uv[0] = Math.floor(vertIndex / 2);
-						uv[1] = vertIndex % 2;
-						if (vertIndex < 4) uv[0] = 1 - uv[0];
-						return uv;
-					});
+					addPortalWorldVertex(toVerts[2], childEl, positions);
+					addPortalWorldVertex(toVerts[3], childEl, positions);
+					addPortalWorldVertex(fromVerts[0], childEl, positions);
+					addPortalWorldVertex(fromVerts[1], childEl, positions);
+					addPortalWorldVertex(fromVerts[2], childEl, positions);
+					addPortalWorldVertex(fromVerts[3], childEl, positions);
+					addPortalWorldVertex(toVerts[0], childEl, positions);
+					addPortalWorldVertex(toVerts[1], childEl, positions);
+					uvCallback = (point, vertIndex) => {
+						return [(1 - Math.floor(vertIndex / 2)) * uvScale, vertIndex % 2 * uvScale];
+					};
 					break;
 			}
+			geom.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+			makeGeometryUvs(geom, uvCallback);
 			finishGeometry(geom);
+			if (type === "sides") childEl.classList.add("collidable");
+			else if (type === "floor") childEl.classList.add("walkable");
 		}
 	};
 	//#endregion
 	//#region src/systems/building.js
 	AFRAME.registerSystem("building", {
 		init: function() {
-			this.el.addEventListener("loaded", this.initialBuild);
-			this.el.updateReady = false;
-		},
-		initialBuild: function() {
-			const doorlinks = this.querySelectorAll("a-doorlink");
-			const rooms = this.querySelectorAll("a-room");
-			this.object3D.updateMatrixWorld();
-			for (const roomEl of rooms) buildRoom(roomEl);
-			for (const doorlinkEl of doorlinks) buildDoorlink(doorlinkEl);
-			this.updateReady = true;
+			this.buildPending = false;
+			this.dirtyPortals = /* @__PURE__ */ new Set();
+			this.dirtyRooms = /* @__PURE__ */ new Set();
 		},
 		buildRoom: function(roomEl) {
-			if (this.el.updateReady) buildRoom(roomEl);
+			this.dirtyRooms.add(roomEl);
+			for (const wall of roomEl.walls) for (const opening of wall.openings) {
+				const portal = opening.getPortal();
+				if (portal) this.dirtyPortals.add(portal);
+			}
+			this.requestBuild();
 		},
-		buildDoorlink: function(doorlinkEl) {
-			if (this.el.updateReady) buildDoorlink(doorlinkEl);
+		buildPortal: function(portalEl) {
+			const { from, to } = portalEl.components?.portal?.data || {};
+			const roomA = from?.parentEl?.parentEl;
+			const roomB = to?.parentEl?.parentEl;
+			if (roomA) this.dirtyRooms.add(roomA);
+			if (roomB) this.dirtyRooms.add(roomB);
+			this.dirtyPortals.add(portalEl);
+			this.requestBuild();
+		},
+		requestBuild: function() {
+			if (this.buildPending) return;
+			this.buildPending = true;
+			requestAnimationFrame(() => {
+				this.buildPending = false;
+				for (const roomEl of this.dirtyRooms) {
+					buildRoom(roomEl);
+					roomEl.object3D.visible = true;
+				}
+				for (const portalEl of this.dirtyPortals) buildPortal(portalEl);
+				this.dirtyRooms.clear();
+				this.dirtyPortals.clear();
+				this.el.emit("room-building-complete");
+			});
 		}
 	});
 	//#endregion

@@ -1,11 +1,14 @@
 import { defineConfig } from 'vite';
 import { resolve } from 'path';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 
 export default defineConfig(({ command, mode }) => {
   const isProd = mode === 'production';
+  const isHttps = mode === 'https';
 
   if (command === 'serve') {
     return {
+      plugins: isHttps ? [basicSsl()] : [],
       server: {
         port: 8000,
         open: '/example/index.html'

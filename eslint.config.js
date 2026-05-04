@@ -7,7 +7,8 @@ export default [
     languageOptions: {
       globals: {
         AFRAME: 'readonly',
-        THREE: 'readonly'
+        THREE: 'readonly',
+        requestAnimationFrame: 'readonly'
       }
     }
   }

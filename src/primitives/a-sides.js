@@ -1,3 +1,6 @@
 AFRAME.registerPrimitive('a-sides', {
-  defaultComponents: { sides: {} }
+  defaultComponents: { sides: {} },
+  mappings: {
+    'uv-scale': 'sides.uvScale'
+  }
 });
