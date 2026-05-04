@@ -42,16 +42,12 @@ const addPortalWorldVertex = (vertex, childEl, positions) => {
   positions.push(point.x, point.y, point.z);
 };
 
-// Stores world-space vertices on the opening so buildPortal can connect the two openings later.
 const addOpeningWorldVertex = (wallEl, openingEl, ptX, ptY) => {
   const vertex = new THREE.Vector3(ptX, ptY, 0);
   wallEl.object3D.localToWorld(vertex);
   openingEl.vertices.push(vertex);
 };
 
-// Projects the portal's world position onto the wall's local X axis to find
-// where along the wall the opening should be centred, then clamps it so the
-// opening always fits within the wall bounds.
 const positionOpening = (openingEl, portalEl) => {
   const wallEl = openingEl.parentEl;
   const nextWallEl = wallEl?.nextWallEl;
@@ -77,7 +73,6 @@ const positionOpening = (openingEl, portalEl) => {
 
   const portalHalfWidth = portalEl.getAttribute('portal')?.width / 2;
 
-  // Project the portal offset onto the wall axis to get its local X position.
   const wallDir = new THREE.Vector2(wallGapX, wallGapZ).normalize();
   const portalOffset = new THREE.Vector2(portalGapX, portalGapZ);
   let portalLocalX = portalOffset.dot(wallDir);
@@ -88,9 +83,6 @@ const positionOpening = (openingEl, portalEl) => {
   openingEl.object3D.position.set(portalLocalX, floorY, 0);
 };
 
-// Determines the correct winding order for walls so that faces point inward.
-// Uses the shoelace formula to detect clockwise vs counterclockwise winding,
-// then reverses the array if needed (also toggled for outside rooms).
 const sortWalls = (walls, isOutside) => {
   // Shoelace formula: positive sum means clockwise winding in XZ plane.
   let cwSum = 0;
@@ -109,9 +101,6 @@ const sortWalls = (walls, isOutside) => {
 
 const getMaterial = (el) => el?.components?.material?.material;
 
-// Builds the floor or ceiling mesh for a room. Places corner vertices directly in
-// 3D space and fans triangles from the centroid, producing smooth results for any
-// convex room regardless of wall count or height variation.
 const buildCap = (walls, capEl, isCeiling, isOutside) => {
   const n = walls.length;
   const positions = [];
@@ -138,6 +127,7 @@ const buildCap = (walls, capEl, isCeiling, isOutside) => {
   geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
   geom.setIndex(indices);
 
+  // Outside rooms have reversed wall order; ceilings face opposite from floors — flip when only one reversal applies.
   if (isCeiling === isOutside) { flipGeometry(geom); }
 
   const uvScale = capEl.getAttribute(isCeiling ? 'ceiling' : 'floor').uvScale;
@@ -159,7 +149,6 @@ const buildRoom = (roomEl) => {
   const { outside, length, width } = roomEl.getAttribute('room');
   const walls = roomEl.walls;
 
-  // If width and length are set, auto-position the four wall corners as a rectangle.
   if (width && length) {
     walls[0].object3D.position.set(0, 0, 0);
     walls[1].object3D.position.set(width, 0, 0);
@@ -169,8 +158,6 @@ const buildRoom = (roomEl) => {
 
   sortWalls(walls, outside);
 
-  // Build each wall as a 2D shape profile in the wall's local XY plane (X along
-  // the wall, Y upward). Openings are punched in as the shape is traced.
   for (let i = 0; i < walls.length; i++) {
     const wallEl = walls[i];
     const nextWallEl = wallEl.nextWallEl = walls[(i + 1) % walls.length];
@@ -218,7 +205,6 @@ const buildRoom = (roomEl) => {
         const ceilingY = wallEl.getHeight() + (ptX / wallLength) * heightGap;
         if (topY > baseY + ceilingY - HAIR) topY = baseY + ceilingY - HAIR;
 
-        // Record world-space vertices for buildPortal to use later.
         addOpeningWorldVertex(wallEl, openingEl, ptX, bottomY);
         addOpeningWorldVertex(wallEl, openingEl, ptX, topY);
         pts.push({ ptX, bottomY, topY });
@@ -277,9 +263,6 @@ const buildRoom = (roomEl) => {
   if (roomEl.ceiling) buildCap(walls, roomEl.ceiling, true, outside);
 };
 
-// Builds the tunnel geometry connecting two openings. The fromEl and toEl opening
-// elements must already have their world-space vertices populated by buildRoom.
-// Each child element (floor, ceiling, sides) gets its own quad mesh.
 const buildPortal = (portalEl) => {
   const { from: fromEl, to: toEl } = portalEl.getAttribute('portal');
   const portalId = portalEl.id ? `#${portalEl.id}` : '<a-portal>';
@@ -306,7 +289,6 @@ const buildPortal = (portalEl) => {
     childEl.mesh = new THREE.Mesh(geom, material);
     childEl.setObject3D(type, childEl.mesh);
 
-    // Collect vertex positions in world space, then convert to the child's local space.
     // Vertex layout per opening: [0]=left-bottom, [1]=left-top, [2]=right-bottom, [3]=right-top.
     const positions = [];
     const uvScale = childEl.getAttribute(type).uvScale;
