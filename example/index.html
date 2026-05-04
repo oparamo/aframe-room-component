@@ -10,7 +10,6 @@
   <link type="image/png" sizes="96x96" rel="icon" href="https://img.icons8.com/doodle/96/null/home--v1.png">
 
   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.7.0/dist/aframe-extras.min.js"></script>
   <script type="module" src="/src/index.js"></script>
 </head>
 
@@ -33,8 +32,8 @@
     <a-light type="directional" intensity="0.9" position="-1 -2 2"></a-light>
     <a-light type="directional" intensity="1.0" position="2 1 -1"></a-light>
 
-    <a-entity id="rig" movement-controls room-collision position="0 0 0">
-      <a-entity camera="active: true" look-controls="reverseMouseDrag: true" position="0 1.6 0"></a-entity>
+    <a-entity camera="active: true" look-controls="reverseMouseDrag: true" wasd-controls room-collision
+      position="0 1.6 0">
     </a-entity>
 
     <a-room id="roomA" position="-2.5 0 -2.5" width="5" length="5" height="3">
