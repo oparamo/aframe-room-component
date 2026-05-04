@@ -15,6 +15,7 @@ jobs:
       BOT_NAME: github-actions[bot]
       BOT_EMAIL: 41898282+github-actions[bot]@users.noreply.github.com
     permissions:
+      actions: read
       contents: write
       id-token: write
     outputs:
@@ -35,9 +36,6 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
 
       # Determine next semver from conventional commits since last tag (dry run)
       - uses: mathieudutour/github-tag-action@v6.2
@@ -64,22 +62,20 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           custom_tag: ${{ steps.get_version.outputs.new_version }}
 
-      - run: pnpm dist
-        if: steps.get_version.outputs.bump_type != ''
-
-      - uses: actions/upload-artifact@v6
+      - uses: actions/download-artifact@v8
         if: steps.get_version.outputs.bump_type != ''
         with:
           name: dist
           path: dist/
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - run: pnpm publish --no-git-checks --access public
         if: steps.get_version.outputs.bump_type != ''
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - run: gh release create ${{ steps.get_version.outputs.new_tag }} --generate-notes
-          dist/*
+      - run: gh release create ${{ steps.get_version.outputs.new_tag }} --generate-notes dist/*
         if: steps.get_version.outputs.bump_type != ''
         env:
           GH_TOKEN: ${{ github.token }}
@@ -90,6 +86,7 @@ jobs:
     if: needs.release.outputs.bump_type != ''
     runs-on: ubuntu-latest
     permissions:
+      actions: read
       pages: write
       id-token: write
     environment:
@@ -100,10 +97,12 @@ jobs:
         with:
           ref: ${{ needs.release.outputs.new_tag }}
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prepare demo site
         run: |
@@ -111,9 +110,9 @@ jobs:
           install -D dist/aframe-room-component.min.js _site/src/index.js
           sed -i 's| type="module"||' _site/index.html
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: _site/
 
-      - uses: actions/deploy-pages@v4
+      - uses: actions/deploy-pages@v5
         id: deployment
