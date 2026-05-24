@@ -14,7 +14,7 @@ A set of [A-Frame](https://aframe.io) components for quickly creating rooms conn
 ```html
 <head>
   <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/gh/oparamo/aframe-room-component@v1.0.0/dist/aframe-room-component.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/gh/oparamo/aframe-room-component@v2.0.0/dist/aframe-room-component.min.js"></script>
 </head>
 
 <body>
