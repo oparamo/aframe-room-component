@@ -53,7 +53,7 @@ jobs:
           git config user.name "$BOT_NAME"
           git config user.email "$BOT_EMAIL"
           git add package.json README.md
-          git commit -m "chore: bump version to ${{ steps.get_version.outputs.new_tag }} [skip ci]"
+          git diff --staged --quiet || git commit -m "chore: bump version to ${{ steps.get_version.outputs.new_tag }} [skip ci]"
           git push
 
       - uses: mathieudutour/github-tag-action@v6.2
