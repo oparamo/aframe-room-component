@@ -1,31 +1,7 @@
 {
   "name": "@oparamo/aframe-room-component",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "An A-Frame component for quickly creating rooms connected by doors.",
-  "main": "./dist/aframe-room-component.min.js",
-  "module": "./dist/aframe-room-component.esm.js",
-  "cdn": "./dist/aframe-room-component.min.js",
-  "type": "module",
-  "engines": {
-    "node": ">=24.0.0",
-    "pnpm": ">=10.0.0"
-  },
-  "scripts": {
-    "dist:dev": "vite build --mode development",
-    "dist:prd": "vite build",
-    "dist": "vite build && vite build --mode development",
-    "lint:fix": "eslint src --fix",
-    "lint": "eslint src",
-    "start:https": "vite --mode https",
-    "start": "vite",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/oparamo/aframe-room-component.git"
-  },
   "keywords": [
     "3d",
     "aframe-component",
@@ -39,6 +15,15 @@
     "webvr",
     "webxr"
   ],
+  "homepage": "https://github.com/oparamo/aframe-room-component#readme",
+  "bugs": {
+    "url": "https://github.com/oparamo/aframe-room-component/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/oparamo/aframe-room-component.git"
+  },
+  "license": "MIT",
   "contributors": [
     {
       "name": "Hazel Fraticelli",
@@ -49,13 +34,31 @@
       "email": "oscar@paramo.dev"
     }
   ],
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/oparamo/aframe-room-component/issues"
+  "type": "module",
+  "main": "./dist/aframe-room-component.min.js",
+  "module": "./dist/aframe-room-component.esm.js",
+  "files": [
+    "dist"
+  ],
+  "packageManager": "pnpm@12.15.0",
+  "scripts": {
+    "build": "vite build && vite build --mode development",
+    "start": "vite",
+    "start:https": "vite --mode https",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "lint": "eslint src",
+    "lint:fix": "eslint src --fix",
+    "changeset": "changeset",
+    "release": "pnpm build && pnpm lint && pnpm coverage && changeset publish"
   },
-  "homepage": "https://github.com/oparamo/aframe-room-component#readme",
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
-    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "@changesets/cli": "3.0.3",
+    "@vitejs/plugin-basic-ssl": "2.3.0",
     "@vitest/coverage-v8": "4.1.4",
     "eslint": "9.39.4",
     "neostandard": "0.13.0",
