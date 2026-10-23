@@ -58,6 +58,8 @@ export const registeredSystem = (name: string) =>
 // --- Geometry fixtures ---
 
 export const makeObject3D = (x = 0, y = 0, z = 0) => ({
+  matrixWorld: new THREE.Matrix4(),
+  updateWorldMatrix () {},
   position: {
     x,
     y,

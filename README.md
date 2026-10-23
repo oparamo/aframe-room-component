@@ -130,23 +130,17 @@ Window portals (any portal with `floor-height > 0`) automatically block player m
 
 ### Rebuilding at runtime
 
-Changing a room's or portal's attributes, or its `position`, `rotation` or `scale` through `setAttribute` (as the A-Frame inspector does), rebuilds the affected geometry automatically.
+Rooms and portals rebuild their geometry when they change, with nothing to wire up:
 
-The `animation` component is the exception. Since A-Frame 1.7 it moves `object3D` directly without going through `setAttribute`, so an animated room's walls move with it but its portals stay behind. Call `rebuild()` on the room or portal when you want the geometry to catch up:
+- Attributes, and `position`, `rotation` or `scale` set through `setAttribute` (as the A-Frame inspector does), rebuild right away, even while the scene is paused.
+- Movement that bypasses `setAttribute`, such as the `animation` component or code that sets `object3D` directly, is picked up on the next frame. This includes a room moving because its parent entity moves.
 
-```js
-const roomEl = document.querySelector('#lift');
+Rebuilding a room also rebuilds the portals connected to it, and rebuilds in the same frame are batched into one pass.
 
-// Once, when the animation finishes.
-roomEl.addEventListener('animationcomplete', () => roomEl.components.room.rebuild());
-```
-
-To follow the animation frame by frame, call it from a `tick`. Calls made in the same frame are batched into one build, and rebuilding a room also rebuilds the portals connected to it.
+Detection watches each room's and portal's own world transform. For a change it can't see, such as moving a single wall's `object3D` while its room stays put, call `rebuild()`:
 
 ```js
-AFRAME.registerComponent('follow-animation', {
-  tick () { this.el.components.room.rebuild(); }
-});
+roomEl.components.room.rebuild();
 ```
 
 `portalEl.components.portal.rebuild()` does the same for a portal and the rooms it cuts into.

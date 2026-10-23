@@ -137,12 +137,48 @@ describe('room', () => {
       const buildRoom = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
       const comp = makeRoomComp({ data: {}, sceneEl });
+      registeredComponent('room').init.call(comp);
 
       // Act
       comp.rebuild();
 
       // Assert
       expect(buildRoom).toHaveBeenCalledExactlyOnceWith(comp.el);
+    });
+  });
+
+  describe('tick', () => {
+    it('rebuilds when the room has moved since its last rebuild', () => {
+      // Arrange
+      const buildRoom = vi.fn();
+      const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
+      const comp = makeRoomComp({ data: {}, sceneEl });
+      registeredComponent('room').init.call(comp);
+      comp.rebuild();
+      buildRoom.mockClear();
+      comp.el.object3D.matrixWorld.makeTranslation(1, 0, 0);
+
+      // Act
+      comp.tick();
+
+      // Assert
+      expect(buildRoom).toHaveBeenCalledExactlyOnceWith(comp.el);
+    });
+
+    it('does nothing when the room has not moved', () => {
+      // Arrange
+      const buildRoom = vi.fn();
+      const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
+      const comp = makeRoomComp({ data: {}, sceneEl });
+      registeredComponent('room').init.call(comp);
+      comp.rebuild();
+      buildRoom.mockClear();
+
+      // Act
+      comp.tick();
+
+      // Assert
+      expect(buildRoom).not.toHaveBeenCalled();
     });
   });
 
