@@ -11,7 +11,7 @@ AFRAME.registerComponent<Component<unknown, OpeningEl>>('opening', {
     this.el.getPortal = () => {
       if (this.el._portalEl !== undefined) return this.el._portalEl;
       for (const portal of this.el.sceneEl.querySelectorAll<PortalEl>('a-portal')) {
-        const data = portal.components?.portal?.data;
+        const data = portal.components.portal?.data;
         if (data?.from === this.el || data?.to === this.el) {
           this.el._portalEl = portal;
           return portal;

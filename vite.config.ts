@@ -24,17 +24,20 @@ export default defineConfig(({ command, mode }) => {
         formats: isProd ? ['umd', 'es'] : ['umd'],
         fileName: (format) => {
           if (format === 'es') return 'aframe-room-component.esm.js';
-          return isProd ? 'aframe-room-component.min.js' : 'aframe-room-component.js';
+          if (isProd) return 'aframe-room-component.min.js';
+          return 'aframe-room-component.js';
         }
       },
       outDir: 'dist',
       emptyOutDir: false,
       sourcemap: true,
       minify: isProd ? 'terser' : false,
-      terserOptions: isProd ? {
-        compress: { passes: 2 },
-        format: { comments: false }
-      } : undefined
+      terserOptions: isProd
+        ? {
+            compress: { passes: 2 },
+            format: { comments: false }
+          }
+        : undefined
     }
   };
 });

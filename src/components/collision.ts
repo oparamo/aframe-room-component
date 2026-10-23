@@ -42,7 +42,7 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
 
     // Supports rig pattern (room-collision on parent, camera is a child)
     // and direct pattern (room-collision on the camera entity itself).
-    this._cameraEl = this.el.querySelector<Entity>('[camera]') || this.el;
+    this._cameraEl = this.el.querySelector<Entity>('[camera]') ?? this.el;
 
     this._raycaster = new THREE.Raycaster();
     this._floorRaycaster = new THREE.Raycaster();
@@ -88,7 +88,7 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
     if (this._move.lengthSq() < MIN_MOVE_SQ) return;
 
     // Ray origin: previous camera world position at mid-torso height.
-    // Y from current camera position is fine — WASD doesn't move vertically.
+    // Y from the current camera position is fine, since WASD doesn't move vertically.
     this._cameraEl.object3D.getWorldPosition(this._cameraPosition);
     this._origin.set(this._previousPosition.x, this._cameraPosition.y - TORSO_OFFSET, this._previousPosition.z);
 
@@ -97,7 +97,7 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
     position.copy(this._previousPosition);
 
     if (!this._tryMove(this._move, position)) {
-      // Blocked — try sliding along the wall's XZ normal.
+      // Blocked, so try sliding along the wall's XZ normal.
       this._slideDirection.copy(this._move).projectOnPlane(this._normal);
       if (this._slideDirection.lengthSq() > MIN_SLIDE_SQ) {
         this._tryMove(this._slideDirection, position);

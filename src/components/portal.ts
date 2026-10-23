@@ -19,13 +19,13 @@ AFRAME.registerComponent<PortalComponent>('portal', {
 
     this._onTransformChanged = (event) => {
       if (isTransformChange(event)) {
-        this.el.sceneEl.systems?.building?.buildPortal(this.el);
+        this.el.sceneEl.systems.building?.buildPortal(this.el);
       }
     };
     this.el.addEventListener('componentchanged', this._onTransformChanged);
   },
   update: function () {
-    this.el.sceneEl.systems?.building?.buildPortal(this.el);
+    this.el.sceneEl.systems.building?.buildPortal(this.el);
   },
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);

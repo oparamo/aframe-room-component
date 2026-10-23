@@ -48,11 +48,11 @@ export interface SystemLifecycle {
 }
 
 // Methods and state the definition declares beyond the lifecycle get `this` typed as the instance.
-export type ComponentDefinition<T extends Component> =
-  { schema?: Schema } & ComponentLifecycle & Partial<Omit<T, keyof Component>> & ThisType<T>;
+export type ComponentDefinition<T extends Component>
+  = { schema?: Schema } & ComponentLifecycle & Partial<Omit<T, keyof Component>> & ThisType<T>;
 
-export type SystemDefinition<T extends System> =
-  SystemLifecycle & Partial<Omit<T, keyof System>> & ThisType<T>;
+export type SystemDefinition<T extends System>
+  = SystemLifecycle & Partial<Omit<T, keyof System>> & ThisType<T>;
 
 export interface PrimitiveDefinition {
   defaultComponents: Record<string, object>;

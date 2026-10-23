@@ -2,8 +2,8 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { Mesh } from 'three';
 import type { PortalEl } from '../../src/types/elements';
 import {
-  fake, makeObject3D, makeCap, makeWall, makeRoom, makeSquareRoom,
-  makeOpening, makeVertex, makeOpeningVerts, makePortalChild, makePortal
+  fake, makeObject3D, makeWall, makeRoom, makeSquareRoom,
+  makeOpening, makeOpeningVerts, makePortalChild, makePortal
 } from '../utils/mocks';
 
 afterEach(() => vi.restoreAllMocks());
@@ -135,7 +135,7 @@ describe('buildRoom', () => {
 
   describe('opening ceiling clamp', () => {
     it('clamps opening top to wall height when portal is taller than the wall', () => {
-      // Arrange — wall height 2, portal height 3 (exceeds wall)
+      // Arrange: wall height 2, portal height 3 (exceeds wall)
       const tallPortal = fake<PortalEl>({
         getAttribute (attr: string) {
           if (attr === 'portal') return { width: 1, height: 3, floorHeight: 0 };
@@ -144,40 +144,40 @@ describe('buildRoom', () => {
         object3D: makeObject3D(2.5, 0, 0)
       });
       const opening = makeOpening(tallPortal);
-      const wall0 = makeWall(0, 0, 2, [opening], 0);
+      const wall0 = makeWall({ height: 2, openings: [opening] });
       opening.parentEl = wall0;
-      const room = makeRoom([wall0, makeWall(5, 0, 2), makeWall(5, 5, 2), makeWall(0, 5, 2)]);
+      const room = makeRoom([wall0, makeWall({ x: 5, height: 2 }), makeWall({ x: 5, z: 5, height: 2 }), makeWall({ z: 5, height: 2 })]);
 
       // Act
       buildRoom(room);
 
-      // Assert — top vertex Y should be clamped to just below ceiling height (2 - HAIR)
+      // Assert: top vertex Y should be clamped to just below ceiling height (2 - HAIR)
       expect(opening.vertices[1]?.y).toBeCloseTo(2 - 0.0001, 3);
     });
   });
 
   describe('sloped walls', () => {
     it('positions opening Y to match wall slope at its X', () => {
-      // Arrange — wall runs from (0,0,0) to (4,0,4) in XZ, with a Y rise of 2 over length ~5.66
+      // Arrange: wall runs from (0,0,0) to (4,0,4) in XZ, with a Y rise of 2 over length ~5.66
       const portalEl = fake<PortalEl>({
         getAttribute (attr: string) {
-          if (attr === 'portal') return { width: 1, height: 2 };
+          if (attr === 'portal') return { width: 1, height: 2, floorHeight: 0 };
           return null;
         },
         object3D: makeObject3D(2, 0, 2)
       });
       const opening = makeOpening(portalEl);
-      // Wall at (0,0,0), next wall at (4,2,4) — slopes upward by 2 units over XZ length ~5.66
-      const wall0 = makeWall(0, 0, 3, [opening], 0);
-      const wall1 = makeWall(4, 4, 3, [], 2);
-      const wall2 = makeWall(0, 4, 3, [], 0);
+      // Wall at (0,0,0), next wall at (4,2,4): slopes upward by 2 units over XZ length ~5.66
+      const wall0 = makeWall({ openings: [opening] });
+      const wall1 = makeWall({ x: 4, y: 2, z: 4 });
+      const wall2 = makeWall({ z: 4 });
       opening.parentEl = wall0;
       const room = makeRoom([wall0, wall1, wall2]);
 
       // Act
       buildRoom(room);
 
-      // Assert — opening X should be ~half the wall length, Y should be ~half the Y rise
+      // Assert: opening X should be ~half the wall length, Y should be ~half the Y rise
       const wallLength = Math.hypot(4, 4); // ~5.66
       const expectedX = wallLength / 2;
       const expectedY = (expectedX / wallLength) * 2; // = 1
@@ -189,10 +189,10 @@ describe('buildRoom', () => {
   describe('cap triangulation', () => {
     it('uses centroid fan for a 4-wall room', () => {
       const room = makeRoom([
-        makeWall(0, 0, 2),
-        makeWall(4, 0, 2),
-        makeWall(4, 4, 4),
-        makeWall(0, 4, 2)
+        makeWall({ height: 2 }),
+        makeWall({ x: 4, height: 2 }),
+        makeWall({ x: 4, z: 4, height: 4 }),
+        makeWall({ z: 4, height: 2 })
       ]);
 
       buildRoom(room);
@@ -204,11 +204,11 @@ describe('buildRoom', () => {
 
     it('uses centroid fan for a 5-wall room', () => {
       const room = makeRoom([
-        makeWall(0, 0, 2),
-        makeWall(4, 0, 2),
-        makeWall(6, 2, 2),
-        makeWall(4, 4, 3),
-        makeWall(0, 4, 2)
+        makeWall({ height: 2 }),
+        makeWall({ x: 4, height: 2 }),
+        makeWall({ x: 6, z: 2, height: 2 }),
+        makeWall({ x: 4, z: 4 }),
+        makeWall({ z: 4, height: 2 })
       ]);
 
       buildRoom(room);
@@ -226,7 +226,7 @@ describe('buildRoom', () => {
       const remove = vi.fn();
       const staleMesh = fake<Mesh>({ parent: { remove } });
       opening.mesh = staleMesh;
-      const room = makeRoom([makeWall(0, 0, 3, [opening]), makeWall(5, 0, 3), makeWall(5, 5, 3), makeWall(0, 5, 3)]);
+      const room = makeRoom([makeWall({ openings: [opening] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
 
       // Act
       buildRoom(room);
@@ -249,9 +249,9 @@ describe('buildRoom', () => {
       });
       const opening = makeOpening(windowPortal);
       const addClassSpy = vi.spyOn(opening.classList, 'add');
-      const wall0 = makeWall(0, 0, 3, [opening], 0);
+      const wall0 = makeWall({ openings: [opening] });
       opening.parentEl = wall0;
-      const room = makeRoom([wall0, makeWall(5, 0, 3), makeWall(5, 5, 3), makeWall(0, 5, 3)]);
+      const room = makeRoom([wall0, makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
 
       // Act
       buildRoom(room);
@@ -269,7 +269,7 @@ describe('buildRoom', () => {
       const room = makeSquareRoom();
       room.floor = null;
 
-      // Act & Assert — should not throw
+      // Act / Assert: should not throw
       expect(() => buildRoom(room)).not.toThrow();
       expect(room.ceiling?.mesh).not.toBeNull();
     });
@@ -279,7 +279,7 @@ describe('buildRoom', () => {
       const room = makeSquareRoom();
       room.ceiling = null;
 
-      // Act & Assert — should not throw
+      // Act / Assert: should not throw
       expect(() => buildRoom(room)).not.toThrow();
       expect(room.floor?.mesh).not.toBeNull();
     });
@@ -407,12 +407,12 @@ describe('buildPortal', () => {
   });
 
   it('skips children with no matching type component', () => {
-    // Arrange — child has no floor/ceiling/sides component
+    // Arrange: child has no floor/ceiling/sides component
     const unknownChild = makePortalChild('floor');
     unknownChild.components = {};
     const portal = makePortal({ fromVerts, toVerts, children: [unknownChild] });
 
-    // Act / Assert — should not throw and mesh remains null
+    // Act / Assert: should not throw and mesh remains null
     expect(() => buildPortal(portal)).not.toThrow();
     expect(unknownChild.mesh).toBeNull();
   });

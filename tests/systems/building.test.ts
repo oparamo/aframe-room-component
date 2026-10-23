@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { makePortal, makeRoomWithLinks, makeRoomWithLinks as makeRoom, makeSystem, registeredSystem } from '../utils/mocks';
+import { immediateAnimationFrame, makePortal, makeRoomWithLinks, makeRoomWithLinks as makeRoom, makeSystem, registeredSystem } from '../utils/mocks';
 
 vi.mock('../../src/systems/buildingService', () => ({
   buildRoom: vi.fn(),
@@ -59,7 +59,7 @@ describe('building system', () => {
     });
 
     it('does not add to dirtyPortals when an opening has no portal', () => {
-      // Arrange — makeRoomWithLinks(null) creates a room with an opening whose getPortal() returns null
+      // Arrange: makeRoomWithLinks(null) creates a room with an opening whose getPortal() returns null
       const system = makeSystem();
       const room = makeRoomWithLinks(null);
 
@@ -132,7 +132,7 @@ describe('building system', () => {
     });
 
     it('does not throw when portal has no component data', () => {
-      // Arrange — no components.portal.data hits the || {} fallback on line 24
+      // Arrange: the portal has no components.portal.data
       const system = makeSystem();
       const portal = makePortal();
       portal.components = {};
@@ -157,7 +157,7 @@ describe('building system', () => {
   describe('requestBuild', () => {
     it('calls buildRoom for each dirty room and makes it visible', () => {
       // Arrange
-      globalThis.requestAnimationFrame = vi.fn(cb => cb());
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
       const system = makeSystem();
       const room = makeRoom();
 
@@ -171,7 +171,7 @@ describe('building system', () => {
 
     it('calls buildPortal for each dirty portal', () => {
       // Arrange
-      globalThis.requestAnimationFrame = vi.fn(cb => cb());
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
       const system = makeSystem();
       const portal = makePortal();
 
@@ -184,7 +184,7 @@ describe('building system', () => {
 
     it('clears dirty sets and resets the scheduled flag after flush', () => {
       // Arrange
-      globalThis.requestAnimationFrame = vi.fn(cb => cb());
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
       const system = makeSystem();
 
       // Act
@@ -198,7 +198,7 @@ describe('building system', () => {
 
     it('allows a new build to be scheduled after a flush completes', () => {
       // Arrange
-      globalThis.requestAnimationFrame = vi.fn(cb => cb());
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
       const system = makeSystem();
 
       // Act

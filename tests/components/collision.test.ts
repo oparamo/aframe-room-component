@@ -129,7 +129,7 @@ describe('room-collision', () => {
       const el = makeCollisionEl();
       const comp = makeCollisionComponent(el);
       vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([fake<Intersection>({
-        distance: 0.3,  // < radius(0.4) + moveLen(0.1) = 0.5
+        distance: 0.3, // < radius(0.4) + moveLen(0.1) = 0.5
         face: { normal: new THREE.Vector3(-1, 0, 0) },
         object: { matrixWorld: new THREE.Matrix4() }
       })]);
@@ -143,7 +143,7 @@ describe('room-collision', () => {
     });
 
     it('slides along the wall when blocked at an angle', () => {
-      // Arrange — diagonal movement into a wall with normal (-1, 0, 0);
+      // Arrange: diagonal movement into a wall with normal (-1, 0, 0);
       // slide direction = (0, 0, 0.1), so player should end up at z > 0.
       const el = makeCollisionEl();
       const comp = makeCollisionComponent(el);
@@ -165,7 +165,7 @@ describe('room-collision', () => {
     });
 
     it('does not move when blocked head-on and slide direction is negligible', () => {
-      // Arrange — movement directly into the wall's normal; slide = zero vector.
+      // Arrange: movement directly into the wall's normal; slide = zero vector.
       const el = makeCollisionEl();
       const comp = makeCollisionComponent(el);
       vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([fake<Intersection>({
@@ -186,7 +186,7 @@ describe('room-collision', () => {
 
   describe('_snapToFloor', () => {
     it('does not change y when no floor mesh is found below', () => {
-      // Arrange — floorMeshes is empty so intersectObjects returns []
+      // Arrange: floorMeshes is empty so intersectObjects returns []
       const el = makeCollisionEl();
       const comp = makeCollisionComponent(el);
       const pos = new THREE.Vector3(0, 0, 0);
@@ -215,7 +215,7 @@ describe('room-collision', () => {
     });
 
     it('snaps y to floor hit point plus eye height in direct camera mode', () => {
-      // Arrange — camera starts at y=1.6 so _eyeHeight is snapshotted as 1.6
+      // Arrange: camera starts at y=1.6 so _eyeHeight is snapshotted as 1.6
       const position = new THREE.Vector3(0, 1.6, 0);
       const el = makeCollisionEl({ position, floorCollidables: [{ mesh: {} }] });
       const comp = makeCollisionComponent(el);
@@ -273,7 +273,7 @@ describe('room-collision', () => {
       const pos = new THREE.Vector3();
       const moveVec = new THREE.Vector3(0.1, 0, 0);
       vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([fake<Intersection>({
-        distance: 0.3,  // < 0.4 + 0.1
+        distance: 0.3, // < 0.4 + 0.1
         face: { normal: new THREE.Vector3(1, 0, 0) },
         object: { matrixWorld: new THREE.Matrix4() }
       })]);
@@ -287,7 +287,7 @@ describe('room-collision', () => {
     });
 
     it('zeroes the y component of the stored wall normal', () => {
-      // Arrange — face normal has a non-zero Y; sliding should remain horizontal.
+      // Arrange: face normal has a non-zero Y; sliding should remain horizontal.
       const el = makeCollisionEl();
       const comp = makeCollisionComponent(el);
       vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([fake<Intersection>({
