@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
-import { makeOpeningComp, makeSceneEl } from '../utils/mocks.js';
-import '../../src/components/opening.js';
+import type { BuildingScene } from '../../src/types/elements';
+import { fake, makeOpeningComp, makeSceneEl, registeredComponent } from '../utils/mocks';
+import '../../src/components/opening';
 
 describe('opening', () => {
   describe('init', () => {
@@ -9,7 +10,7 @@ describe('opening', () => {
       const comp = makeOpeningComp({ parentTag: 'a-room' });
 
       // Act / Assert
-      expect(() => AFRAME._components.opening.init.call(comp)).toThrow();
+      expect(() => registeredComponent('opening').init.call(comp)).toThrow();
     });
 
     it('initializes vertices as an empty array', () => {
@@ -17,7 +18,7 @@ describe('opening', () => {
       const comp = makeOpeningComp();
 
       // Act
-      AFRAME._components.opening.init.call(comp);
+      registeredComponent('opening').init.call(comp);
 
       // Assert
       expect(comp.el.vertices).toEqual([]);
@@ -28,7 +29,7 @@ describe('opening', () => {
     it('returns the portal whose from matches this opening', () => {
       // Arrange
       const comp = makeOpeningComp();
-      AFRAME._components.opening.init.call(comp);
+      registeredComponent('opening').init.call(comp);
       const portal = { components: { portal: { data: { from: comp.el, to: null } } } };
       comp.el.sceneEl = makeSceneEl({ portals: [portal] });
 
@@ -42,7 +43,7 @@ describe('opening', () => {
     it('returns the portal whose to matches this opening', () => {
       // Arrange
       const comp = makeOpeningComp();
-      AFRAME._components.opening.init.call(comp);
+      registeredComponent('opening').init.call(comp);
       const portal = { components: { portal: { data: { from: null, to: comp.el } } } };
       comp.el.sceneEl = makeSceneEl({ portals: [portal] });
 
@@ -56,10 +57,10 @@ describe('opening', () => {
     it('returns cached result on subsequent calls without re-querying the scene', () => {
       // Arrange
       const comp = makeOpeningComp();
-      AFRAME._components.opening.init.call(comp);
+      registeredComponent('opening').init.call(comp);
       const portal = { components: { portal: { data: { from: comp.el, to: null } } } };
       const querySelectorAll = vi.fn(() => [portal]);
-      comp.el.sceneEl = { querySelectorAll };
+      comp.el.sceneEl = fake<BuildingScene>({ querySelectorAll });
 
       // Act
       comp.el.getPortal();
@@ -73,7 +74,7 @@ describe('opening', () => {
     it('returns null when no portal references this opening', () => {
       // Arrange
       const comp = makeOpeningComp();
-      AFRAME._components.opening.init.call(comp);
+      registeredComponent('opening').init.call(comp);
       const portal = { components: { portal: { data: { from: {}, to: {} } } } };
       comp.el.sceneEl = makeSceneEl({ portals: [portal] });
 

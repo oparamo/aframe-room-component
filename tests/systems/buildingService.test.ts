@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import type { Mesh } from 'three';
+import type { PortalEl } from '../../src/types/elements';
 import {
-  makeObject3D, makeCap, makeWall, makeRoom, makeSquareRoom,
+  fake, makeObject3D, makeCap, makeWall, makeRoom, makeSquareRoom,
   makeOpening, makeVertex, makeOpeningVerts, makePortalChild, makePortal
-} from '../utils/mocks.js';
+} from '../utils/mocks';
 
 afterEach(() => vi.restoreAllMocks());
-import { buildRoom, buildPortal } from '../../src/systems/buildingService.js';
+import { buildRoom, buildPortal } from '../../src/systems/buildingService';
 
 // --- buildRoom ---
 
@@ -32,7 +34,7 @@ describe('buildRoom', () => {
       buildRoom(room);
 
       // Assert
-      expect(room.floor.mesh).not.toBeNull();
+      expect(room.floor?.mesh).not.toBeNull();
     });
 
     it('creates a mesh for the ceiling', () => {
@@ -43,7 +45,7 @@ describe('buildRoom', () => {
       buildRoom(room);
 
       // Assert
-      expect(room.ceiling.mesh).not.toBeNull();
+      expect(room.ceiling?.mesh).not.toBeNull();
     });
 
     it('sets nextWallEl on each wall', () => {
@@ -67,7 +69,7 @@ describe('buildRoom', () => {
       buildRoom(room);
 
       // Assert
-      expect(room.walls[room.walls.length - 1].nextWallEl).toBe(room.walls[0]);
+      expect(room.walls.at(-1)?.nextWallEl).toBe(room.walls[0]);
     });
 
     it('assigns wall mesh geometry with vertices', () => {
@@ -79,7 +81,7 @@ describe('buildRoom', () => {
 
       // Assert
       for (const wall of room.walls) {
-        expect(wall.mesh.geometry.attributes.position).toBeDefined();
+        expect(wall.mesh?.geometry.getAttribute('position')).toBeDefined();
       }
     });
   });
@@ -93,10 +95,10 @@ describe('buildRoom', () => {
       buildRoom(room);
 
       // Assert
-      expect(room.walls[0].object3D.position).toMatchObject({ x: 0, z: 0 });
-      expect(room.walls[1].object3D.position).toMatchObject({ x: 4, z: 0 });
-      expect(room.walls[2].object3D.position).toMatchObject({ x: 4, z: 6 });
-      expect(room.walls[3].object3D.position).toMatchObject({ x: 0, z: 6 });
+      expect(room.walls[0]?.object3D.position).toMatchObject({ x: 0, z: 0 });
+      expect(room.walls[1]?.object3D.position).toMatchObject({ x: 4, z: 0 });
+      expect(room.walls[2]?.object3D.position).toMatchObject({ x: 4, z: 6 });
+      expect(room.walls[3]?.object3D.position).toMatchObject({ x: 0, z: 6 });
     });
   });
 
@@ -121,26 +123,26 @@ describe('buildRoom', () => {
       // Arrange
       const room = makeSquareRoom();
       buildRoom(room);
-      const firstGeom = room.walls[0].mesh.geometry;
+      const firstGeom = room.walls[0]?.mesh?.geometry;
 
       // Act
       buildRoom(room);
 
       // Assert
-      expect(room.walls[0].mesh.geometry).not.toBe(firstGeom);
+      expect(room.walls[0]?.mesh?.geometry).not.toBe(firstGeom);
     });
   });
 
   describe('opening ceiling clamp', () => {
     it('clamps opening top to wall height when portal is taller than the wall', () => {
       // Arrange — wall height 2, portal height 3 (exceeds wall)
-      const tallPortal = {
-        getAttribute (attr) {
+      const tallPortal = fake<PortalEl>({
+        getAttribute (attr: string) {
           if (attr === 'portal') return { width: 1, height: 3, floorHeight: 0 };
           return null;
         },
         object3D: makeObject3D(2.5, 0, 0)
-      };
+      });
       const opening = makeOpening(tallPortal);
       const wall0 = makeWall(0, 0, 2, [opening], 0);
       opening.parentEl = wall0;
@@ -150,20 +152,20 @@ describe('buildRoom', () => {
       buildRoom(room);
 
       // Assert — top vertex Y should be clamped to just below ceiling height (2 - HAIR)
-      expect(opening.vertices[1].y).toBeCloseTo(2 - 0.0001, 3);
+      expect(opening.vertices[1]?.y).toBeCloseTo(2 - 0.0001, 3);
     });
   });
 
   describe('sloped walls', () => {
     it('positions opening Y to match wall slope at its X', () => {
       // Arrange — wall runs from (0,0,0) to (4,0,4) in XZ, with a Y rise of 2 over length ~5.66
-      const portalEl = {
-        getAttribute (attr) {
+      const portalEl = fake<PortalEl>({
+        getAttribute (attr: string) {
           if (attr === 'portal') return { width: 1, height: 2 };
           return null;
         },
         object3D: makeObject3D(2, 0, 2)
-      };
+      });
       const opening = makeOpening(portalEl);
       // Wall at (0,0,0), next wall at (4,2,4) — slopes upward by 2 units over XZ length ~5.66
       const wall0 = makeWall(0, 0, 3, [opening], 0);
@@ -196,8 +198,8 @@ describe('buildRoom', () => {
       buildRoom(room);
 
       // 4 corners + 1 centroid = 5 vertices; 4 triangles × 3 indices = 12
-      expect(room.ceiling.mesh.geometry.attributes.position.count).toBe(5);
-      expect(room.ceiling.mesh.geometry.getIndex().count).toBe(12);
+      expect(room.ceiling?.mesh?.geometry.getAttribute('position').count).toBe(5);
+      expect(room.ceiling?.mesh?.geometry.getIndex()?.count).toBe(12);
     });
 
     it('uses centroid fan for a 5-wall room', () => {
@@ -212,8 +214,8 @@ describe('buildRoom', () => {
       buildRoom(room);
 
       // 5 corners + 1 centroid = 6 vertices; 5 triangles × 3 indices = 15
-      expect(room.ceiling.mesh.geometry.attributes.position.count).toBe(6);
-      expect(room.ceiling.mesh.geometry.getIndex().count).toBe(15);
+      expect(room.ceiling?.mesh?.geometry.getAttribute('position').count).toBe(6);
+      expect(room.ceiling?.mesh?.geometry.getIndex()?.count).toBe(15);
     });
   });
 
@@ -221,7 +223,8 @@ describe('buildRoom', () => {
     it('removes and nulls a stale window-blocker mesh before rebuilding', () => {
       // Arrange
       const opening = makeOpening(null);
-      const staleMesh = { parent: { remove: vi.fn() } };
+      const remove = vi.fn();
+      const staleMesh = fake<Mesh>({ parent: { remove } });
       opening.mesh = staleMesh;
       const room = makeRoom([makeWall(0, 0, 3, [opening]), makeWall(5, 0, 3), makeWall(5, 5, 3), makeWall(0, 5, 3)]);
 
@@ -229,7 +232,7 @@ describe('buildRoom', () => {
       buildRoom(room);
 
       // Assert
-      expect(staleMesh.parent.remove).toHaveBeenCalledWith(staleMesh);
+      expect(remove).toHaveBeenCalledWith(staleMesh);
       expect(opening.mesh).toBeNull();
     });
   });
@@ -237,16 +240,15 @@ describe('buildRoom', () => {
   describe('window blocker', () => {
     it('creates an invisible collidable mesh for openings with floorHeight > 0', () => {
       // Arrange
-      const windowPortal = {
-        getAttribute (attr) {
+      const windowPortal = fake<PortalEl>({
+        getAttribute (attr: string) {
           if (attr === 'portal') return { width: 1, height: 1, floorHeight: 0.5 };
           return null;
         },
         object3D: makeObject3D(2.5, 0, 0)
-      };
+      });
       const opening = makeOpening(windowPortal);
-      const addClassSpy = vi.fn();
-      opening.classList = { add: addClassSpy };
+      const addClassSpy = vi.spyOn(opening.classList, 'add');
       const wall0 = makeWall(0, 0, 3, [opening], 0);
       opening.parentEl = wall0;
       const room = makeRoom([wall0, makeWall(5, 0, 3), makeWall(5, 5, 3), makeWall(0, 5, 3)]);
@@ -256,7 +258,7 @@ describe('buildRoom', () => {
 
       // Assert
       expect(opening.mesh).not.toBeNull();
-      expect(opening.mesh.visible).toBe(false);
+      expect(opening.mesh?.visible).toBe(false);
       expect(addClassSpy).toHaveBeenCalledWith('collidable');
     });
   });
@@ -269,7 +271,7 @@ describe('buildRoom', () => {
 
       // Act & Assert — should not throw
       expect(() => buildRoom(room)).not.toThrow();
-      expect(room.ceiling.mesh).not.toBeNull();
+      expect(room.ceiling?.mesh).not.toBeNull();
     });
 
     it('skips ceiling when ceiling is null', () => {
@@ -279,7 +281,7 @@ describe('buildRoom', () => {
 
       // Act & Assert — should not throw
       expect(() => buildRoom(room)).not.toThrow();
-      expect(room.floor.mesh).not.toBeNull();
+      expect(room.floor?.mesh).not.toBeNull();
     });
   });
 });
@@ -335,7 +337,7 @@ describe('buildPortal', () => {
     buildPortal(portal);
 
     // Assert
-    expect(floorChild.mesh.geometry.attributes.position.count).toBe(4);
+    expect(floorChild.mesh?.geometry.getAttribute('position').count).toBe(4);
   });
 
   it('ceiling geometry has 4 vertices', () => {
@@ -347,7 +349,7 @@ describe('buildPortal', () => {
     buildPortal(portal);
 
     // Assert
-    expect(ceilingChild.mesh.geometry.attributes.position.count).toBe(4);
+    expect(ceilingChild.mesh?.geometry.getAttribute('position').count).toBe(4);
   });
 
   it('sides geometry has 8 vertices', () => {
@@ -359,7 +361,7 @@ describe('buildPortal', () => {
     buildPortal(portal);
 
     // Assert
-    expect(sidesChild.mesh.geometry.attributes.position.count).toBe(8);
+    expect(sidesChild.mesh?.geometry.getAttribute('position').count).toBe(8);
   });
 
   it('logs an error and does nothing when from element is missing', () => {

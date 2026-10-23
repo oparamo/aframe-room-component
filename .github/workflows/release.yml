@@ -26,14 +26,15 @@ jobs:
           create-github-releases: true
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      # The demo loads /src/index.js in development; the deployed copy swaps in the bundle that
-      # was just published, which is a classic script rather than a module.
+      # The demo loads /src/index.ts in development; the deployed copy swaps in the bundle that
+      # was just published, which is a classic script rather than a module. It is served as .js
+      # because Pages would send a .ts file with a video MIME type.
       - name: Prepare demo site
         if: steps.changesets.outputs.published == 'true'
         run: |
           cp -r example/ _site/
           install -D dist/aframe-room-component.min.js _site/src/index.js
-          sed -i 's| type="module"||' _site/index.html
+          sed -i 's| type="module"||; s|/src/index.ts|/src/index.js|' _site/index.html
 
       - uses: actions/upload-pages-artifact@v5
         if: steps.changesets.outputs.published == 'true'

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { makePortalComp, makeSceneEl } from '../utils/mocks.js';
-import '../../src/components/portal.js';
+import { fireComponentChanged, makePortalComp, makeSceneEl, registeredComponent } from '../utils/mocks';
+import '../../src/components/portal';
 
 describe('portal', () => {
   describe('init', () => {
@@ -9,7 +9,7 @@ describe('portal', () => {
       const comp = makePortalComp({ parentTag: 'a-room' });
 
       // Act / Assert
-      expect(() => AFRAME._components.portal.init.call(comp)).toThrow();
+      expect(() => registeredComponent('portal').init.call(comp)).toThrow();
     });
 
     it('does not throw when parent is a-wall', () => {
@@ -17,7 +17,7 @@ describe('portal', () => {
       const comp = makePortalComp({ parentTag: 'a-wall' });
 
       // Act / Assert
-      expect(() => AFRAME._components.portal.init.call(comp)).not.toThrow();
+      expect(() => registeredComponent('portal').init.call(comp)).not.toThrow();
     });
 
     it('registers componentchanged listener', () => {
@@ -25,7 +25,7 @@ describe('portal', () => {
       const comp = makePortalComp();
 
       // Act
-      AFRAME._components.portal.init.call(comp);
+      registeredComponent('portal').init.call(comp);
 
       // Assert
       expect(comp.el._listeners.componentchanged).toBeDefined();
@@ -38,10 +38,10 @@ describe('portal', () => {
       const buildPortal = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
       const comp = makePortalComp({ sceneEl });
-      AFRAME._components.portal.init.call(comp);
+      registeredComponent('portal').init.call(comp);
 
       // Act
-      comp.el._listeners.componentchanged({ detail: { name: 'position' } });
+      fireComponentChanged(comp.el, 'position');
 
       // Assert
       expect(buildPortal).toHaveBeenCalledWith(comp.el);
@@ -52,10 +52,10 @@ describe('portal', () => {
       const buildPortal = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
       const comp = makePortalComp({ sceneEl });
-      AFRAME._components.portal.init.call(comp);
+      registeredComponent('portal').init.call(comp);
 
       // Act
-      comp.el._listeners.componentchanged({ detail: { name: 'color' } });
+      fireComponentChanged(comp.el, 'color');
 
       // Assert
       expect(buildPortal).not.toHaveBeenCalled();
@@ -68,10 +68,10 @@ describe('portal', () => {
       const buildPortal = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
       const comp = makePortalComp({ sceneEl });
-      AFRAME._components.portal.init.call(comp);
+      registeredComponent('portal').init.call(comp);
 
       // Act
-      AFRAME._components.portal.update.call(comp);
+      registeredComponent('portal').update.call(comp);
 
       // Assert
       expect(buildPortal).toHaveBeenCalledWith(comp.el);
@@ -82,11 +82,11 @@ describe('portal', () => {
     it('removes componentchanged listener', () => {
       // Arrange
       const comp = makePortalComp();
-      AFRAME._components.portal.init.call(comp);
+      registeredComponent('portal').init.call(comp);
       const removeSpy = vi.spyOn(comp.el, 'removeEventListener');
 
       // Act
-      AFRAME._components.portal.remove.call(comp);
+      registeredComponent('portal').remove.call(comp);
 
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);

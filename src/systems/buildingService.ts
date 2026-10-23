@@ -1,22 +1,32 @@
-const HAIR = 0.0001; // Small epsilon to prevent z-fighting at opening edges.
-const CHILD_TYPES = ['sides', 'floor', 'ceiling'];
+import type { BufferGeometry, Vector3 } from 'three';
+import type { Entity } from '../types/aframe';
+import type { BuildingEl, OpeningEl, PortalEl, RoomEl, SurfaceType, WallEl } from '../types/elements';
+import { required } from './required';
 
-const flipGeometry = (geom) => {
-  const indices = geom.getIndex().array;
-  for (let i = 0; i < indices.length; i += 3) {
-    const tempIndex = indices[i + 2];
-    indices[i + 2] = indices[i + 1];
-    indices[i + 1] = tempIndex;
+type UvCallback = (vertex: Vector3, vertIndex: number) => [number, number];
+type Axis = 'x' | 'y' | 'z';
+// Vertex layout per opening: [0]=left-bottom, [1]=left-top, [2]=right-bottom, [3]=right-top.
+type OpeningCorners = readonly [Vector3, Vector3, Vector3, Vector3];
+
+const HAIR = 0.0001; // Small epsilon to prevent z-fighting at opening edges.
+const CHILD_TYPES: SurfaceType[] = ['sides', 'floor', 'ceiling'];
+
+const flipGeometry = (geom: BufferGeometry) => {
+  const index = required(geom.getIndex(), 'geometry index');
+  for (let i = 0; i < index.count; i += 3) {
+    const tempIndex = index.getX(i + 2);
+    index.setX(i + 2, index.getX(i + 1));
+    index.setX(i + 1, tempIndex);
   }
 
-  geom.getIndex().needsUpdate = true;
+  index.needsUpdate = true;
 };
 
-const makeGeometryUvs = (geom, callback) => {
-  const indices = geom.getIndex().array;
-  const pos = geom.attributes.position;
+const makeGeometryUvs = (geom: BufferGeometry, callback: UvCallback) => {
+  const indices = required(geom.getIndex(), 'geometry index').array;
+  const pos = geom.getAttribute('position');
   const vertex = new THREE.Vector3();
-  const uvs = [];
+  const uvs: number[] = [];
   for (const vertexIndex of indices) {
     vertex.set(pos.getX(vertexIndex), pos.getY(vertexIndex), pos.getZ(vertexIndex));
     const [u, v] = callback(vertex, vertexIndex % 3);
@@ -27,28 +37,28 @@ const makeGeometryUvs = (geom, callback) => {
   geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
 };
 
-const makePlaneUvs = (geom, uKey, vKey, uMult, vMult) => {
-  const callback = (point) => ([point[uKey] * uMult, point[vKey] * vMult]);
+const makePlaneUvs = (geom: BufferGeometry, uKey: Axis, vKey: Axis, uMult: number, vMult: number) => {
+  const callback: UvCallback = (point) => ([point[uKey] * uMult, point[vKey] * vMult]);
   makeGeometryUvs(geom, callback);
 };
 
-const finishGeometry = (geom) => {
+const finishGeometry = (geom: BufferGeometry) => {
   geom.computeVertexNormals();
 };
 
-const addPortalWorldVertex = (vertex, childEl, positions) => {
+const addPortalWorldVertex = (vertex: Vector3, childEl: Entity, positions: number[]) => {
   const point = vertex.clone();
   childEl.object3D.worldToLocal(point);
   positions.push(point.x, point.y, point.z);
 };
 
-const addOpeningWorldVertex = (wallEl, openingEl, ptX, ptY) => {
+const addOpeningWorldVertex = (wallEl: WallEl, openingEl: OpeningEl, ptX: number, ptY: number) => {
   const vertex = new THREE.Vector3(ptX, ptY, 0);
   wallEl.object3D.localToWorld(vertex);
   openingEl.vertices.push(vertex);
 };
 
-const positionOpening = (openingEl, portalEl) => {
+const positionOpening = (openingEl: OpeningEl, portalEl: PortalEl | null) => {
   const wallEl = openingEl.parentEl;
   const nextWallEl = wallEl?.nextWallEl;
   if (!portalEl || !nextWallEl) { return; }
@@ -83,12 +93,14 @@ const positionOpening = (openingEl, portalEl) => {
   openingEl.object3D.position.set(portalLocalX, floorY, 0);
 };
 
-const sortWalls = (walls, isOutside) => {
+// Walls form a closed loop, so the last wall's neighbour is the first.
+const nextWallOf = (walls: WallEl[], index: number) => required(walls[(index + 1) % walls.length], 'next wall');
+
+const sortWalls = (walls: WallEl[], isOutside: boolean) => {
   // Shoelace formula: positive sum means clockwise winding in XZ plane.
   let cwSum = 0;
-  for (let i = 0; i < walls.length; i++) {
-    const wallEl = walls[i];
-    const nextWallEl = walls[(i + 1) % walls.length];
+  for (const [i, wallEl] of walls.entries()) {
+    const nextWallEl = nextWallOf(walls, i);
 
     const { x: wallX, z: wallZ } = wallEl.object3D.position;
     const { x: nextWallX, z: nextWallZ } = nextWallEl.object3D.position;
@@ -99,28 +111,24 @@ const sortWalls = (walls, isOutside) => {
   if ((cwSum > 0) !== isOutside) { walls.reverse(); }
 };
 
-const getMaterial = (el) => el?.components?.material?.material;
+const getMaterial = (el: Entity | null) => el?.components.material?.material;
 
-const buildCap = (walls, capEl, isCeiling, isOutside) => {
+const buildCap = (walls: WallEl[], capEl: BuildingEl, isCeiling: boolean, isOutside: boolean) => {
   const n = walls.length;
-  const positions = [];
-
-  for (const wallEl of walls) {
-    positions.push(
-      wallEl.object3D.position.x,
-      wallEl.object3D.position.y + (isCeiling ? wallEl.getHeight() : 0),
-      wallEl.object3D.position.z
-    );
-  }
+  const positions: number[] = [];
 
   // Centroid vertex appended last; fan triangles reference it as vertex n.
   let cx = 0; let cy = 0; let cz = 0;
-  for (let i = 0; i < positions.length; i += 3) {
-    cx += positions[i]; cy += positions[i + 1]; cz += positions[i + 2];
+  for (const wallEl of walls) {
+    const x = wallEl.object3D.position.x;
+    const y = wallEl.object3D.position.y + (isCeiling ? wallEl.getHeight() : 0);
+    const z = wallEl.object3D.position.z;
+    positions.push(x, y, z);
+    cx += x; cy += y; cz += z;
   }
   positions.push(cx / n, cy / n, cz / n);
 
-  const indices = [];
+  const indices: number[] = [];
   for (let i = 0; i < n; i++) indices.push(i, (i + 1) % n, n);
 
   const geom = new THREE.BufferGeometry();
@@ -137,7 +145,8 @@ const buildCap = (walls, capEl, isCeiling, isOutside) => {
   const material = getMaterial(capEl) || getMaterial(capEl.parentEl);
   if (capEl.mesh) {
     capEl.mesh.geometry = geom;
-    capEl.mesh.material = material;
+    // Same fallback new THREE.Mesh() applies when no material is found.
+    capEl.mesh.material = material ?? new THREE.MeshBasicMaterial();
   } else {
     const type = isCeiling ? 'ceiling' : 'floor';
     capEl.mesh = new THREE.Mesh(geom, material);
@@ -145,22 +154,25 @@ const buildCap = (walls, capEl, isCeiling, isOutside) => {
   }
 };
 
-const buildRoom = (roomEl) => {
+// Corners as fractions of (width, length). The room component guarantees four walls here.
+const RECTANGLE_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const;
+
+const placeRectangleWalls = (walls: WallEl[], width: number, length: number) => {
+  for (const [i, [u, v]] of RECTANGLE_CORNERS.entries()) {
+    required(walls[i], 'rectangle wall').object3D.position.set(u * width, 0, v * length);
+  }
+};
+
+const buildRoom = (roomEl: RoomEl) => {
   const { outside, length, width } = roomEl.getAttribute('room');
   const walls = roomEl.walls;
 
-  if (width && length) {
-    walls[0].object3D.position.set(0, 0, 0);
-    walls[1].object3D.position.set(width, 0, 0);
-    walls[2].object3D.position.set(width, 0, length);
-    walls[3].object3D.position.set(0, 0, length);
-  }
+  if (width && length) placeRectangleWalls(walls, width, length);
 
   sortWalls(walls, outside);
 
-  for (let i = 0; i < walls.length; i++) {
-    const wallEl = walls[i];
-    const nextWallEl = wallEl.nextWallEl = walls[(i + 1) % walls.length];
+  for (const [i, wallEl] of walls.entries()) {
+    const nextWallEl = wallEl.nextWallEl = nextWallOf(walls, i);
 
     const wallGapX = nextWallEl.object3D.position.x - wallEl.object3D.position.x;
     const wallGapY = nextWallEl.object3D.position.y - wallEl.object3D.position.y;
@@ -192,9 +204,8 @@ const buildRoom = (roomEl) => {
       if (!portalEl) { continue; }
 
       const { width: portalWidth, height: portalHeight, floorHeight = 0 } = portalEl.getAttribute('portal');
-      const pts = [];
       // side = -1 is the left edge of the opening, side = +1 is the right edge.
-      for (let side = -1; side <= 1; side += 2) {
+      const openingEdge = (side: -1 | 1) => {
         const ptX = openingEl.object3D.position.x + portalWidth / 2 * side;
         // Interpolate wall-base Y for sloped walls (non-zero wallGapY).
         const baseY = (ptX / wallLength) * wallGapY;
@@ -207,16 +218,18 @@ const buildRoom = (roomEl) => {
 
         addOpeningWorldVertex(wallEl, openingEl, ptX, bottomY);
         addOpeningWorldVertex(wallEl, openingEl, ptX, topY);
-        pts.push({ ptX, bottomY, topY });
-      }
+        return { ptX, bottomY, topY };
+      };
+      const left = openingEdge(-1);
+      const right = openingEdge(1);
 
       // Cut the opening as a Shape hole — correctly handles both doors (floorHeight=0)
       // and windows (floorHeight>0) without leaving unintended gaps in the wall mesh.
       const hole = new THREE.Path();
-      hole.moveTo(pts[0].ptX, pts[0].bottomY);
-      hole.lineTo(pts[0].ptX, pts[0].topY);
-      hole.lineTo(pts[1].ptX, pts[1].topY);
-      hole.lineTo(pts[1].ptX, pts[1].bottomY);
+      hole.moveTo(left.ptX, left.bottomY);
+      hole.lineTo(left.ptX, left.topY);
+      hole.lineTo(right.ptX, right.topY);
+      hole.lineTo(right.ptX, right.bottomY);
       hole.closePath();
       wallShape.holes.push(hole);
 
@@ -226,10 +239,10 @@ const buildRoom = (roomEl) => {
         const blockGeom = new THREE.BufferGeometry();
         blockGeom.setIndex([0, 1, 2, 1, 3, 2]);
         blockGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
-          pts[0].ptX, pts[0].bottomY, 0,
-          pts[0].ptX, pts[0].topY, 0,
-          pts[1].ptX, pts[1].bottomY, 0,
-          pts[1].ptX, pts[1].topY, 0
+          left.ptX, left.bottomY, 0,
+          left.ptX, left.topY, 0,
+          right.ptX, right.bottomY, 0,
+          right.ptX, right.topY, 0
         ]), 3));
         // MeshBasicMaterial required — Mesh.raycast returns early if material===undefined.
         // DoubleSide so raycasts from both the room interior and exterior are caught.
@@ -248,7 +261,8 @@ const buildRoom = (roomEl) => {
     const material = getMaterial(wallEl) || getMaterial(wallEl.parentEl);
     if (wallEl.mesh) {
       wallEl.mesh.geometry = wallGeom;
-      wallEl.mesh.material = material;
+      // Same fallback new THREE.Mesh() applies when no material is found.
+      wallEl.mesh.material = material ?? new THREE.MeshBasicMaterial();
     } else {
       wallEl.mesh = new THREE.Mesh(wallGeom, material);
       wallEl.setObject3D('wallMesh', wallEl.mesh);
@@ -263,17 +277,23 @@ const buildRoom = (roomEl) => {
   if (roomEl.ceiling) buildCap(walls, roomEl.ceiling, true, outside);
 };
 
-const buildPortal = (portalEl) => {
+const toCorners = (vertices: Vector3[] | undefined): OpeningCorners | null => {
+  const [leftBottom, leftTop, rightBottom, rightTop] = vertices ?? [];
+  if (!leftBottom || !leftTop || !rightBottom || !rightTop) return null;
+  return [leftBottom, leftTop, rightBottom, rightTop];
+};
+
+const buildPortal = (portalEl: PortalEl) => {
   const { from: fromEl, to: toEl } = portalEl.getAttribute('portal');
   const portalId = portalEl.id ? `#${portalEl.id}` : '<a-portal>';
-  const fromVerts = fromEl?.vertices;
-  const toVerts = toEl?.vertices;
-  if (!fromVerts?.length || !toVerts?.length) {
+  const fromVerts = toCorners(fromEl?.vertices);
+  const toVerts = toCorners(toEl?.vertices);
+  if (!fromVerts || !toVerts) {
     console.error(`${portalId}: opening vertices not found — ensure both openings exist and their rooms have been built.`);
     return;
   }
 
-  const portalFallbackMaterial = getMaterial(fromEl?.parentEl) || getMaterial(fromEl?.parentEl?.parentEl);
+  const portalFallbackMaterial = getMaterial(fromEl?.parentEl ?? null) || getMaterial(fromEl?.parentEl?.parentEl ?? null);
 
   for (const childEl of portalEl.children) {
     const type = CHILD_TYPES.find(t => childEl.components[t]);
@@ -289,10 +309,9 @@ const buildPortal = (portalEl) => {
     childEl.mesh = new THREE.Mesh(geom, material);
     childEl.setObject3D(type, childEl.mesh);
 
-    // Vertex layout per opening: [0]=left-bottom, [1]=left-top, [2]=right-bottom, [3]=right-top.
-    const positions = [];
+    const positions: number[] = [];
     const uvScale = childEl.getAttribute(type).uvScale;
-    let uvCallback;
+    let uvCallback: UvCallback;
 
     switch (type) {
       case 'floor':

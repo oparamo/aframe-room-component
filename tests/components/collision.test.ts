@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { makeCollisionEl, makeCollisionComponent } from '../utils/mocks.js';
-import '../../src/components/collision.js';
+import type { Intersection } from 'three';
+import { fake, makeCollisionEl, makeCollisionComponent } from '../utils/mocks';
+import '../../src/components/collision';
 
 afterEach(() => vi.restoreAllMocks());
 
@@ -127,11 +128,11 @@ describe('room-collision', () => {
       // Arrange
       const el = makeCollisionEl();
       const comp = makeCollisionComponent(el);
-      vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([{
+      vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([fake<Intersection>({
         distance: 0.3,  // < radius(0.4) + moveLen(0.1) = 0.5
         face: { normal: new THREE.Vector3(-1, 0, 0) },
         object: { matrixWorld: new THREE.Matrix4() }
-      }]);
+      })]);
 
       // Act
       el.object3D.position.set(0.1, 0, 0);
@@ -147,11 +148,11 @@ describe('room-collision', () => {
       const el = makeCollisionEl();
       const comp = makeCollisionComponent(el);
       vi.spyOn(comp._raycaster, 'intersectObjects')
-        .mockReturnValueOnce([{
+        .mockReturnValueOnce([fake<Intersection>({
           distance: 0.3,
           face: { normal: new THREE.Vector3(-1, 0, 0) },
           object: { matrixWorld: new THREE.Matrix4() }
-        }])
+        })])
         .mockReturnValueOnce([]);
 
       // Act
@@ -167,11 +168,11 @@ describe('room-collision', () => {
       // Arrange — movement directly into the wall's normal; slide = zero vector.
       const el = makeCollisionEl();
       const comp = makeCollisionComponent(el);
-      vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([{
+      vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([fake<Intersection>({
         distance: 0.3,
         face: { normal: new THREE.Vector3(-1, 0, 0) },
         object: { matrixWorld: new THREE.Matrix4() }
-      }]);
+      })]);
 
       // Act
       el.object3D.position.set(0.1, 0, 0);
@@ -202,7 +203,7 @@ describe('room-collision', () => {
       const el = makeCollisionEl({ childCamera: true, floorCollidables: [{ mesh: {} }] });
       const comp = makeCollisionComponent(el);
       vi.spyOn(comp._floorRaycaster, 'intersectObjects').mockReturnValue([
-        { point: new THREE.Vector3(0, 1, 0) }
+        fake<Intersection>({ point: new THREE.Vector3(0, 1, 0) })
       ]);
       const pos = new THREE.Vector3(0, 0, 0);
 
@@ -219,7 +220,7 @@ describe('room-collision', () => {
       const el = makeCollisionEl({ position, floorCollidables: [{ mesh: {} }] });
       const comp = makeCollisionComponent(el);
       vi.spyOn(comp._floorRaycaster, 'intersectObjects').mockReturnValue([
-        { point: new THREE.Vector3(0, 0.5, 0) }
+        fake<Intersection>({ point: new THREE.Vector3(0, 0.5, 0) })
       ]);
       const pos = new THREE.Vector3(0, 1.6, 0);
 
@@ -236,7 +237,7 @@ describe('room-collision', () => {
       const comp = makeCollisionComponent(el);
       vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([]);
       vi.spyOn(comp._floorRaycaster, 'intersectObjects').mockReturnValue([
-        { point: new THREE.Vector3(0, 1, 0) }
+        fake<Intersection>({ point: new THREE.Vector3(0, 1, 0) })
       ]);
 
       // Act
@@ -271,11 +272,11 @@ describe('room-collision', () => {
       const comp = makeCollisionComponent(el);
       const pos = new THREE.Vector3();
       const moveVec = new THREE.Vector3(0.1, 0, 0);
-      vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([{
+      vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([fake<Intersection>({
         distance: 0.3,  // < 0.4 + 0.1
         face: { normal: new THREE.Vector3(1, 0, 0) },
         object: { matrixWorld: new THREE.Matrix4() }
-      }]);
+      })]);
 
       // Act
       const result = comp._tryMove.call(comp, moveVec, pos);
@@ -289,11 +290,11 @@ describe('room-collision', () => {
       // Arrange — face normal has a non-zero Y; sliding should remain horizontal.
       const el = makeCollisionEl();
       const comp = makeCollisionComponent(el);
-      vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([{
+      vi.spyOn(comp._raycaster, 'intersectObjects').mockReturnValue([fake<Intersection>({
         distance: 0.3,
         face: { normal: new THREE.Vector3(0, 1, 0) },
         object: { matrixWorld: new THREE.Matrix4() }
-      }]);
+      })]);
 
       // Act
       comp._tryMove.call(comp, new THREE.Vector3(0.1, 0, 0), new THREE.Vector3());
