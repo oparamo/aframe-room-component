@@ -1,9 +1,12 @@
+import type { Matrix4 } from 'three';
 import type { Component } from '../types/aframe';
 import type { BuildingEl, RoomData, RoomEl, WallEl } from '../types/elements';
-import { isTransformChange } from './shared';
+import { hasMovedSince, isTransformChange, snapshotWorldMatrix } from './shared';
 
 interface RoomComponent extends Component<RoomData, RoomEl> {
   _onTransformChanged: (event: Event) => void;
+  _builtMatrix: Matrix4;
+  rebuild(): void;
 }
 
 // Why the room's dimensions and wall count don't fit together, or null when they do.
@@ -37,14 +40,24 @@ AFRAME.registerComponent<RoomComponent>('room', {
     roomEl.walls = walls;
     roomEl.object3D.visible = false;
 
+    this._builtMatrix = new THREE.Matrix4();
+
     this._onTransformChanged = (event) => {
-      if (isTransformChange(event)) {
-        roomEl.sceneEl.systems.building?.buildRoom(roomEl);
-      }
+      if (isTransformChange(event)) this.rebuild();
     };
     roomEl.addEventListener('componentchanged', this._onTransformChanged);
   },
   update: function () {
+    this.rebuild();
+  },
+  // Catches movement that bypasses setAttribute, such as the animation component since A-Frame 1.7.
+  // The componentchanged listener stays for the inspector, which pauses the scene and with it tick.
+  tick: function () {
+    if (hasMovedSince(this.el, this._builtMatrix)) this.rebuild();
+  },
+  // Public: queues this room, and the portals connected to it, for the next build pass.
+  rebuild: function () {
+    snapshotWorldMatrix(this.el, this._builtMatrix);
     this.el.sceneEl.systems.building?.buildRoom(this.el);
   },
   remove: function () {
