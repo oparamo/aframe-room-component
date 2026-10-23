@@ -95,13 +95,15 @@ const finishGeometry = (geom: BufferGeometry) => {
 
 const getMaterial = (el: Entity | null | undefined) => el?.components.material?.material;
 
-// Reuses the element's mesh across rebuilds. A missing material gets the same default that
-// new THREE.Mesh() applies on the first build.
+// Reuses the element's mesh across rebuilds. The old geometry is freed, since three.js only
+// releases GPU buffers on dispose(). With no material found, the mesh keeps the one it has, which
+// on a first build without one is the default new THREE.Mesh() applies.
 const applyMesh = (el: BuildingEl, objectName: string, geom: BufferGeometry) => {
   const material = getMaterial(el) ?? getMaterial(el.parentEl);
   if (el.mesh) {
+    el.mesh.geometry.dispose();
     el.mesh.geometry = geom;
-    el.mesh.material = material ?? new THREE.MeshBasicMaterial();
+    if (material) el.mesh.material = material;
     return;
   }
   el.mesh = new THREE.Mesh(geom, material);
@@ -258,10 +260,14 @@ const addWindowBlocker = ({ span, openingEl }: OpeningCut, { left, right }: Open
   openingEl.classList.add('collidable');
 };
 
-// Removes the window-blocker mesh left by a previous build.
+// Removes the window-blocker mesh left by a previous build. Its geometry and material were made
+// here, so both are freed.
 const removeWindowBlocker = (openingEl: OpeningEl) => {
-  if (!openingEl.mesh) return;
-  openingEl.mesh.parent?.remove(openingEl.mesh);
+  const blocker = openingEl.mesh;
+  if (!blocker) return;
+  blocker.parent?.remove(blocker);
+  blocker.geometry.dispose();
+  for (const material of [blocker.material].flat()) material.dispose();
   openingEl.mesh = null;
 };
 
@@ -352,6 +358,8 @@ const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, { from, to, 
   const geom = new THREE.BufferGeometry();
   geom.setIndex(layout.indices);
 
+  // The previous surface's geometry was made here; its material belongs to the material component.
+  childEl.mesh?.geometry.dispose();
   childEl.mesh = new THREE.Mesh(geom, material);
   childEl.setObject3D(type, childEl.mesh);
 
