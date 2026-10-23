@@ -1,7 +1,7 @@
-import './aCeiling';
-import './aFloor';
-import './aOpening';
-import './aPortal';
-import './aRoom';
-import './aSides';
-import './aWall';
+import './ceiling';
+import './floor';
+import './opening';
+import './portal';
+import './room';
+import './sides';
+import './wall';
