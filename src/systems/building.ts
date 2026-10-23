@@ -23,8 +23,8 @@ AFRAME.registerSystem<BuildingSystem>('building', {
   buildPortal: function (portalEl) {
     // Portal width/height/position affects the wall cutout, so parent rooms must rebuild first.
     const data = portalEl.components.portal?.data;
-    const roomA = data?.from?.parentEl?.parentEl;
-    const roomB = data?.to?.parentEl?.parentEl;
+    const roomA = data?.from?.parentEl.parentEl;
+    const roomB = data?.to?.parentEl.parentEl;
     if (roomA) this.dirtyRooms.add(roomA);
     if (roomB) this.dirtyRooms.add(roomB);
 
@@ -38,7 +38,7 @@ AFRAME.registerSystem<BuildingSystem>('building', {
     requestAnimationFrame(() => {
       this.buildPending = false;
 
-      // Rooms must always build before portals — room builds populate the opening vertices that portals consume.
+      // Rooms must always build before portals, because room builds populate the opening vertices that portals consume.
       for (const roomEl of this.dirtyRooms) {
         buildRoom(roomEl);
         roomEl.object3D.visible = true;

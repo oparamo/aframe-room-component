@@ -1,6 +1,6 @@
-import type { BufferGeometry, Vector3 } from 'three';
+import type { BufferGeometry, Material, Path, Vector3 } from 'three';
 import type { Entity } from '../types/aframe';
-import type { BuildingEl, OpeningEl, PortalEl, RoomEl, SurfaceType, WallEl } from '../types/elements';
+import type { BuildingEl, OpeningEl, PortalData, PortalEl, RoomEl, SurfaceType, WallEl } from '../types/elements';
 import { required } from './required';
 
 type UvCallback = (vertex: Vector3, vertIndex: number) => [number, number];
@@ -8,8 +8,56 @@ type Axis = 'x' | 'y' | 'z';
 // Vertex layout per opening: [0]=left-bottom, [1]=left-top, [2]=right-bottom, [3]=right-top.
 type OpeningCorners = readonly [Vector3, Vector3, Vector3, Vector3];
 
+interface PlaneUvs { uKey: Axis; vKey: Axis; uMult: number; vMult: number }
+
+// A wall measured against the next wall in the loop, in the wall's local frame.
+interface WallSpan { wallEl: WallEl; nextWallEl: WallEl; length: number; gapY: number; heightGap: number }
+
+interface OpeningCut { span: WallSpan; openingEl: OpeningEl; portal: PortalData }
+interface OpeningEdge { ptX: number; bottomY: number; topY: number }
+interface OpeningEdges { left: OpeningEdge; right: OpeningEdge }
+
+interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
+
+interface PortalSurfaceContext { from: OpeningCorners; to: OpeningCorners; fallbackMaterial: Material | undefined }
+
+interface SurfaceLayout {
+  // Which opening corners the surface spans, in vertex order.
+  corners: (from: OpeningCorners, to: OpeningCorners) => Vector3[];
+  indices: number[];
+  // Unscaled UV for a vertex; makeGeometryUvs passes the vertex index modulo 3.
+  uv: (vertIndex: number) => [number, number];
+  className?: 'collidable' | 'walkable';
+}
+
 const HAIR = 0.0001; // Small epsilon to prevent z-fighting at opening edges.
 const CHILD_TYPES: SurfaceType[] = ['sides', 'floor', 'ceiling'];
+const QUAD = [0, 1, 2, 1, 3, 2];
+const TWO_QUADS = [0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6];
+
+// Floor and ceiling are one quad between the openings; sides are two, the left and right walls.
+const SURFACE_LAYOUTS: Record<SurfaceType, SurfaceLayout> = {
+  floor: {
+    corners: (from, to) => [to[0], to[2], from[2], from[0]],
+    indices: QUAD,
+    uv: vertIndex => [1 - (vertIndex % 2), 1 - Math.floor(vertIndex / 2)],
+    className: 'walkable'
+  },
+  ceiling: {
+    corners: (from, to) => [to[3], to[1], from[1], from[3]],
+    indices: QUAD,
+    uv: vertIndex => [vertIndex % 2, 1 - Math.floor(vertIndex / 2)]
+  },
+  sides: {
+    corners: (from, to) => [to[2], to[3], from[0], from[1], from[2], from[3], to[0], to[1]],
+    indices: TWO_QUADS,
+    uv: vertIndex => [1 - Math.floor(vertIndex / 2), vertIndex % 2],
+    className: 'collidable'
+  }
+};
+
+// Corners as fractions of (width, length). The room component guarantees four walls here.
+const RECTANGLE_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const;
 
 const flipGeometry = (geom: BufferGeometry) => {
   const index = required(geom.getIndex(), 'geometry index');
@@ -37,31 +85,43 @@ const makeGeometryUvs = (geom: BufferGeometry, callback: UvCallback) => {
   geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uvs), 2));
 };
 
-const makePlaneUvs = (geom: BufferGeometry, uKey: Axis, vKey: Axis, uMult: number, vMult: number) => {
-  const callback: UvCallback = (point) => ([point[uKey] * uMult, point[vKey] * vMult]);
-  makeGeometryUvs(geom, callback);
+const makePlaneUvs = (geom: BufferGeometry, { uKey, vKey, uMult, vMult }: PlaneUvs) => {
+  makeGeometryUvs(geom, point => ([point[uKey] * uMult, point[vKey] * vMult]));
 };
 
 const finishGeometry = (geom: BufferGeometry) => {
   geom.computeVertexNormals();
 };
 
-const addPortalWorldVertex = (vertex: Vector3, childEl: Entity, positions: number[]) => {
-  const point = vertex.clone();
-  childEl.object3D.worldToLocal(point);
-  positions.push(point.x, point.y, point.z);
+const getMaterial = (el: Entity | null | undefined) => el?.components.material?.material;
+
+// Reuses the element's mesh across rebuilds. A missing material gets the same default that
+// new THREE.Mesh() applies on the first build.
+const applyMesh = (el: BuildingEl, objectName: string, geom: BufferGeometry) => {
+  const material = getMaterial(el) ?? getMaterial(el.parentEl);
+  if (el.mesh) {
+    el.mesh.geometry = geom;
+    el.mesh.material = material ?? new THREE.MeshBasicMaterial();
+    return;
+  }
+  el.mesh = new THREE.Mesh(geom, material);
+  el.setObject3D(objectName, el.mesh);
 };
 
-const addOpeningWorldVertex = (wallEl: WallEl, openingEl: OpeningEl, ptX: number, ptY: number) => {
-  const vertex = new THREE.Vector3(ptX, ptY, 0);
+const toChildLocal = (vertex: Vector3, childEl: Entity) => {
+  const point = vertex.clone();
+  childEl.object3D.worldToLocal(point);
+  return [point.x, point.y, point.z];
+};
+
+const addOpeningWorldVertex = (wallEl: WallEl, openingEl: OpeningEl, point: { x: number; y: number }) => {
+  const vertex = new THREE.Vector3(point.x, point.y, 0);
   wallEl.object3D.localToWorld(vertex);
   openingEl.vertices.push(vertex);
 };
 
-const positionOpening = (openingEl: OpeningEl, portalEl: PortalEl | null) => {
-  const wallEl = openingEl.parentEl;
-  const nextWallEl = wallEl?.nextWallEl;
-  if (!portalEl || !nextWallEl) { return; }
+const positionOpening = ({ wallEl, nextWallEl }: WallSpan, openingEl: OpeningEl, portalEl: PortalEl | null) => {
+  if (!portalEl) return;
 
   const wallWorldPosition = new THREE.Vector3();
   wallEl.object3D.getWorldPosition(wallWorldPosition);
@@ -81,7 +141,7 @@ const positionOpening = (openingEl: OpeningEl, portalEl: PortalEl | null) => {
 
   const wallLength = Math.hypot(wallGapX, wallGapZ);
 
-  const portalHalfWidth = portalEl.getAttribute('portal')?.width / 2;
+  const portalHalfWidth = portalEl.getAttribute('portal').width / 2;
 
   const wallDir = new THREE.Vector2(wallGapX, wallGapZ).normalize();
   const portalOffset = new THREE.Vector2(portalGapX, portalGapZ);
@@ -108,54 +168,149 @@ const sortWalls = (walls: WallEl[], isOutside: boolean) => {
     cwSum += (nextWallX - wallX) * (nextWallZ + wallZ);
   }
 
-  if ((cwSum > 0) !== isOutside) { walls.reverse(); }
+  if ((cwSum > 0) !== isOutside) walls.reverse();
 };
 
-const getMaterial = (el: Entity | null) => el?.components.material?.material;
+const capCorner = (wallEl: WallEl, isCeiling: boolean) => {
+  const lift = isCeiling ? wallEl.getHeight() : 0;
+  const { x, y, z } = wallEl.object3D.position;
+  return [x, y + lift, z] as const;
+};
 
-const buildCap = (walls: WallEl[], capEl: BuildingEl, isCeiling: boolean, isOutside: boolean) => {
-  const n = walls.length;
-  const positions: number[] = [];
-
-  // Centroid vertex appended last; fan triangles reference it as vertex n.
-  let cx = 0; let cy = 0; let cz = 0;
-  for (const wallEl of walls) {
-    const x = wallEl.object3D.position.x;
-    const y = wallEl.object3D.position.y + (isCeiling ? wallEl.getHeight() : 0);
-    const z = wallEl.object3D.position.z;
-    positions.push(x, y, z);
-    cx += x; cy += y; cz += z;
+// Wall corners, then the centroid; fan triangles reference the centroid as vertex n.
+const capPositions = (walls: WallEl[], isCeiling: boolean) => {
+  const corners = walls.map(wallEl => capCorner(wallEl, isCeiling));
+  let cx = 0;
+  let cy = 0;
+  let cz = 0;
+  for (const [x, y, z] of corners) {
+    cx += x;
+    cy += y;
+    cz += z;
   }
-  positions.push(cx / n, cy / n, cz / n);
+  const n = corners.length;
+  return [...corners.flat(), cx / n, cy / n, cz / n];
+};
 
-  const indices: number[] = [];
-  for (let i = 0; i < n; i++) indices.push(i, (i + 1) % n, n);
+const fanIndices = (n: number) => Array.from({ length: n }, (_, i) => [i, (i + 1) % n, n]).flat();
 
+const buildCap = ({ walls, capEl, kind, isOutside }: CapOptions) => {
+  const isCeiling = kind === 'ceiling';
   const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-  geom.setIndex(indices);
+  geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(capPositions(walls, isCeiling)), 3));
+  geom.setIndex(fanIndices(walls.length));
 
-  // Outside rooms have reversed wall order; ceilings face opposite from floors — flip when only one reversal applies.
-  if (isCeiling === isOutside) { flipGeometry(geom); }
+  // Outside rooms have reversed wall order and ceilings face opposite from floors, so flip only
+  // when exactly one of those reversals applies.
+  if (isCeiling === isOutside) flipGeometry(geom);
 
-  const uvScale = capEl.getAttribute(isCeiling ? 'ceiling' : 'floor').uvScale;
-  makePlaneUvs(geom, 'x', 'z', (isCeiling ? 1 : -1) * uvScale, uvScale);
+  const { uvScale } = capEl.getAttribute(kind);
+  const uSign = isCeiling ? 1 : -1;
+  makePlaneUvs(geom, { uKey: 'x', vKey: 'z', uMult: uSign * uvScale, vMult: uvScale });
   finishGeometry(geom);
-
-  const material = getMaterial(capEl) || getMaterial(capEl.parentEl);
-  if (capEl.mesh) {
-    capEl.mesh.geometry = geom;
-    // Same fallback new THREE.Mesh() applies when no material is found.
-    capEl.mesh.material = material ?? new THREE.MeshBasicMaterial();
-  } else {
-    const type = isCeiling ? 'ceiling' : 'floor';
-    capEl.mesh = new THREE.Mesh(geom, material);
-    capEl.setObject3D(type, capEl.mesh);
-  }
+  applyMesh(capEl, kind, geom);
 };
 
-// Corners as fractions of (width, length). The room component guarantees four walls here.
-const RECTANGLE_CORNERS = [[0, 0], [1, 0], [1, 1], [0, 1]] as const;
+// side = -1 is the left edge of the opening, side = +1 is the right edge.
+const openingEdge = ({ span, openingEl, portal }: OpeningCut, side: -1 | 1): OpeningEdge => {
+  const ptX = openingEl.object3D.position.x + portal.width / 2 * side;
+  const along = ptX / span.length;
+  // Interpolate wall-base Y for sloped walls (non-zero gapY).
+  const baseY = along * span.gapY;
+  const bottomY = baseY + portal.floorHeight;
+  const ceilingY = span.wallEl.getHeight() + along * span.heightGap;
+  // Clamp the top of the opening to the ceiling, leaving a HAIR seam.
+  const topY = Math.min(bottomY + portal.height, baseY + ceilingY - HAIR);
+
+  addOpeningWorldVertex(span.wallEl, openingEl, { x: ptX, y: bottomY });
+  addOpeningWorldVertex(span.wallEl, openingEl, { x: ptX, y: topY });
+  return { ptX, bottomY, topY };
+};
+
+// Cutting the opening as a Shape hole handles both doors (floorHeight=0) and windows
+// (floorHeight>0) without leaving gaps in the wall mesh.
+const holePath = ({ left, right }: OpeningEdges) => {
+  const hole = new THREE.Path();
+  hole.moveTo(left.ptX, left.bottomY);
+  hole.lineTo(left.ptX, left.topY);
+  hole.lineTo(right.ptX, right.topY);
+  hole.lineTo(right.ptX, right.bottomY);
+  hole.closePath();
+  return hole;
+};
+
+// An invisible collidable quad across a window, so the player cannot walk through it at torso height.
+const addWindowBlocker = ({ span, openingEl }: OpeningCut, { left, right }: OpeningEdges) => {
+  const blockGeom = new THREE.BufferGeometry();
+  blockGeom.setIndex(QUAD);
+  blockGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
+    left.ptX, left.bottomY, 0,
+    left.ptX, left.topY, 0,
+    right.ptX, right.bottomY, 0,
+    right.ptX, right.topY, 0
+  ]), 3));
+  // MeshBasicMaterial is required, because Mesh.raycast returns early when material is undefined.
+  // DoubleSide so raycasts from both the room interior and exterior are caught.
+  const blockMesh = new THREE.Mesh(blockGeom, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
+  blockMesh.visible = false;
+  span.wallEl.object3D.add(blockMesh);
+  openingEl.mesh = blockMesh;
+  openingEl.classList.add('collidable');
+};
+
+// Removes the window-blocker mesh left by a previous build.
+const removeWindowBlocker = (openingEl: OpeningEl) => {
+  if (!openingEl.mesh) return;
+  openingEl.mesh.parent?.remove(openingEl.mesh);
+  openingEl.mesh = null;
+};
+
+// Positions the opening and records its world vertices; returns the hole to cut, if it has a portal.
+const cutOpening = (span: WallSpan, openingEl: OpeningEl): Path | null => {
+  const portalEl = openingEl.getPortal();
+  positionOpening(span, openingEl, portalEl);
+  openingEl.vertices = [];
+  removeWindowBlocker(openingEl);
+  if (!portalEl) return null;
+
+  const cut: OpeningCut = { span, openingEl, portal: portalEl.getAttribute('portal') };
+  const edges = { left: openingEdge(cut, -1), right: openingEdge(cut, 1) };
+  if (cut.portal.floorHeight > 0) addWindowBlocker(cut, edges);
+  return holePath(edges);
+};
+
+const buildWall = (wallEl: WallEl, nextWallEl: WallEl) => {
+  const gapX = nextWallEl.object3D.position.x - wallEl.object3D.position.x;
+  const gapY = nextWallEl.object3D.position.y - wallEl.object3D.position.y;
+  const gapZ = nextWallEl.object3D.position.z - wallEl.object3D.position.z;
+  const span: WallSpan = {
+    wallEl,
+    nextWallEl,
+    length: Math.hypot(gapX, gapZ),
+    gapY,
+    heightGap: nextWallEl.getHeight() - wallEl.getHeight()
+  };
+
+  wallEl.object3D.rotation.y = -Math.atan2(gapZ, gapX);
+
+  const wallShape = new THREE.Shape();
+  wallShape.moveTo(0, wallEl.getHeight());
+  wallShape.lineTo(0, 0);
+  wallShape.lineTo(span.length, gapY);
+  wallShape.lineTo(span.length, gapY + nextWallEl.getHeight());
+
+  for (const openingEl of wallEl.openings) {
+    const hole = cutOpening(span, openingEl);
+    if (hole) wallShape.holes.push(hole);
+  }
+
+  const wallGeom = new THREE.ShapeGeometry(wallShape);
+  const { uvScale } = wallEl.getAttribute('wall');
+  makePlaneUvs(wallGeom, { uKey: 'x', vKey: 'y', uMult: uvScale, vMult: uvScale });
+  finishGeometry(wallGeom);
+  applyMesh(wallEl, 'wallMesh', wallGeom);
+  wallEl.classList.add('collidable');
+};
 
 const placeRectangleWalls = (walls: WallEl[], width: number, length: number) => {
   for (const [i, [u, v]] of RECTANGLE_CORNERS.entries()) {
@@ -172,109 +327,16 @@ const buildRoom = (roomEl: RoomEl) => {
   sortWalls(walls, outside);
 
   for (const [i, wallEl] of walls.entries()) {
-    const nextWallEl = wallEl.nextWallEl = nextWallOf(walls, i);
-
-    const wallGapX = nextWallEl.object3D.position.x - wallEl.object3D.position.x;
-    const wallGapY = nextWallEl.object3D.position.y - wallEl.object3D.position.y;
-    const wallGapZ = nextWallEl.object3D.position.z - wallEl.object3D.position.z;
-
-    const heightGap = nextWallEl.getHeight() - wallEl.getHeight();
-    const wallAngle = Math.atan2(wallGapZ, wallGapX);
-    const wallLength = Math.hypot(wallGapX, wallGapZ);
-
-    wallEl.object3D.rotation.y = -wallAngle;
-
-    const wallShape = new THREE.Shape();
-    wallShape.moveTo(0, wallEl.getHeight());
-    wallShape.lineTo(0, 0);
-    wallShape.lineTo(wallLength, wallGapY);
-    wallShape.lineTo(wallLength, wallGapY + nextWallEl.getHeight());
-
-    for (const openingEl of wallEl.openings) {
-      const portalEl = openingEl.getPortal();
-      positionOpening(openingEl, portalEl);
-      openingEl.vertices = [];
-
-      // Remove stale window-blocker mesh from a previous build.
-      if (openingEl.mesh) {
-        openingEl.mesh.parent?.remove(openingEl.mesh);
-        openingEl.mesh = null;
-      }
-
-      if (!portalEl) { continue; }
-
-      const { width: portalWidth, height: portalHeight, floorHeight = 0 } = portalEl.getAttribute('portal');
-      // side = -1 is the left edge of the opening, side = +1 is the right edge.
-      const openingEdge = (side: -1 | 1) => {
-        const ptX = openingEl.object3D.position.x + portalWidth / 2 * side;
-        // Interpolate wall-base Y for sloped walls (non-zero wallGapY).
-        const baseY = (ptX / wallLength) * wallGapY;
-        const bottomY = baseY + floorHeight;
-        let topY = bottomY + portalHeight;
-
-        // Clamp the top of the opening to the ceiling, leaving a HAIR seam.
-        const ceilingY = wallEl.getHeight() + (ptX / wallLength) * heightGap;
-        if (topY > baseY + ceilingY - HAIR) topY = baseY + ceilingY - HAIR;
-
-        addOpeningWorldVertex(wallEl, openingEl, ptX, bottomY);
-        addOpeningWorldVertex(wallEl, openingEl, ptX, topY);
-        return { ptX, bottomY, topY };
-      };
-      const left = openingEdge(-1);
-      const right = openingEdge(1);
-
-      // Cut the opening as a Shape hole — correctly handles both doors (floorHeight=0)
-      // and windows (floorHeight>0) without leaving unintended gaps in the wall mesh.
-      const hole = new THREE.Path();
-      hole.moveTo(left.ptX, left.bottomY);
-      hole.lineTo(left.ptX, left.topY);
-      hole.lineTo(right.ptX, right.topY);
-      hole.lineTo(right.ptX, right.bottomY);
-      hole.closePath();
-      wallShape.holes.push(hole);
-
-      // For windows (raised floor), add an invisible collidable blocker so the
-      // player cannot walk through the opening at torso height.
-      if (floorHeight > 0) {
-        const blockGeom = new THREE.BufferGeometry();
-        blockGeom.setIndex([0, 1, 2, 1, 3, 2]);
-        blockGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
-          left.ptX, left.bottomY, 0,
-          left.ptX, left.topY, 0,
-          right.ptX, right.bottomY, 0,
-          right.ptX, right.topY, 0
-        ]), 3));
-        // MeshBasicMaterial required — Mesh.raycast returns early if material===undefined.
-        // DoubleSide so raycasts from both the room interior and exterior are caught.
-        const blockMesh = new THREE.Mesh(blockGeom, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
-        blockMesh.visible = false;
-        wallEl.object3D.add(blockMesh);
-        openingEl.mesh = blockMesh;
-        openingEl.classList.add('collidable');
-      }
-    }
-
-    const wallGeom = new THREE.ShapeGeometry(wallShape);
-    const uvScale = wallEl.getAttribute('wall').uvScale;
-    makePlaneUvs(wallGeom, 'x', 'y', uvScale, uvScale);
-    finishGeometry(wallGeom);
-    const material = getMaterial(wallEl) || getMaterial(wallEl.parentEl);
-    if (wallEl.mesh) {
-      wallEl.mesh.geometry = wallGeom;
-      // Same fallback new THREE.Mesh() applies when no material is found.
-      wallEl.mesh.material = material ?? new THREE.MeshBasicMaterial();
-    } else {
-      wallEl.mesh = new THREE.Mesh(wallGeom, material);
-      wallEl.setObject3D('wallMesh', wallEl.mesh);
-    }
-    wallEl.classList.add('collidable');
+    const nextWallEl = nextWallOf(walls, i);
+    wallEl.nextWallEl = nextWallEl;
+    buildWall(wallEl, nextWallEl);
   }
 
   if (roomEl.floor) {
-    buildCap(walls, roomEl.floor, false, outside);
+    buildCap({ walls, capEl: roomEl.floor, kind: 'floor', isOutside: outside });
     roomEl.floor.classList.add('walkable');
   }
-  if (roomEl.ceiling) buildCap(walls, roomEl.ceiling, true, outside);
+  if (roomEl.ceiling) buildCap({ walls, capEl: roomEl.ceiling, kind: 'ceiling', isOutside: outside });
 };
 
 const toCorners = (vertices: Vector3[] | undefined): OpeningCorners | null => {
@@ -283,73 +345,44 @@ const toCorners = (vertices: Vector3[] | undefined): OpeningCorners | null => {
   return [leftBottom, leftTop, rightBottom, rightTop];
 };
 
+const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, { from, to, fallbackMaterial }: PortalSurfaceContext) => {
+  const layout = SURFACE_LAYOUTS[type];
+  const material = getMaterial(childEl) ?? getMaterial(childEl.parentEl) ?? fallbackMaterial;
+
+  const geom = new THREE.BufferGeometry();
+  geom.setIndex(layout.indices);
+
+  childEl.mesh = new THREE.Mesh(geom, material);
+  childEl.setObject3D(type, childEl.mesh);
+
+  const positions = layout.corners(from, to).flatMap(vertex => toChildLocal(vertex, childEl));
+  geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+
+  const { uvScale } = childEl.getAttribute(type);
+  makeGeometryUvs(geom, (_point, vertIndex) => {
+    const [u, v] = layout.uv(vertIndex);
+    return [u * uvScale, v * uvScale];
+  });
+  finishGeometry(geom);
+  if (layout.className) childEl.classList.add(layout.className);
+};
+
 const buildPortal = (portalEl: PortalEl) => {
   const { from: fromEl, to: toEl } = portalEl.getAttribute('portal');
   const portalId = portalEl.id ? `#${portalEl.id}` : '<a-portal>';
-  const fromVerts = toCorners(fromEl?.vertices);
-  const toVerts = toCorners(toEl?.vertices);
-  if (!fromVerts || !toVerts) {
-    console.error(`${portalId}: opening vertices not found — ensure both openings exist and their rooms have been built.`);
+  const from = toCorners(fromEl?.vertices);
+  const to = toCorners(toEl?.vertices);
+  if (!from || !to) {
+    console.error(`${portalId}: opening vertices not found. Make sure both openings exist and their rooms have been built.`);
     return;
   }
 
-  const portalFallbackMaterial = getMaterial(fromEl?.parentEl ?? null) || getMaterial(fromEl?.parentEl?.parentEl ?? null);
+  const fromWallEl = fromEl?.parentEl;
+  const fallbackMaterial = getMaterial(fromWallEl) ?? getMaterial(fromWallEl?.parentEl);
 
   for (const childEl of portalEl.children) {
     const type = CHILD_TYPES.find(t => childEl.components[t]);
-    if (!type) { continue; }
-
-    const material = getMaterial(childEl) || getMaterial(childEl.parentEl) || portalFallbackMaterial;
-
-    // sides needs two quads (left and right walls); floor and ceiling need one each.
-    const indices = (type === 'sides') ? [0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6] : [0, 1, 2, 1, 3, 2];
-    const geom = new THREE.BufferGeometry();
-    geom.setIndex(indices);
-
-    childEl.mesh = new THREE.Mesh(geom, material);
-    childEl.setObject3D(type, childEl.mesh);
-
-    const positions: number[] = [];
-    const uvScale = childEl.getAttribute(type).uvScale;
-    let uvCallback: UvCallback;
-
-    switch (type) {
-      case 'floor':
-        addPortalWorldVertex(toVerts[0], childEl, positions);
-        addPortalWorldVertex(toVerts[2], childEl, positions);
-        addPortalWorldVertex(fromVerts[2], childEl, positions);
-        addPortalWorldVertex(fromVerts[0], childEl, positions);
-        uvCallback = (point, vertIndex) => ([(1 - (vertIndex % 2)) * uvScale, (1 - Math.floor(vertIndex / 2)) * uvScale]);
-        break;
-      case 'ceiling':
-        addPortalWorldVertex(toVerts[3], childEl, positions);
-        addPortalWorldVertex(toVerts[1], childEl, positions);
-        addPortalWorldVertex(fromVerts[1], childEl, positions);
-        addPortalWorldVertex(fromVerts[3], childEl, positions);
-        uvCallback = (point, vertIndex) => ([(vertIndex % 2) * uvScale, (1 - Math.floor(vertIndex / 2)) * uvScale]);
-        break;
-      case 'sides':
-        addPortalWorldVertex(toVerts[2], childEl, positions);
-        addPortalWorldVertex(toVerts[3], childEl, positions);
-        addPortalWorldVertex(fromVerts[0], childEl, positions);
-        addPortalWorldVertex(fromVerts[1], childEl, positions);
-
-        addPortalWorldVertex(fromVerts[2], childEl, positions);
-        addPortalWorldVertex(fromVerts[3], childEl, positions);
-        addPortalWorldVertex(toVerts[0], childEl, positions);
-        addPortalWorldVertex(toVerts[1], childEl, positions);
-        uvCallback = (point, vertIndex) => {
-          const u = 1 - Math.floor(vertIndex / 2);
-          return [u * uvScale, (vertIndex % 2) * uvScale];
-        };
-        break;
-    }
-
-    geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
-    makeGeometryUvs(geom, uvCallback);
-    finishGeometry(geom);
-    if (type === 'sides') childEl.classList.add('collidable');
-    else if (type === 'floor') childEl.classList.add('walkable');
+    if (type) buildPortalSurface(childEl, type, { from, to, fallbackMaterial });
   }
 };
 

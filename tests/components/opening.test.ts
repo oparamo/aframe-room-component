@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import type { BuildingScene } from '../../src/types/elements';
-import { fake, makeOpeningComp, makeSceneEl, registeredComponent } from '../utils/mocks';
+import { makeOpeningComp, makeSceneEl, registeredComponent } from '../utils/mocks';
 import '../../src/components/opening';
 
 describe('opening', () => {
@@ -59,8 +58,8 @@ describe('opening', () => {
       const comp = makeOpeningComp();
       registeredComponent('opening').init.call(comp);
       const portal = { components: { portal: { data: { from: comp.el, to: null } } } };
-      const querySelectorAll = vi.fn(() => [portal]);
-      comp.el.sceneEl = fake<BuildingScene>({ querySelectorAll });
+      comp.el.sceneEl = makeSceneEl({ portals: [portal] });
+      const querySelectorAll = vi.spyOn(comp.el.sceneEl, 'querySelectorAll');
 
       // Act
       comp.el.getPortal();

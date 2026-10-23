@@ -1,3 +1,8 @@
 # aframe is a peer that consumers load themselves, usually from a CDN script tag. Nothing here
 # imports it (tests mock AFRAME over the real three), so a dev copy would only be unused weight.
 autoInstallPeers: false
+
+# unrs-resolver (behind eslint-import-resolver-typescript) ships prebuilt binaries as optional
+# dependencies; its install script is only a fallback for platforms without one.
+allowBuilds:
+  unrs-resolver: false

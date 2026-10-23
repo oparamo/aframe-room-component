@@ -1,3 +1,4 @@
+import { vi } from 'vitest';
 import type { Material, Vector3 } from 'three';
 import type { AFrame, Entity } from '../../src/types/aframe';
 import type { CollisionComponent } from '../../src/components/collision';
@@ -55,12 +56,26 @@ export const registeredSystem = (name: string) =>
 // --- Geometry fixtures ---
 
 export const makeObject3D = (x = 0, y = 0, z = 0) => ({
-  position: { x, y, z, set (nx: number, ny: number, nz: number) { this.x = nx; this.y = ny; this.z = nz; } },
+  position: {
+    x,
+    y,
+    z,
+    set (nx: number, ny: number, nz: number) {
+      this.x = nx;
+      this.y = ny;
+      this.z = nz;
+    }
+  },
   rotation: { y: 0 },
   add () {},
   localToWorld (v: Vector3) { return v; },
   worldToLocal (v: Vector3) { return v; },
-  getWorldPosition (target: Vector3) { target.x = this.position.x; target.y = this.position.y; target.z = this.position.z; return target; }
+  getWorldPosition (target: Vector3) {
+    target.x = this.position.x;
+    target.y = this.position.y;
+    target.z = this.position.z;
+    return target;
+  }
 });
 
 export const makeCap = (parentMaterial: Material | null) => {
@@ -75,12 +90,14 @@ export const makeCap = (parentMaterial: Material | null) => {
   return el as unknown as BuildingEl;
 };
 
-export const makeWall = (x = 0, z = 0, height = 3, openings: OpeningEl[] = [], y = 0) => {
+interface WallOptions { x?: number; y?: number; z?: number; height?: number; openings?: OpeningEl[] }
+
+export const makeWall = ({ x = 0, y = 0, z = 0, height = 3, openings = [] }: WallOptions = {}) => {
   const el = {
     object3D: makeObject3D(x, y, z),
     openings,
     getHeight () { return height; },
-    getAttribute (attr: string) { if (attr === 'wall') return { height, uvScale: 1 }; return null; },
+    getAttribute: (attr: string) => attr === 'wall' ? { height, uvScale: 1 } : null,
     components: {},
     parentEl: { components: {} },
     mesh: null as BuildingEl['mesh'],
@@ -105,15 +122,15 @@ export const makeRoom = (walls: WallEl[], { outside = false, width = null, lengt
 }) as unknown as RoomEl;
 
 export const makeSquareRoom = (opts?: RoomOptions) => makeRoom([
-  makeWall(0, 0),
-  makeWall(5, 0),
-  makeWall(5, 5),
-  makeWall(0, 5)
+  makeWall(),
+  makeWall({ x: 5 }),
+  makeWall({ x: 5, z: 5 }),
+  makeWall({ z: 5 })
 ], opts);
 
 // Convenience for building system tests: builds a room with one wall per portal.
 export const makeRoomWithLinks = (...portals: (PortalEl | null)[]) =>
-  makeRoom(portals.map(p => makeWall(0, 0, 3, [makeOpening(p)])));
+  makeRoom(portals.map(p => makeWall({ openings: [makeOpening(p)] })));
 
 export const makeOpening = (portalEl: PortalEl | null) => ({
   object3D: makeObject3D(),
@@ -191,11 +208,11 @@ interface SceneOptions {
   systems?: DeepPartial<BuildingScene['systems']>;
 }
 
-export const makeSceneEl = ({ portals = [], systems = {} }: SceneOptions = {}) => fake<BuildingScene>({
+export const makeSceneEl = ({ portals = [], systems = {} }: SceneOptions = {}) => ({
   systems,
   querySelector: () => null,
   querySelectorAll: (sel: string) => sel === 'a-portal' ? portals : []
-});
+}) as unknown as BuildingScene;
 
 // Listeners the element mock captured, keyed by event name.
 interface ListenerLog { _listeners: Record<string, EventListener | undefined> }
@@ -212,7 +229,7 @@ interface ElOptions {
   attrs?: Record<string, object>;
 }
 
-export const makeEl = <El extends BuildingEl = BuildingEl>({
+export const makeEl = ({
   tag = 'a-entity',
   parentTag = null,
   parentAttrs = {},
@@ -243,8 +260,14 @@ export const makeEl = <El extends BuildingEl = BuildingEl>({
     },
     getAttribute (a: string) { return attrs[a] ?? null; }
   };
-  return el as unknown as El & ListenerLog;
+  return el as unknown as BuildingEl & ListenerLog;
 };
+
+// Runs requestAnimationFrame callbacks synchronously, so a test can assert on the build they schedule.
+export const immediateAnimationFrame = () => vi.fn((callback: FrameRequestCallback) => {
+  callback(0);
+  return 0;
+});
 
 // Fires the componentchanged listener the component registered, as A-Frame would.
 export const fireComponentChanged = (el: ListenerLog, name: string) => {
@@ -268,16 +291,18 @@ export const makeCollisionEl = ({
   floorCollidables = [],
   childCamera = false
 }: CollisionElOptions = {}) => {
-  const cameraObjEl = childCamera ? {
-    object3D: {
-      getWorldPosition (target: Vector3) { target.set(position.x, cameraY, position.z); return target; }
-    }
-  } : null;
+  const cameraObjEl = childCamera
+    ? {
+        object3D: {
+          getWorldPosition: (target: Vector3) => target.set(position.x, cameraY, position.z)
+        }
+      }
+    : null;
 
   return {
     object3D: {
       position,
-      getWorldPosition (target: Vector3) { target.copy(position); return target; }
+      getWorldPosition: (target: Vector3) => target.copy(position)
     },
     querySelector: () => cameraObjEl,
     components: {},
@@ -305,7 +330,7 @@ interface MockComp<El> {
 }
 
 const makeComp = <El extends BuildingEl>(tag: string, defaultParentTag: string, { data = {}, ...elOpts }: CompOptions = {}): MockComp<El> => ({
-  el: makeEl<El>({ tag, parentTag: defaultParentTag, ...elOpts }),
+  el: makeEl({ tag, parentTag: defaultParentTag, ...elOpts }) as El & ListenerLog,
   data
 });
 
