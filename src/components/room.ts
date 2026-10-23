@@ -4,6 +4,7 @@ import { isTransformChange } from './shared';
 
 interface RoomComponent extends Component<RoomData, RoomEl> {
   _onTransformChanged: (event: Event) => void;
+  rebuild(): void;
 }
 
 // Why the room's dimensions and wall count don't fit together, or null when they do.
@@ -38,13 +39,15 @@ AFRAME.registerComponent<RoomComponent>('room', {
     roomEl.object3D.visible = false;
 
     this._onTransformChanged = (event) => {
-      if (isTransformChange(event)) {
-        roomEl.sceneEl.systems.building?.buildRoom(roomEl);
-      }
+      if (isTransformChange(event)) this.rebuild();
     };
     roomEl.addEventListener('componentchanged', this._onTransformChanged);
   },
   update: function () {
+    this.rebuild();
+  },
+  // Public: queues this room, and the portals connected to it, for the next build pass.
+  rebuild: function () {
     this.el.sceneEl.systems.building?.buildRoom(this.el);
   },
   remove: function () {

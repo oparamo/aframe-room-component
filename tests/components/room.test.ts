@@ -131,6 +131,21 @@ describe('room', () => {
     });
   });
 
+  describe('rebuild', () => {
+    it('queues the room with the building system', () => {
+      // Arrange
+      const buildRoom = vi.fn();
+      const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
+      const comp = makeRoomComp({ data: {}, sceneEl });
+
+      // Act
+      comp.rebuild();
+
+      // Assert
+      expect(buildRoom).toHaveBeenCalledExactlyOnceWith(comp.el);
+    });
+  });
+
   describe('remove', () => {
     it('removes componentchanged listener', () => {
       // Arrange

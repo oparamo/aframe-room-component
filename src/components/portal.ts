@@ -4,6 +4,7 @@ import { isTransformChange, requireParent } from './shared';
 
 interface PortalComponent extends Component<PortalData, PortalEl> {
   _onTransformChanged: (event: Event) => void;
+  rebuild(): void;
 }
 
 AFRAME.registerComponent<PortalComponent>('portal', {
@@ -18,13 +19,15 @@ AFRAME.registerComponent<PortalComponent>('portal', {
     requireParent(this.el, 'a-scene', 'a-wall');
 
     this._onTransformChanged = (event) => {
-      if (isTransformChange(event)) {
-        this.el.sceneEl.systems.building?.buildPortal(this.el);
-      }
+      if (isTransformChange(event)) this.rebuild();
     };
     this.el.addEventListener('componentchanged', this._onTransformChanged);
   },
   update: function () {
+    this.rebuild();
+  },
+  // Public: queues this portal, and the rooms it cuts into, for the next build pass.
+  rebuild: function () {
     this.el.sceneEl.systems.building?.buildPortal(this.el);
   },
   remove: function () {

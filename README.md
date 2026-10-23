@@ -128,6 +128,29 @@ A window still requires two `a-opening` elements and a connecting `a-portal` —
 
 Window portals (any portal with `floor-height > 0`) automatically block player movement — `room-collision` treats the opening as a solid surface. Door portals (`floor-height="0"`, the default) remain passable.
 
+### Rebuilding at runtime
+
+Changing a room's or portal's attributes, or its `position`, `rotation` or `scale` through `setAttribute` (as the A-Frame inspector does), rebuilds the affected geometry automatically.
+
+The `animation` component is the exception. Since A-Frame 1.7 it moves `object3D` directly without going through `setAttribute`, so an animated room's walls move with it but its portals stay behind. Call `rebuild()` on the room or portal when you want the geometry to catch up:
+
+```js
+const roomEl = document.querySelector('#lift');
+
+// Once, when the animation finishes.
+roomEl.addEventListener('animationcomplete', () => roomEl.components.room.rebuild());
+```
+
+To follow the animation frame by frame, call it from a `tick`. Calls made in the same frame are batched into one build, and rebuilding a room also rebuilds the portals connected to it.
+
+```js
+AFRAME.registerComponent('follow-animation', {
+  tick () { this.el.components.room.rebuild(); }
+});
+```
+
+`portalEl.components.portal.rebuild()` does the same for a portal and the rooms it cuts into.
+
 ## Walking collision
 
 Add `room-collision` to any entity that has a locomotion control to prevent the player from walking through walls. Because it reads the entity's position delta each tick rather than intercepting key events, it works alongside any control that modifies entity position — `wasd-controls`, gamepad controls, mobile joystick controls, VR thumbstick locomotion, and others.

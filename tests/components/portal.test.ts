@@ -78,6 +78,21 @@ describe('portal', () => {
     });
   });
 
+  describe('rebuild', () => {
+    it('queues the portal with the building system', () => {
+      // Arrange
+      const buildPortal = vi.fn();
+      const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
+      const comp = makePortalComp({ data: {}, sceneEl });
+
+      // Act
+      comp.rebuild();
+
+      // Assert
+      expect(buildPortal).toHaveBeenCalledExactlyOnceWith(comp.el);
+    });
+  });
+
   describe('remove', () => {
     it('removes componentchanged listener', () => {
       // Arrange

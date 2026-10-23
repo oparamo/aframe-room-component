@@ -40,12 +40,14 @@ const lookup = (kind: keyof typeof registry, name: string) => {
   return definition;
 };
 
-// Lifecycle hooks as the tests call them: with no arguments, since no component reads tick's.
+// Component methods as the tests call them: with no arguments, since no component reads tick's.
+// Only room and portal define rebuild.
 interface Hooks {
   init(): void;
   update(): void;
   remove(): void;
   tick(): void;
+  rebuild(): void;
 }
 
 export const registeredComponent = (name: string) => lookup('components', name) as Hooks;
@@ -322,19 +324,26 @@ export const makeCollisionComponent = (el: Entity, data = { radius: 0.4 }) => {
 
 interface CompOptions extends ElOptions { data?: object }
 
-// A component instance as A-Frame builds it; init stores handlers such as _onTransformChanged on it.
-interface MockComp<El> {
+// A component instance as A-Frame builds it: the definition's methods plus el and data. init stores
+// handlers such as _onTransformChanged on it.
+type MockComp<El> = Hooks & {
   el: El & ListenerLog;
   data: object;
   _onTransformChanged?: EventListener;
-}
+};
 
-const makeComp = <El extends BuildingEl>(tag: string, defaultParentTag: string, { data = {}, ...elOpts }: CompOptions = {}): MockComp<El> => ({
-  el: makeEl({ tag, parentTag: defaultParentTag, ...elOpts }) as El & ListenerLog,
+interface CompTarget { name: string; tag: string; parentTag: string }
+
+const makeComp = <El extends BuildingEl>({ name, tag, parentTag }: CompTarget, { data = {}, ...elOpts }: CompOptions = {}): MockComp<El> => ({
+  ...registeredComponent(name),
+  el: makeEl({ tag, parentTag, ...elOpts }) as El & ListenerLog,
   data
 });
 
-export const makeRoomComp = (opts: CompOptions = {}) => makeComp<RoomEl>('a-room', 'a-scene', { walls: [{}, {}, {}], ...opts });
-export const makeWallComp = (opts?: CompOptions) => makeComp<WallEl>('a-wall', 'a-room', opts);
-export const makeOpeningComp = (opts?: CompOptions) => makeComp<OpeningEl>('a-opening', 'a-wall', opts);
-export const makePortalComp = (opts?: CompOptions) => makeComp<PortalEl>('a-portal', 'a-scene', opts);
+export const makeRoomComp = (opts: CompOptions = {}) =>
+  makeComp<RoomEl>({ name: 'room', tag: 'a-room', parentTag: 'a-scene' }, { walls: [{}, {}, {}], ...opts });
+export const makeWallComp = (opts?: CompOptions) => makeComp<WallEl>({ name: 'wall', tag: 'a-wall', parentTag: 'a-room' }, opts);
+export const makeOpeningComp = (opts?: CompOptions) =>
+  makeComp<OpeningEl>({ name: 'opening', tag: 'a-opening', parentTag: 'a-wall' }, opts);
+export const makePortalComp = (opts?: CompOptions) =>
+  makeComp<PortalEl>({ name: 'portal', tag: 'a-portal', parentTag: 'a-scene' }, opts);
