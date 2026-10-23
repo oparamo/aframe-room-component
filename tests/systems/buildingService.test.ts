@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { Mesh } from 'three';
 import type { PortalEl } from '../../src/types/elements';
 import {
-  fake, makeObject3D, makeWall, makeRoom, makeSquareRoom,
+  fake, makeCap, makeObject3D, makeWall, makeRoom, makeSquareRoom,
   makeOpening, makeOpeningVerts, makePortalChild, makePortal
 } from '../utils/mocks';
 
@@ -224,7 +224,7 @@ describe('buildRoom', () => {
       // Arrange
       const opening = makeOpening(null);
       const remove = vi.fn();
-      const staleMesh = fake<Mesh>({ parent: { remove } });
+      const staleMesh = fake<Mesh>({ parent: { remove }, geometry: { dispose: vi.fn() }, material: { dispose: vi.fn() } });
       opening.mesh = staleMesh;
       const room = makeRoom([makeWall({ openings: [opening] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
 
@@ -234,6 +234,79 @@ describe('buildRoom', () => {
       // Assert
       expect(remove).toHaveBeenCalledWith(staleMesh);
       expect(opening.mesh).toBeNull();
+    });
+
+    it('frees the stale window-blocker geometry and material', () => {
+      // Arrange
+      const opening = makeOpening(null);
+      const disposeGeometry = vi.fn();
+      const disposeMaterial = vi.fn();
+      opening.mesh = fake<Mesh>({ geometry: { dispose: disposeGeometry }, material: { dispose: disposeMaterial } });
+      const room = makeRoom([makeWall({ openings: [opening] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      expect(disposeGeometry).toHaveBeenCalledOnce();
+      expect(disposeMaterial).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('rebuilding', () => {
+    it('frees the previous wall geometry', () => {
+      // Arrange
+      const room = makeSquareRoom();
+      buildRoom(room);
+      const disposed = vi.fn();
+      room.walls[0]?.mesh?.geometry.addEventListener('dispose', disposed);
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      expect(disposed).toHaveBeenCalledOnce();
+    });
+
+    it('frees the previous floor geometry', () => {
+      // Arrange
+      const room = makeSquareRoom();
+      buildRoom(room);
+      const disposed = vi.fn();
+      room.floor?.mesh?.geometry.addEventListener('dispose', disposed);
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      expect(disposed).toHaveBeenCalledOnce();
+    });
+
+    it('applies the material found on the parent room', () => {
+      // Arrange
+      const material = new THREE.MeshBasicMaterial();
+      const room = makeSquareRoom();
+      room.floor = makeCap(material);
+      buildRoom(room);
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      expect(room.floor.mesh?.material).toBe(material);
+    });
+
+    it('keeps the mesh material when no material is found', () => {
+      // Arrange
+      const room = makeSquareRoom();
+      buildRoom(room);
+      const material = room.walls[0]?.mesh?.material;
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      expect(room.walls[0]?.mesh?.material).toBe(material);
     });
   });
 
@@ -291,6 +364,21 @@ describe('buildRoom', () => {
 describe('buildPortal', () => {
   const fromVerts = makeOpeningVerts(0, 2, 2.5);
   const toVerts = makeOpeningVerts(0, 2, 2.5);
+
+  it('frees the previous surface geometry when rebuilt', () => {
+    // Arrange
+    const floorChild = makePortalChild('floor');
+    const portal = makePortal({ fromVerts, toVerts, children: [floorChild] });
+    buildPortal(portal);
+    const disposed = vi.fn();
+    floorChild.mesh?.geometry.addEventListener('dispose', disposed);
+
+    // Act
+    buildPortal(portal);
+
+    // Assert
+    expect(disposed).toHaveBeenCalledOnce();
+  });
 
   it('creates a mesh on a floor child', () => {
     // Arrange
