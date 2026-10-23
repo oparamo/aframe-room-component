@@ -1,6 +1,8 @@
+import type { Component } from '../types/aframe';
+import type { OpeningEl, PortalEl } from '../types/elements';
 import { requireParent } from './shared';
 
-AFRAME.registerComponent('opening', {
+AFRAME.registerComponent<Component<unknown, OpeningEl>>('opening', {
   init: function () {
     requireParent(this.el, 'a-wall');
 
@@ -8,7 +10,7 @@ AFRAME.registerComponent('opening', {
     this.el._portalEl = undefined;
     this.el.getPortal = () => {
       if (this.el._portalEl !== undefined) return this.el._portalEl;
-      for (const portal of this.el.sceneEl.querySelectorAll('a-portal')) {
+      for (const portal of this.el.sceneEl.querySelectorAll<PortalEl>('a-portal')) {
         const data = portal.components?.portal?.data;
         if (data?.from === this.el || data?.to === this.el) {
           this.el._portalEl = portal;

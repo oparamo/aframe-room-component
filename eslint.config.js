@@ -2,7 +2,7 @@ import neostandard from 'neostandard';
 
 export default [
   { ignores: ['dist/**'] },
-  ...neostandard({ semi: true }),
+  ...neostandard({ semi: true, ts: true }),
   {
     languageOptions: {
       globals: {

@@ -1,6 +1,7 @@
+import type { BuildingSystem } from '../types/elements';
 import { buildPortal, buildRoom } from './buildingService';
 
-AFRAME.registerSystem('building', {
+AFRAME.registerSystem<BuildingSystem>('building', {
   init: function () {
     this.buildPending = false;
     this.dirtyPortals = new Set();
@@ -21,9 +22,9 @@ AFRAME.registerSystem('building', {
   },
   buildPortal: function (portalEl) {
     // Portal width/height/position affects the wall cutout, so parent rooms must rebuild first.
-    const { from, to } = portalEl.components?.portal?.data || {};
-    const roomA = from?.parentEl?.parentEl;
-    const roomB = to?.parentEl?.parentEl;
+    const data = portalEl.components.portal?.data;
+    const roomA = data?.from?.parentEl?.parentEl;
+    const roomB = data?.to?.parentEl?.parentEl;
     if (roomA) this.dirtyRooms.add(roomA);
     if (roomB) this.dirtyRooms.add(roomB);
 

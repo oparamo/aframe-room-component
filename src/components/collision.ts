@@ -1,4 +1,29 @@
-/* global AFRAME, THREE */
+import type { Matrix3, Object3D, Raycaster, Vector3 } from 'three';
+import type { Component, Entity } from '../types/aframe';
+import type { BuildingEl } from '../types/elements';
+
+export interface CollisionComponent extends Component<{ radius: number }> {
+  wallMeshes: Object3D[];
+  floorMeshes: Object3D[];
+  _cameraEl: Entity;
+  _eyeHeight: number;
+  _raycaster: Raycaster;
+  _floorRaycaster: Raycaster;
+  _previousPosition: Vector3;
+  _move: Vector3;
+  _direction: Vector3;
+  _origin: Vector3;
+  _cameraPosition: Vector3;
+  _slideDirection: Vector3;
+  _normal: Vector3;
+  _normalMatrix: Matrix3;
+  _floorOrigin: Vector3;
+  _onLoaded: () => void;
+  _onBuildComplete: () => void;
+  _refreshMeshes(): void;
+  _snapToFloor(position: Vector3): void;
+  _tryMove(moveVector: Vector3, position: Vector3): boolean;
+}
 
 const DOWN = new THREE.Vector3(0, -1, 0);
 const FLOOR_SEARCH_HEIGHT = 1.5;
@@ -6,7 +31,7 @@ const MIN_MOVE_SQ = 0.000001;
 const MIN_SLIDE_SQ = 0.0001;
 const TORSO_OFFSET = 0.6;
 
-AFRAME.registerComponent('room-collision', {
+AFRAME.registerComponent<CollisionComponent>('room-collision', {
   schema: {
     radius: { type: 'number', default: 0.4 }
   },
@@ -17,7 +42,7 @@ AFRAME.registerComponent('room-collision', {
 
     // Supports rig pattern (room-collision on parent, camera is a child)
     // and direct pattern (room-collision on the camera entity itself).
-    this._cameraEl = this.el.querySelector('[camera]') || this.el;
+    this._cameraEl = this.el.querySelector<Entity>('[camera]') || this.el;
 
     this._raycaster = new THREE.Raycaster();
     this._floorRaycaster = new THREE.Raycaster();
@@ -50,9 +75,9 @@ AFRAME.registerComponent('room-collision', {
   },
 
   _refreshMeshes: function () {
-    this.wallMeshes = [...this.el.sceneEl.querySelectorAll('.collidable')]
+    this.wallMeshes = [...this.el.sceneEl.querySelectorAll<BuildingEl>('.collidable')]
       .flatMap(el => el.mesh ? [el.mesh] : []);
-    this.floorMeshes = [...this.el.sceneEl.querySelectorAll('.walkable')]
+    this.floorMeshes = [...this.el.sceneEl.querySelectorAll<BuildingEl>('.walkable')]
       .flatMap(el => el.mesh ? [el.mesh] : []);
   },
 
@@ -88,19 +113,20 @@ AFRAME.registerComponent('room-collision', {
   _snapToFloor: function (position) {
     this._floorOrigin.set(position.x, position.y + FLOOR_SEARCH_HEIGHT, position.z);
     this._floorRaycaster.set(this._floorOrigin, DOWN);
-    const hits = this._floorRaycaster.intersectObjects(this.floorMeshes);
-    if (hits.length === 0) return;
-    position.y = hits[0].point.y + this._eyeHeight;
+    const [hit] = this._floorRaycaster.intersectObjects(this.floorMeshes);
+    if (!hit) return;
+    position.y = hit.point.y + this._eyeHeight;
   },
 
   _tryMove: function (moveVector, position) {
     this._raycaster.set(this._origin, this._direction.copy(moveVector).normalize());
-    const hits = this._raycaster.intersectObjects(this.wallMeshes);
+    const [hit] = this._raycaster.intersectObjects(this.wallMeshes);
 
-    if (hits.length > 0 && hits[0].distance < this.data.radius + moveVector.length()) {
+    // Mesh hits always carry a face; the check only narrows the type.
+    if (hit?.face && hit.distance < this.data.radius + moveVector.length()) {
       // Store world-space wall normal for the caller (used for sliding).
-      this._normalMatrix.getNormalMatrix(hits[0].object.matrixWorld);
-      this._normal.copy(hits[0].face.normal).applyMatrix3(this._normalMatrix).normalize();
+      this._normalMatrix.getNormalMatrix(hit.object.matrixWorld);
+      this._normal.copy(hit.face.normal).applyMatrix3(this._normalMatrix).normalize();
       this._normal.y = 0;
       return false;
     }

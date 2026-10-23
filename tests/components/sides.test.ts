@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { makeEl } from '../utils/mocks.js';
-import '../../src/components/sides.js';
+import { makeEl, registeredComponent } from '../utils/mocks';
+import '../../src/components/sides';
 
 describe('sides', () => {
   describe('init', () => {
@@ -9,7 +9,7 @@ describe('sides', () => {
       const comp = { el: makeEl({ tag: 'a-sides', parentTag: 'a-portal' }) };
 
       // Act / Assert
-      expect(() => AFRAME._components.sides.init.call(comp)).not.toThrow();
+      expect(() => registeredComponent('sides').init.call(comp)).not.toThrow();
     });
 
     it('throws when parent is not a-portal', () => {
@@ -17,7 +17,7 @@ describe('sides', () => {
       const comp = { el: makeEl({ tag: 'a-sides', parentTag: 'a-room' }) };
 
       // Act / Assert
-      expect(() => AFRAME._components.sides.init.call(comp)).toThrow();
+      expect(() => registeredComponent('sides').init.call(comp)).toThrow();
     });
   });
 });

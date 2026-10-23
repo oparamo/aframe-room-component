@@ -1,6 +1,12 @@
-import { TRANSFORM_PROPS } from './shared';
+import type { Component } from '../types/aframe';
+import type { BuildingEl, RoomData, RoomEl, WallEl } from '../types/elements';
+import { isTransformChange } from './shared';
 
-AFRAME.registerComponent('room', {
+interface RoomComponent extends Component<RoomData, RoomEl> {
+  _onTransformChanged: (event: Event) => void;
+}
+
+AFRAME.registerComponent<RoomComponent>('room', {
   schema: {
     outside: { type: 'boolean' },
     height: { type: 'number', default: 2.4 },
@@ -10,7 +16,7 @@ AFRAME.registerComponent('room', {
   init: function () {
     const roomEl = this.el;
     const { length, width } = this.data;
-    const walls = Array.from(roomEl.querySelectorAll('a-wall'));
+    const walls = Array.from(roomEl.querySelectorAll<WallEl>('a-wall'));
 
     if ((width || length) && !(width && length)) {
       const message = '<a-room> with WIDTH must also have LENGTH (and vice versa).';
@@ -30,13 +36,13 @@ AFRAME.registerComponent('room', {
       throw new Error(message);
     }
 
-    roomEl.ceiling = roomEl.querySelector('a-ceiling');
-    roomEl.floor = roomEl.querySelector('a-floor');
+    roomEl.ceiling = roomEl.querySelector<BuildingEl>('a-ceiling');
+    roomEl.floor = roomEl.querySelector<BuildingEl>('a-floor');
     roomEl.walls = walls;
     roomEl.object3D.visible = false;
 
-    this._onTransformChanged = (e) => {
-      if (TRANSFORM_PROPS.has(e.detail.name)) {
+    this._onTransformChanged = (event) => {
+      if (isTransformChange(event)) {
         roomEl.sceneEl.systems?.building?.buildRoom(roomEl);
       }
     };

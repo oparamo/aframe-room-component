@@ -1,6 +1,12 @@
-import { TRANSFORM_PROPS, requireParent } from './shared';
+import type { Component } from '../types/aframe';
+import type { PortalData, PortalEl } from '../types/elements';
+import { isTransformChange, requireParent } from './shared';
 
-AFRAME.registerComponent('portal', {
+interface PortalComponent extends Component<PortalData, PortalEl> {
+  _onTransformChanged: (event: Event) => void;
+}
+
+AFRAME.registerComponent<PortalComponent>('portal', {
   schema: {
     from: { type: 'selector' },
     to: { type: 'selector' },
@@ -11,8 +17,8 @@ AFRAME.registerComponent('portal', {
   init: function () {
     requireParent(this.el, 'a-scene', 'a-wall');
 
-    this._onTransformChanged = (e) => {
-      if (TRANSFORM_PROPS.has(e.detail.name)) {
+    this._onTransformChanged = (event) => {
+      if (isTransformChange(event)) {
         this.el.sceneEl.systems?.building?.buildPortal(this.el);
       }
     };

@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { makeRoomWithLinks as makeRoom, makeRoomWithLinks, makePortal, makeSystem } from '../utils/mocks.js';
+import { makePortal, makeRoomWithLinks, makeRoomWithLinks as makeRoom, makeSystem, registeredSystem } from '../utils/mocks';
 
-vi.mock('../../src/systems/buildingService.js', () => ({
+vi.mock('../../src/systems/buildingService', () => ({
   buildRoom: vi.fn(),
   buildPortal: vi.fn()
 }));
 
-import { buildRoom as mockBuildRoom, buildPortal as mockBuildPortal } from '../../src/systems/buildingService.js';
-import '../../src/systems/building.js';
+import { buildRoom as mockBuildRoom, buildPortal as mockBuildPortal } from '../../src/systems/buildingService';
+import '../../src/systems/building';
 
 beforeEach(() => {
   vi.clearAllMocks();
-  global.requestAnimationFrame = vi.fn();
+  globalThis.requestAnimationFrame = vi.fn();
 });
 
 // --- Tests ---
@@ -20,7 +20,7 @@ describe('building system', () => {
   describe('init', () => {
     it('initializes buildPending, dirtyRooms, and dirtyPortals', () => {
       // Arrange
-      const system = { ...global.AFRAME._systems.building };
+      const system = { ...registeredSystem('building') };
 
       // Act
       system.init();
@@ -78,7 +78,7 @@ describe('building system', () => {
       system.buildRoom(makeRoom());
 
       // Assert
-      expect(global.requestAnimationFrame).toHaveBeenCalledOnce();
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledOnce();
     });
 
     it('does not schedule a second build if one is already pending', () => {
@@ -90,7 +90,7 @@ describe('building system', () => {
       system.buildRoom(makeRoom());
 
       // Assert
-      expect(global.requestAnimationFrame).toHaveBeenCalledOnce();
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledOnce();
     });
   });
 
@@ -150,14 +150,14 @@ describe('building system', () => {
       system.buildPortal(makePortal());
 
       // Assert
-      expect(global.requestAnimationFrame).toHaveBeenCalledOnce();
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledOnce();
     });
   });
 
   describe('requestBuild', () => {
     it('calls buildRoom for each dirty room and makes it visible', () => {
       // Arrange
-      global.requestAnimationFrame = vi.fn(cb => cb());
+      globalThis.requestAnimationFrame = vi.fn(cb => cb());
       const system = makeSystem();
       const room = makeRoom();
 
@@ -171,7 +171,7 @@ describe('building system', () => {
 
     it('calls buildPortal for each dirty portal', () => {
       // Arrange
-      global.requestAnimationFrame = vi.fn(cb => cb());
+      globalThis.requestAnimationFrame = vi.fn(cb => cb());
       const system = makeSystem();
       const portal = makePortal();
 
@@ -184,7 +184,7 @@ describe('building system', () => {
 
     it('clears dirty sets and resets the scheduled flag after flush', () => {
       // Arrange
-      global.requestAnimationFrame = vi.fn(cb => cb());
+      globalThis.requestAnimationFrame = vi.fn(cb => cb());
       const system = makeSystem();
 
       // Act
@@ -198,7 +198,7 @@ describe('building system', () => {
 
     it('allows a new build to be scheduled after a flush completes', () => {
       // Arrange
-      global.requestAnimationFrame = vi.fn(cb => cb());
+      globalThis.requestAnimationFrame = vi.fn(cb => cb());
       const system = makeSystem();
 
       // Act
@@ -206,7 +206,7 @@ describe('building system', () => {
       system.buildRoom(makeRoom());
 
       // Assert
-      expect(global.requestAnimationFrame).toHaveBeenCalledTimes(2);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(2);
     });
   });
 });

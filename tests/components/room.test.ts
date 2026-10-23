@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
-import { makeRoomComp, makeSceneEl } from '../utils/mocks.js';
-import '../../src/components/room.js';
+import { fireComponentChanged, makeRoomComp, makeSceneEl, registeredComponent } from '../utils/mocks';
+import '../../src/components/room';
 
 describe('room', () => {
   describe('init', () => {
@@ -9,7 +9,7 @@ describe('room', () => {
       const comp = makeRoomComp({ data: { width: 5 } });
 
       // Act / Assert
-      expect(() => AFRAME._components.room.init.call(comp)).toThrow();
+      expect(() => registeredComponent('room').init.call(comp)).toThrow();
     });
 
     it('throws when only length is provided', () => {
@@ -17,7 +17,7 @@ describe('room', () => {
       const comp = makeRoomComp({ data: { length: 5 } });
 
       // Act / Assert
-      expect(() => AFRAME._components.room.init.call(comp)).toThrow();
+      expect(() => registeredComponent('room').init.call(comp)).toThrow();
     });
 
     it('throws when no width/length and fewer than 3 walls', () => {
@@ -25,7 +25,7 @@ describe('room', () => {
       const comp = makeRoomComp({ walls: [{}, {}] });
 
       // Act / Assert
-      expect(() => AFRAME._components.room.init.call(comp)).toThrow();
+      expect(() => registeredComponent('room').init.call(comp)).toThrow();
     });
 
     it('throws when width and length given but fewer than 4 walls', () => {
@@ -33,7 +33,7 @@ describe('room', () => {
       const comp = makeRoomComp({ data: { width: 4, length: 6 }, walls: [{}, {}] });
 
       // Act / Assert
-      expect(() => AFRAME._components.room.init.call(comp)).toThrow();
+      expect(() => registeredComponent('room').init.call(comp)).toThrow();
     });
 
     it('sets object3D.visible to false', () => {
@@ -41,7 +41,7 @@ describe('room', () => {
       const comp = makeRoomComp({ data: {} });
 
       // Act
-      AFRAME._components.room.init.call(comp);
+      registeredComponent('room').init.call(comp);
 
       // Assert
       expect(comp.el.object3D.visible).toBe(false);
@@ -53,7 +53,7 @@ describe('room', () => {
       const comp = makeRoomComp({ data: {}, walls });
 
       // Act
-      AFRAME._components.room.init.call(comp);
+      registeredComponent('room').init.call(comp);
 
       // Assert
       expect(comp.el.walls).toEqual(walls);
@@ -66,7 +66,7 @@ describe('room', () => {
       const comp = makeRoomComp({ data: {}, ceilingEl, floorEl });
 
       // Act
-      AFRAME._components.room.init.call(comp);
+      registeredComponent('room').init.call(comp);
 
       // Assert
       expect(comp.el.ceiling).toBe(ceilingEl);
@@ -78,7 +78,7 @@ describe('room', () => {
       const comp = makeRoomComp({ data: {} });
 
       // Act
-      AFRAME._components.room.init.call(comp);
+      registeredComponent('room').init.call(comp);
 
       // Assert
       expect(comp.el._listeners.componentchanged).toBeDefined();
@@ -91,10 +91,10 @@ describe('room', () => {
       const buildRoom = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
       const comp = makeRoomComp({ data: {}, sceneEl });
-      AFRAME._components.room.init.call(comp);
+      registeredComponent('room').init.call(comp);
 
       // Act
-      comp.el._listeners.componentchanged({ detail: { name: 'position' } });
+      fireComponentChanged(comp.el, 'position');
 
       // Assert
       expect(buildRoom).toHaveBeenCalledWith(comp.el);
@@ -105,10 +105,10 @@ describe('room', () => {
       const buildRoom = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
       const comp = makeRoomComp({ data: {}, sceneEl });
-      AFRAME._components.room.init.call(comp);
+      registeredComponent('room').init.call(comp);
 
       // Act
-      comp.el._listeners.componentchanged({ detail: { name: 'color' } });
+      fireComponentChanged(comp.el, 'color');
 
       // Assert
       expect(buildRoom).not.toHaveBeenCalled();
@@ -121,10 +121,10 @@ describe('room', () => {
       const buildRoom = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
       const comp = makeRoomComp({ data: {}, sceneEl });
-      AFRAME._components.room.init.call(comp);
+      registeredComponent('room').init.call(comp);
 
       // Act
-      AFRAME._components.room.update.call(comp);
+      registeredComponent('room').update.call(comp);
 
       // Assert
       expect(buildRoom).toHaveBeenCalledWith(comp.el);
@@ -135,11 +135,11 @@ describe('room', () => {
     it('removes componentchanged listener', () => {
       // Arrange
       const comp = makeRoomComp({ data: {} });
-      AFRAME._components.room.init.call(comp);
+      registeredComponent('room').init.call(comp);
       const removeSpy = vi.spyOn(comp.el, 'removeEventListener');
 
       // Act
-      AFRAME._components.room.remove.call(comp);
+      registeredComponent('room').remove.call(comp);
 
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);

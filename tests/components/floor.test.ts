@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { makeEl } from '../utils/mocks.js';
-import '../../src/components/floor.js';
+import { makeEl, registeredComponent } from '../utils/mocks';
+import '../../src/components/floor';
 
 describe('floor', () => {
   describe('init', () => {
@@ -9,7 +9,7 @@ describe('floor', () => {
       const comp = { el: makeEl({ tag: 'a-floor', parentTag: 'a-portal' }) };
 
       // Act / Assert
-      expect(() => AFRAME._components.floor.init.call(comp)).not.toThrow();
+      expect(() => registeredComponent('floor').init.call(comp)).not.toThrow();
     });
 
     it('does not throw when parent is a-room', () => {
@@ -17,7 +17,7 @@ describe('floor', () => {
       const comp = { el: makeEl({ tag: 'a-floor', parentTag: 'a-room' }) };
 
       // Act / Assert
-      expect(() => AFRAME._components.floor.init.call(comp)).not.toThrow();
+      expect(() => registeredComponent('floor').init.call(comp)).not.toThrow();
     });
 
     it('throws when parent is not a-portal or a-room', () => {
@@ -25,7 +25,7 @@ describe('floor', () => {
       const comp = { el: makeEl({ tag: 'a-floor', parentTag: 'a-scene' }) };
 
       // Act / Assert
-      expect(() => AFRAME._components.floor.init.call(comp)).toThrow();
+      expect(() => registeredComponent('floor').init.call(comp)).toThrow();
     });
   });
 });

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { requireParent, TRANSFORM_PROPS } from '../../src/components/shared.js';
+import type { Entity } from '../../src/types/aframe';
+import { requireParent, TRANSFORM_PROPS } from '../../src/components/shared';
+import { fake } from '../utils/mocks';
 
 describe('shared', () => {
   describe('TRANSFORM_PROPS', () => {
@@ -14,7 +16,7 @@ describe('shared', () => {
   describe('requireParent', () => {
     it('does not throw when parent tag matches an allowed tag', () => {
       // Arrange
-      const el = { localName: 'a-wall', parentEl: { localName: 'a-room' } };
+      const el = fake<Entity>({ localName: 'a-wall', parentEl: { localName: 'a-room' } });
 
       // Act / Assert
       expect(() => requireParent(el, 'a-room')).not.toThrow();
@@ -22,7 +24,7 @@ describe('shared', () => {
 
     it('passes when parent matches any of multiple allowed tags', () => {
       // Arrange
-      const el = { localName: 'a-portal', parentEl: { localName: 'a-wall' } };
+      const el = fake<Entity>({ localName: 'a-portal', parentEl: { localName: 'a-wall' } });
 
       // Act / Assert
       expect(() => requireParent(el, 'a-scene', 'a-wall')).not.toThrow();
@@ -30,7 +32,7 @@ describe('shared', () => {
 
     it('throws when parent tag does not match any allowed tag', () => {
       // Arrange
-      const el = { localName: 'a-wall', parentEl: { localName: 'a-scene' } };
+      const el = fake<Entity>({ localName: 'a-wall', parentEl: { localName: 'a-scene' } });
 
       // Act / Assert
       expect(() => requireParent(el, 'a-room')).toThrow();
@@ -38,7 +40,7 @@ describe('shared', () => {
 
     it('throws when parentEl is null', () => {
       // Arrange
-      const el = { localName: 'a-wall', parentEl: null };
+      const el = fake<Entity>({ localName: 'a-wall', parentEl: null });
 
       // Act / Assert
       expect(() => requireParent(el, 'a-room')).toThrow();
