@@ -15,7 +15,7 @@ aframe-room-component is built with the help of AI coding tools; [AI_DISCLOSURE.
 
 ```html
 <head>
-  <script src="https://aframe.io/releases/1.7.1/aframe.min.js"></script>
+  <script src="https://aframe.io/releases/1.8.0/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@oparamo/aframe-room-component@2.0.0/dist/aframe-room-component.min.js"></script>
 </head>
 
