@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fireComponentChanged, makePortalComp, makeSceneEl, registeredComponent } from '../utils/mocks';
+import { fireComponentChanged, fireEvent, makePortalComp, makeSceneEl, registeredComponent } from '../utils/mocks';
 import '../../src/components/portal';
 
 describe('portal', () => {
@@ -93,8 +93,24 @@ describe('portal', () => {
     });
   });
 
+  describe('room-rebuild event', () => {
+    it('rebuilds the portal when the event reaches it', () => {
+      // Arrange
+      const buildPortal = vi.fn();
+      const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
+      const comp = makePortalComp({ data: {}, sceneEl });
+      registeredComponent('portal').init.call(comp);
+
+      // Act
+      fireEvent(comp.el, new CustomEvent('room-rebuild'));
+
+      // Assert
+      expect(buildPortal).toHaveBeenCalledExactlyOnceWith(comp.el);
+    });
+  });
+
   describe('remove', () => {
-    it('removes componentchanged listener', () => {
+    it('removes the componentchanged and room-rebuild listeners', () => {
       // Arrange
       const comp = makePortalComp();
       registeredComponent('portal').init.call(comp);
@@ -105,6 +121,7 @@ describe('portal', () => {
 
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);
+      expect(removeSpy).toHaveBeenCalledWith('room-rebuild', comp._onRebuildRequest);
     });
   });
 });

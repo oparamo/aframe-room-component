@@ -1,5 +1,8 @@
 import type { Entity } from '../types/aframe';
 
+// Emitted by consumers on a room or portal, or any element inside one, to request a rebuild.
+export const REBUILD_EVENT = 'room-rebuild';
+
 export const TRANSFORM_PROPS = new Set(['position', 'rotation', 'scale']);
 
 // A-Frame dispatches componentchanged as a CustomEvent, but DOM listeners only receive Event.

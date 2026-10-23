@@ -271,11 +271,15 @@ export const immediateAnimationFrame = () => vi.fn((callback: FrameRequestCallba
   return 0;
 });
 
-// Fires the componentchanged listener the component registered, as A-Frame would.
+// Fires the listener a component registered for an event, as a dispatch to the element would.
+export const fireEvent = (el: ListenerLog, event: CustomEvent) => {
+  const listener = el._listeners[event.type];
+  if (!listener) throw new Error(`No ${event.type} listener registered.`);
+  listener(event);
+};
+
 export const fireComponentChanged = (el: ListenerLog, name: string) => {
-  const listener = el._listeners.componentchanged;
-  if (!listener) throw new Error('No componentchanged listener registered.');
-  listener(new CustomEvent('componentchanged', { detail: { name } }));
+  fireEvent(el, new CustomEvent('componentchanged', { detail: { name } }));
 };
 
 interface CollisionElOptions {
@@ -330,6 +334,7 @@ type MockComp<El> = Hooks & {
   el: El & ListenerLog;
   data: object;
   _onTransformChanged?: EventListener;
+  _onRebuildRequest?: EventListener;
 };
 
 interface CompTarget { name: string; tag: string; parentTag: string }

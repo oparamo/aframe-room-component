@@ -1,9 +1,10 @@
 import type { Component } from '../types/aframe';
 import type { BuildingEl, RoomData, RoomEl, WallEl } from '../types/elements';
-import { isTransformChange } from './shared';
+import { REBUILD_EVENT, isTransformChange } from './shared';
 
 interface RoomComponent extends Component<RoomData, RoomEl> {
   _onTransformChanged: (event: Event) => void;
+  _onRebuildRequest: () => void;
   rebuild(): void;
 }
 
@@ -42,6 +43,10 @@ AFRAME.registerComponent<RoomComponent>('room', {
       if (isTransformChange(event)) this.rebuild();
     };
     roomEl.addEventListener('componentchanged', this._onTransformChanged);
+
+    // Events bubble, so a request emitted on a wall, opening or portal inside the room also lands here.
+    this._onRebuildRequest = () => this.rebuild();
+    roomEl.addEventListener(REBUILD_EVENT, this._onRebuildRequest);
   },
   update: function () {
     this.rebuild();
@@ -52,5 +57,6 @@ AFRAME.registerComponent<RoomComponent>('room', {
   },
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
+    this.el.removeEventListener(REBUILD_EVENT, this._onRebuildRequest);
   }
 });

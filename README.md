@@ -151,6 +151,14 @@ AFRAME.registerComponent('follow-animation', {
 
 `portalEl.components.portal.rebuild()` does the same for a portal and the rooms it cuts into.
 
+Code that shouldn't depend on this library's components can emit a `room-rebuild` event instead. Events bubble, so emitting it on a room or portal, or on any wall, opening or surface inside one, rebuilds that room or portal:
+
+```js
+wallEl.emit('room-rebuild');
+```
+
+Nothing emits `room-rebuild` on its own; like `rebuild()`, it's only for changes A-Frame doesn't report.
+
 ## Walking collision
 
 Add `room-collision` to any entity that has a locomotion control to prevent the player from walking through walls. Because it reads the entity's position delta each tick rather than intercepting key events, it works alongside any control that modifies entity position — `wasd-controls`, gamepad controls, mobile joystick controls, VR thumbstick locomotion, and others.

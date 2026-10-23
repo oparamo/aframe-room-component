@@ -1,9 +1,10 @@
 import type { Component } from '../types/aframe';
 import type { PortalData, PortalEl } from '../types/elements';
-import { isTransformChange, requireParent } from './shared';
+import { REBUILD_EVENT, isTransformChange, requireParent } from './shared';
 
 interface PortalComponent extends Component<PortalData, PortalEl> {
   _onTransformChanged: (event: Event) => void;
+  _onRebuildRequest: () => void;
   rebuild(): void;
 }
 
@@ -22,6 +23,10 @@ AFRAME.registerComponent<PortalComponent>('portal', {
       if (isTransformChange(event)) this.rebuild();
     };
     this.el.addEventListener('componentchanged', this._onTransformChanged);
+
+    // Events bubble, so a request emitted on one of the portal's surfaces also lands here.
+    this._onRebuildRequest = () => this.rebuild();
+    this.el.addEventListener(REBUILD_EVENT, this._onRebuildRequest);
   },
   update: function () {
     this.rebuild();
@@ -32,5 +37,6 @@ AFRAME.registerComponent<PortalComponent>('portal', {
   },
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
+    this.el.removeEventListener(REBUILD_EVENT, this._onRebuildRequest);
   }
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fireComponentChanged, makeRoomComp, makeSceneEl, registeredComponent } from '../utils/mocks';
+import { fireComponentChanged, fireEvent, makeRoomComp, makeSceneEl, registeredComponent } from '../utils/mocks';
 import '../../src/components/room';
 
 describe('room', () => {
@@ -146,8 +146,24 @@ describe('room', () => {
     });
   });
 
+  describe('room-rebuild event', () => {
+    it('rebuilds the room when the event reaches it', () => {
+      // Arrange
+      const buildRoom = vi.fn();
+      const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
+      const comp = makeRoomComp({ data: {}, sceneEl });
+      registeredComponent('room').init.call(comp);
+
+      // Act
+      fireEvent(comp.el, new CustomEvent('room-rebuild'));
+
+      // Assert
+      expect(buildRoom).toHaveBeenCalledExactlyOnceWith(comp.el);
+    });
+  });
+
   describe('remove', () => {
-    it('removes componentchanged listener', () => {
+    it('removes the componentchanged and room-rebuild listeners', () => {
       // Arrange
       const comp = makeRoomComp({ data: {} });
       registeredComponent('room').init.call(comp);
@@ -158,6 +174,7 @@ describe('room', () => {
 
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);
+      expect(removeSpy).toHaveBeenCalledWith('room-rebuild', comp._onRebuildRequest);
     });
   });
 });
