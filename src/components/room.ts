@@ -1,12 +1,13 @@
 import type { Matrix4 } from 'three';
 import type { Component } from '../types/aframe';
 import type { BuildingEl, RoomData, RoomEl, WallEl } from '../types/elements';
-import { hasMovedSince, isTransformChange, snapshotWorldMatrix } from './shared';
+import { hasMovedSince, snapshotWorldMatrix } from './shared';
 
 interface RoomComponent extends Component<RoomData, RoomEl> {
-  _onTransformChanged: (event: Event) => void;
+  _onComponentChanged: () => void;
   _builtMatrix: Matrix4;
   rebuild(): void;
+  _rebuildIfMoved(): void;
 }
 
 // Why the room's dimensions and wall count don't fit together, or null when they do.
@@ -42,25 +43,28 @@ AFRAME.registerComponent<RoomComponent>('room', {
 
     this._builtMatrix = new THREE.Matrix4();
 
-    this._onTransformChanged = (event) => {
-      if (isTransformChange(event)) this.rebuild();
+    this._onComponentChanged = () => {
+      this._rebuildIfMoved();
     };
-    roomEl.addEventListener('componentchanged', this._onTransformChanged);
+    roomEl.addEventListener('componentchanged', this._onComponentChanged);
   },
   update: function () {
     this.rebuild();
   },
-  // Catches movement that bypasses setAttribute, such as the animation component since A-Frame 1.7.
-  // The componentchanged listener stays for the inspector, which pauses the scene and with it tick.
   tick: function () {
-    if (hasMovedSince(this.el, this._builtMatrix)) this.rebuild();
+    this._rebuildIfMoved();
   },
   // Public: queues this room, and the portals connected to it, for the next build pass.
   rebuild: function () {
     snapshotWorldMatrix(this.el, this._builtMatrix);
     this.el.sceneEl.systems.building?.buildRoom(this.el);
   },
+  // tick catches movement that bypasses setAttribute, such as the animation component since
+  // A-Frame 1.7. componentchanged covers the inspector, which pauses the scene and with it tick.
+  _rebuildIfMoved: function () {
+    if (hasMovedSince(this.el, this._builtMatrix)) this.rebuild();
+  },
   remove: function () {
-    this.el.removeEventListener('componentchanged', this._onTransformChanged);
+    this.el.removeEventListener('componentchanged', this._onComponentChanged);
   }
 });

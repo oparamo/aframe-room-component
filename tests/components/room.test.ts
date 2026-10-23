@@ -86,12 +86,13 @@ describe('room', () => {
   });
 
   describe('componentchanged listener', () => {
-    it('calls buildRoom when a transform prop changes', () => {
+    it('calls buildRoom when the room has moved', () => {
       // Arrange
       const buildRoom = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
       const comp = makeRoomComp({ data: {}, sceneEl });
       registeredComponent('room').init.call(comp);
+      comp.el.object3D.matrixWorld.makeTranslation(1, 0, 0);
 
       // Act
       fireComponentChanged(comp.el, 'position');
@@ -100,7 +101,7 @@ describe('room', () => {
       expect(buildRoom).toHaveBeenCalledWith(comp.el);
     });
 
-    it('does not call buildRoom when a non-transform prop changes', () => {
+    it('does not call buildRoom when the room has not moved', () => {
       // Arrange
       const buildRoom = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
@@ -108,7 +109,7 @@ describe('room', () => {
       registeredComponent('room').init.call(comp);
 
       // Act
-      fireComponentChanged(comp.el, 'color');
+      fireComponentChanged(comp.el, 'material');
 
       // Assert
       expect(buildRoom).not.toHaveBeenCalled();
@@ -193,7 +194,7 @@ describe('room', () => {
       registeredComponent('room').remove.call(comp);
 
       // Assert
-      expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);
+      expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onComponentChanged);
     });
   });
 });

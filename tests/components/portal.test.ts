@@ -33,12 +33,13 @@ describe('portal', () => {
   });
 
   describe('componentchanged listener', () => {
-    it('calls buildPortal when a transform prop changes', () => {
+    it('calls buildPortal when the portal has moved', () => {
       // Arrange
       const buildPortal = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
       const comp = makePortalComp({ sceneEl });
       registeredComponent('portal').init.call(comp);
+      comp.el.object3D.matrixWorld.makeTranslation(1, 0, 0);
 
       // Act
       fireComponentChanged(comp.el, 'position');
@@ -47,7 +48,7 @@ describe('portal', () => {
       expect(buildPortal).toHaveBeenCalledWith(comp.el);
     });
 
-    it('does not call buildPortal when a non-transform prop changes', () => {
+    it('does not call buildPortal when the portal has not moved', () => {
       // Arrange
       const buildPortal = vi.fn();
       const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
@@ -55,7 +56,7 @@ describe('portal', () => {
       registeredComponent('portal').init.call(comp);
 
       // Act
-      fireComponentChanged(comp.el, 'color');
+      fireComponentChanged(comp.el, 'material');
 
       // Assert
       expect(buildPortal).not.toHaveBeenCalled();
@@ -140,7 +141,7 @@ describe('portal', () => {
       registeredComponent('portal').remove.call(comp);
 
       // Assert
-      expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);
+      expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onComponentChanged);
     });
   });
 });
