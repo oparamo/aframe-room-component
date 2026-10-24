@@ -1,9 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import type { Entity } from '../../src/types/aframe';
-import { requireParent } from '../../src/components/shared';
+import { requireParent, TRANSFORM_PROPS } from '../../src/components/shared';
 import { fake } from '../utils/mocks';
 
 describe('shared', () => {
+  describe('TRANSFORM_PROPS', () => {
+    it('contains position, rotation, and scale', () => {
+      // Assert
+      expect(TRANSFORM_PROPS.has('position')).toBe(true);
+      expect(TRANSFORM_PROPS.has('rotation')).toBe(true);
+      expect(TRANSFORM_PROPS.has('scale')).toBe(true);
+    });
+  });
+
   describe('requireParent', () => {
     it('does not throw when parent tag matches an allowed tag', () => {
       // Arrange

@@ -327,11 +327,11 @@ const makeCollisionComponent = (el: Entity, data = { radius: 0.4 }) => {
 interface CompOptions extends ElOptions { data?: object }
 
 // A component instance as A-Frame builds it: the definition's methods plus el and data. init stores
-// handlers such as _onComponentChanged on it.
+// handlers such as _onTransformChanged on it.
 type MockComp<El> = Hooks & {
   el: El & ListenerLog;
   data: object;
-  _onComponentChanged?: EventListener;
+  _onTransformChanged?: EventListener;
 };
 
 interface CompTarget { name: string; tag: string; parentTag: string }

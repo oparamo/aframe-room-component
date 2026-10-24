@@ -1,18 +1,19 @@
 import type { Matrix4 } from 'three';
 import type { Entity } from '../types/aframe';
 
-// Records the element's world transform as of a rebuild, so later checks can tell whether it has moved since.
+const TRANSFORM_PROPS = new Set(['position', 'rotation', 'scale']);
+
+// A-Frame dispatches componentchanged as a CustomEvent, but DOM listeners only receive Event.
+const isTransformChange = (event: Event): boolean =>
+  TRANSFORM_PROPS.has((event as CustomEvent<{ name: string }>).detail.name);
+
+// Records the element's world transform as of a rebuild, so tick can tell when it has moved since.
 const snapshotWorldMatrix = (el: Entity, snapshot: Matrix4): void => {
   el.object3D.updateWorldMatrix(true, false);
   snapshot.copy(el.object3D.matrixWorld);
 };
 
-// Updates matrixWorld before comparing: a componentchanged listener runs before the next render
-// would update it, and while the inspector has the scene paused.
-const hasMovedSince = (el: Entity, snapshot: Matrix4): boolean => {
-  el.object3D.updateWorldMatrix(true, false);
-  return !el.object3D.matrixWorld.equals(snapshot);
-};
+const hasMovedSince = (el: Entity, snapshot: Matrix4): boolean => !el.object3D.matrixWorld.equals(snapshot);
 
 const requireParent = (el: Entity, ...allowed: string[]): void => {
   if (!allowed.includes(el.parentEl?.localName ?? '')) {
@@ -20,4 +21,4 @@ const requireParent = (el: Entity, ...allowed: string[]): void => {
   }
 };
 
-export { hasMovedSince, requireParent, snapshotWorldMatrix };
+export { hasMovedSince, isTransformChange, requireParent, snapshotWorldMatrix, TRANSFORM_PROPS };
