@@ -2,7 +2,7 @@ import type { Matrix3, Object3D, Raycaster, Vector3 } from 'three';
 import type { Component, Entity } from '../types/aframe';
 import type { BuildingEl } from '../types/elements';
 
-export interface CollisionComponent extends Component<{ radius: number }> {
+interface CollisionComponent extends Component<{ radius: number }> {
   wallMeshes: Object3D[];
   floorMeshes: Object3D[];
   _cameraEl: Entity;
@@ -135,3 +135,5 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
     return true;
   }
 });
+
+export type { CollisionComponent };

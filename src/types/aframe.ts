@@ -7,12 +7,12 @@
  */
 import type * as Three from 'three';
 
-export interface ComponentMap {
+interface ComponentMap {
   [name: string]: object | undefined;
   material?: { material: Three.Material };
 }
 
-export interface Entity extends HTMLElement {
+interface Entity extends HTMLElement {
   object3D: Three.Object3D;
   sceneEl: Scene;
   parentEl: Entity | null;
@@ -21,45 +21,45 @@ export interface Entity extends HTMLElement {
   emit(name: string, detail?: unknown): void;
 }
 
-export interface Scene extends Entity {
+interface Scene extends Entity {
   systems: Partial<Record<string, System>>;
 }
 
-export interface Component<Data = unknown, El extends Entity = Entity> {
+interface Component<Data = unknown, El extends Entity = Entity> {
   el: El;
   data: Data;
 }
 
-export interface System<El extends Scene = Scene> {
+interface System<El extends Scene = Scene> {
   el: El;
 }
 
-export type Schema = Record<string, { type: string; default?: unknown }>;
+type Schema = Record<string, { type: string; default?: unknown }>;
 
-export interface ComponentLifecycle {
+interface ComponentLifecycle {
   init?(): void;
   update?(): void;
   remove?(): void;
   tick?(time: number, delta: number): void;
 }
 
-export interface SystemLifecycle {
+interface SystemLifecycle {
   init?(): void;
 }
 
 // Methods and state the definition declares beyond the lifecycle get `this` typed as the instance.
-export type ComponentDefinition<T extends Component>
+type ComponentDefinition<T extends Component>
   = { schema?: Schema } & ComponentLifecycle & Partial<Omit<T, keyof Component>> & ThisType<T>;
 
-export type SystemDefinition<T extends System>
+type SystemDefinition<T extends System>
   = SystemLifecycle & Partial<Omit<T, keyof System>> & ThisType<T>;
 
-export interface PrimitiveDefinition {
+interface PrimitiveDefinition {
   defaultComponents: Record<string, object>;
   mappings?: Record<string, string>;
 }
 
-export interface AFrame {
+interface AFrame {
   registerComponent<T extends Component>(name: string, definition: ComponentDefinition<T>): void;
   registerSystem<T extends System>(name: string, definition: SystemDefinition<T>): void;
   registerPrimitive(name: string, definition: PrimitiveDefinition): void;
@@ -69,3 +69,18 @@ declare global {
   const AFRAME: AFrame;
   const THREE: typeof Three;
 }
+
+export type {
+  AFrame,
+  Component,
+  ComponentDefinition,
+  ComponentLifecycle,
+  ComponentMap,
+  Entity,
+  PrimitiveDefinition,
+  Scene,
+  Schema,
+  System,
+  SystemDefinition,
+  SystemLifecycle
+};

@@ -80,7 +80,11 @@ export default tseslint.config(
       'sonarjs/cognitive-complexity': ['error', 6],
       'sonarjs/no-identical-functions': 'error',
       'no-warning-comments': 'error',
-      'no-restricted-syntax': ['error', { selector: ternaryOutsideValue, message: 'Use a ternary only as a value; branch with if/else otherwise.' }],
+      'no-restricted-syntax': ['error',
+        { selector: ternaryOutsideValue, message: 'Use a ternary only as a value; branch with if/else otherwise.' },
+        // One export list at the bottom of a file shows its public surface in one place.
+        { selector: 'ExportNamedDeclaration[declaration]', message: 'Export from one export { } list at the bottom of the file.' }
+      ],
       'import-x/no-cycle': 'error',
       // Layers: primitives and components sit on top of systems, and buildingService stays free of A-Frame.
       'import-x/no-restricted-paths': ['error', {

@@ -15,7 +15,7 @@ type DeepPartial<T, Depth extends unknown[] = []> = Depth['length'] extends 4 ? 
 
 // Test doubles fill in only what the code under test reads. This is the one place they are
 // asserted to the full type; DeepPartial still checks the property names and shapes they set.
-export const fake = <T>(partial: DeepPartial<T>): T => partial as unknown as T;
+const fake = <T>(partial: DeepPartial<T>): T => partial as unknown as T;
 
 // --- A-Frame registry ---
 
@@ -25,7 +25,7 @@ const registry = {
   primitives: new Map<string, object>()
 };
 
-export const installAframeMock = () => {
+const installAframeMock = () => {
   const aframe: AFrame = {
     registerComponent (name, definition) { registry.components.set(name, definition); },
     registerSystem (name, definition) { registry.systems.set(name, definition); },
@@ -50,14 +50,14 @@ interface Hooks {
   rebuild(): void;
 }
 
-export const registeredComponent = (name: string) => lookup('components', name) as Hooks;
-export const registeredPrimitive = (name: string) => lookup('primitives', name);
-export const registeredSystem = (name: string) =>
+const registeredComponent = (name: string) => lookup('components', name) as Hooks;
+const registeredPrimitive = (name: string) => lookup('primitives', name);
+const registeredSystem = (name: string) =>
   lookup('systems', name) as Partial<BuildingSystem> & { init(): void };
 
 // --- Geometry fixtures ---
 
-export const makeObject3D = (x = 0, y = 0, z = 0) => ({
+const makeObject3D = (x = 0, y = 0, z = 0) => ({
   matrixWorld: new THREE.Matrix4(),
   updateWorldMatrix () {},
   position: {
@@ -82,7 +82,7 @@ export const makeObject3D = (x = 0, y = 0, z = 0) => ({
   }
 });
 
-export const makeCap = (parentMaterial: Material | null) => {
+const makeCap = (parentMaterial: Material | null) => {
   const el = {
     mesh: null as BuildingEl['mesh'],
     components: {},
@@ -96,7 +96,7 @@ export const makeCap = (parentMaterial: Material | null) => {
 
 interface WallOptions { x?: number; y?: number; z?: number; height?: number; openings?: OpeningEl[] }
 
-export const makeWall = ({ x = 0, y = 0, z = 0, height = 3, openings = [] }: WallOptions = {}) => {
+const makeWall = ({ x = 0, y = 0, z = 0, height = 3, openings = [] }: WallOptions = {}) => {
   const el = {
     object3D: makeObject3D(x, y, z),
     openings,
@@ -114,7 +114,7 @@ export const makeWall = ({ x = 0, y = 0, z = 0, height = 3, openings = [] }: Wal
 
 interface RoomOptions { outside?: boolean; width?: number | null; length?: number | null }
 
-export const makeRoom = (walls: WallEl[], { outside = false, width = null, length = null }: RoomOptions = {}) => ({
+const makeRoom = (walls: WallEl[], { outside = false, width = null, length = null }: RoomOptions = {}) => ({
   getAttribute (attr: string) {
     if (attr === 'room') return { outside, width, length };
     return null;
@@ -125,7 +125,7 @@ export const makeRoom = (walls: WallEl[], { outside = false, width = null, lengt
   object3D: { visible: false }
 }) as unknown as RoomEl;
 
-export const makeSquareRoom = (opts?: RoomOptions) => makeRoom([
+const makeSquareRoom = (opts?: RoomOptions) => makeRoom([
   makeWall(),
   makeWall({ x: 5 }),
   makeWall({ x: 5, z: 5 }),
@@ -133,10 +133,10 @@ export const makeSquareRoom = (opts?: RoomOptions) => makeRoom([
 ], opts);
 
 // Convenience for building system tests: builds a room with one wall per portal.
-export const makeRoomWithLinks = (...portals: (PortalEl | null)[]) =>
+const makeRoomWithLinks = (...portals: (PortalEl | null)[]) =>
   makeRoom(portals.map(p => makeWall({ openings: [makeOpening(p)] })));
 
-export const makeOpening = (portalEl: PortalEl | null) => ({
+const makeOpening = (portalEl: PortalEl | null) => ({
   object3D: makeObject3D(),
   vertices: [],
   mesh: null,
@@ -146,16 +146,16 @@ export const makeOpening = (portalEl: PortalEl | null) => ({
   setObject3D () {}
 }) as unknown as OpeningEl;
 
-export const makeVertex = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+const makeVertex = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
 
-export const makeOpeningVerts = (x: number, width: number, height: number) => [
+const makeOpeningVerts = (x: number, width: number, height: number) => [
   makeVertex(x - width / 2, 0, 0),
   makeVertex(x - width / 2, height, 0),
   makeVertex(x + width / 2, 0, 0),
   makeVertex(x + width / 2, height, 0)
 ];
 
-export const makePortalChild = (type: string) => {
+const makePortalChild = (type: string) => {
   const el = {
     components: {
       [type]: {},
@@ -181,7 +181,7 @@ interface PortalOptions {
 
 // Unified portal mock. Supports geometry tests via fromVerts/toVerts/children
 // (getAttribute interface) and system tests via roomA/roomB (components.portal.data interface).
-export const makePortal = ({ fromVerts, toVerts, children, roomA, roomB }: PortalOptions = {}) => ({
+const makePortal = ({ fromVerts, toVerts, children, roomA, roomB }: PortalOptions = {}) => ({
   getAttribute (attr: string) {
     if (attr === 'portal') return { from: { vertices: fromVerts }, to: { vertices: toVerts }, floorHeight: 0 };
     return null;
@@ -197,7 +197,7 @@ export const makePortal = ({ fromVerts, toVerts, children, roomA, roomB }: Porta
   children
 }) as unknown as PortalEl;
 
-export const makeSystem = () => ({
+const makeSystem = () => ({
   ...registeredSystem('building'),
   el: { emit: () => {}, object3D: { updateMatrixWorld: () => {} } },
   dirtyRooms: new Set(),
@@ -212,7 +212,7 @@ interface SceneOptions {
   systems?: DeepPartial<BuildingScene['systems']>;
 }
 
-export const makeSceneEl = ({ portals = [], systems = {} }: SceneOptions = {}) => ({
+const makeSceneEl = ({ portals = [], systems = {} }: SceneOptions = {}) => ({
   systems,
   querySelector: () => null,
   querySelectorAll: (sel: string) => sel === 'a-portal' ? portals : []
@@ -233,7 +233,7 @@ interface ElOptions {
   attrs?: Record<string, object>;
 }
 
-export const makeEl = ({
+const makeEl = ({
   tag = 'a-entity',
   parentTag = null,
   parentAttrs = {},
@@ -268,13 +268,13 @@ export const makeEl = ({
 };
 
 // Runs requestAnimationFrame callbacks synchronously, so a test can assert on the build they schedule.
-export const immediateAnimationFrame = () => vi.fn((callback: FrameRequestCallback) => {
+const immediateAnimationFrame = () => vi.fn((callback: FrameRequestCallback) => {
   callback(0);
   return 0;
 });
 
 // Fires the componentchanged listener the component registered, as A-Frame would.
-export const fireComponentChanged = (el: ListenerLog, name: string) => {
+const fireComponentChanged = (el: ListenerLog, name: string) => {
   const listener = el._listeners.componentchanged;
   if (!listener) throw new Error('No componentchanged listener registered.');
   listener(new CustomEvent('componentchanged', { detail: { name } }));
@@ -288,7 +288,7 @@ interface CollisionElOptions {
   childCamera?: boolean;
 }
 
-export const makeCollisionEl = ({
+const makeCollisionEl = ({
   position = new THREE.Vector3(),
   cameraY = 1.6,
   wallCollidables = [],
@@ -318,7 +318,7 @@ export const makeCollisionEl = ({
   } as unknown as Entity;
 };
 
-export const makeCollisionComponent = (el: Entity, data = { radius: 0.4 }) => {
+const makeCollisionComponent = (el: Entity, data = { radius: 0.4 }) => {
   const comp = { ...registeredComponent('room-collision'), el, data } as unknown as CollisionComponent & Hooks;
   comp.init.call(comp);
   return comp;
@@ -342,10 +342,40 @@ const makeComp = <El extends BuildingEl>({ name, tag, parentTag }: CompTarget, {
   data
 });
 
-export const makeRoomComp = (opts: CompOptions = {}) =>
+const makeRoomComp = (opts: CompOptions = {}) =>
   makeComp<RoomEl>({ name: 'room', tag: 'a-room', parentTag: 'a-scene' }, { walls: [{}, {}, {}], ...opts });
-export const makeWallComp = (opts?: CompOptions) => makeComp<WallEl>({ name: 'wall', tag: 'a-wall', parentTag: 'a-room' }, opts);
-export const makeOpeningComp = (opts?: CompOptions) =>
+const makeWallComp = (opts?: CompOptions) => makeComp<WallEl>({ name: 'wall', tag: 'a-wall', parentTag: 'a-room' }, opts);
+const makeOpeningComp = (opts?: CompOptions) =>
   makeComp<OpeningEl>({ name: 'opening', tag: 'a-opening', parentTag: 'a-wall' }, opts);
-export const makePortalComp = (opts?: CompOptions) =>
+const makePortalComp = (opts?: CompOptions) =>
   makeComp<PortalEl>({ name: 'portal', tag: 'a-portal', parentTag: 'a-scene' }, opts);
+
+export {
+  fake,
+  fireComponentChanged,
+  immediateAnimationFrame,
+  installAframeMock,
+  makeCap,
+  makeCollisionComponent,
+  makeCollisionEl,
+  makeEl,
+  makeObject3D,
+  makeOpening,
+  makeOpeningComp,
+  makeOpeningVerts,
+  makePortal,
+  makePortalChild,
+  makePortalComp,
+  makeRoom,
+  makeRoomComp,
+  makeRoomWithLinks,
+  makeSceneEl,
+  makeSquareRoom,
+  makeSystem,
+  makeVertex,
+  makeWall,
+  makeWallComp,
+  registeredComponent,
+  registeredPrimitive,
+  registeredSystem
+};
