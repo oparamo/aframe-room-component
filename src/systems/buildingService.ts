@@ -17,7 +17,7 @@ interface OpeningCut { span: WallSpan; openingEl: OpeningEl; portal: PortalData 
 interface OpeningEdge { ptX: number; bottomY: number; topY: number }
 interface OpeningEdges { left: OpeningEdge; right: OpeningEdge }
 
-interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling' }
+interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
 
 interface PortalSurfaceContext { from: OpeningCorners; to: OpeningCorners; fallbackMaterial: Material | undefined }
 
@@ -196,7 +196,7 @@ const capIndices = (walls: WallEl[]) => {
   return THREE.ShapeUtils.triangulateShape(contour, []).flat();
 };
 
-const buildCap = ({ walls, capEl, kind }: CapOptions) => {
+const buildCap = ({ walls, capEl, kind, isOutside }: CapOptions) => {
   const isCeiling = kind === 'ceiling';
   const positions = walls.flatMap(wallEl => capCorner(wallEl, isCeiling));
   const geom = new THREE.BufferGeometry();
@@ -204,8 +204,9 @@ const buildCap = ({ walls, capEl, kind }: CapOptions) => {
   geom.setIndex(capIndices(walls));
 
   // Earcut winds counterclockwise in (x, z) whichever way the walls run, and x cross z is -y, so
-  // its triangles face down: right for a ceiling, flipped for a floor.
-  if (!isCeiling) flipGeometry(geom);
+  // its triangles face down. Caps face into an inside room (floor up, ceiling down) and out of an
+  // outside one (roof up, floor down), so flip an inside floor and an outside ceiling.
+  if (isCeiling === isOutside) flipGeometry(geom);
 
   const { uvScale } = capEl.getAttribute(kind);
   const uSign = isCeiling ? 1 : -1;
@@ -338,10 +339,10 @@ const buildRoom = (roomEl: RoomEl) => {
   }
 
   if (roomEl.floor) {
-    buildCap({ walls, capEl: roomEl.floor, kind: 'floor' });
+    buildCap({ walls, capEl: roomEl.floor, kind: 'floor', isOutside: outside });
     roomEl.floor.classList.add('walkable');
   }
-  if (roomEl.ceiling) buildCap({ walls, capEl: roomEl.ceiling, kind: 'ceiling' });
+  if (roomEl.ceiling) buildCap({ walls, capEl: roomEl.ceiling, kind: 'ceiling', isOutside: outside });
 };
 
 const toCorners = (vertices: Vector3[] | undefined): OpeningCorners | null => {

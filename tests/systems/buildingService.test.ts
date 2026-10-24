@@ -225,8 +225,8 @@ describe('buildRoom', () => {
     it.each([
       { outside: false, kind: 'floor', up: true },
       { outside: false, kind: 'ceiling', up: false },
-      { outside: true, kind: 'floor', up: true },
-      { outside: true, kind: 'ceiling', up: false }
+      { outside: true, kind: 'floor', up: false },
+      { outside: true, kind: 'ceiling', up: true }
     ] as const)('faces $kind triangles up=$up when outside=$outside', ({ outside, kind, up }) => {
       // Arrange
       const room = makeSquareRoom({ outside });

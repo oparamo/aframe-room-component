@@ -71,7 +71,7 @@ A set of primitives (also usable as components) for laying out rooms connected b
 
 An `a-scene` can contain multiple `a-room`s.
 
-An `a-room` must contain at least three `a-wall`s. Set `outside="true"` on a room to make its walls describe the exterior of a building rather than an interior.
+An `a-room` must contain at least three `a-wall`s. Set `outside="true"` on a room to make its walls describe the exterior of a building rather than an interior. Every surface of an outside room faces outward: its walls face away from the building, its `a-ceiling` is a roof facing up, and its `a-floor` faces down.
 
 An `a-wall` can have any A-Frame entity as a child. Walls are oriented so their local `x` axis points toward the next wall — meaning a child entity's `x` coordinate is its distance along the wall, `y` is height off the ground, and `z` is distance from the wall surface.
 
@@ -89,7 +89,7 @@ If an `a-wall` has no `height` attribute, it inherits from its parent `a-room`'s
 
 If an `a-room` has both a `width` and a `length` attribute and contains exactly four `a-wall`s, wall `position`s can be omitted — they will be set automatically to form a rectangle from `(0,0)` to `(width, length)`.
 
-`uv-scale` on `a-wall`, `a-floor`, `a-ceiling`, and `a-sides` controls how many times the texture tiles per world unit. The default is `1` (one repeat per meter). Use `uv-scale="0.5"` to tile once every two meters, or `uv-scale="2"` to tile twice per meter.
+`uv-scale` on `a-wall`, `a-floor`, `a-ceiling`, and `a-sides` controls how many times the texture tiles per world unit. The default is `1` (one repeat per meter). Use `uv-scale="0.5"` to tile once every two meters, or `uv-scale="2"` to tile twice per meter. A-Frame only repeats a texture when the material's `repeat` is something other than `1 1`; otherwise the texture's edge pixels stretch past the first tile. To tile, set `repeat` on the material, for example `material="src: #bricks; repeat: 0.5 0.5"`, which multiplies with `uv-scale`.
 
 ### Windows
 
