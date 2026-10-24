@@ -3,7 +3,7 @@ import type { Entity } from '../types/aframe';
 import type { BuildingEl, OpeningEl, PortalData, PortalEl, RoomEl, SurfaceType, WallEl } from '../types/elements';
 import { required } from './required';
 
-type UvCallback = (vertex: Vector3, vertIndex: number) => [number, number];
+type UvCallback = (vertex: Vector3) => [number, number];
 type Axis = 'x' | 'y' | 'z';
 // Vertex layout per opening: [0]=left-bottom, [1]=left-top, [2]=right-bottom, [3]=right-top.
 type OpeningCorners = readonly [Vector3, Vector3, Vector3, Vector3];
@@ -17,16 +17,19 @@ interface OpeningCut { span: WallSpan; openingEl: OpeningEl; portal: PortalData 
 interface OpeningEdge { ptX: number; bottomY: number; topY: number }
 interface OpeningEdges { left: OpeningEdge; right: OpeningEdge }
 
-interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
+interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling' }
 
 interface PortalSurfaceContext { from: OpeningCorners; to: OpeningCorners; fallbackMaterial: Material | undefined }
 
+// A portal surface is one or two quads of four corners each.
 interface SurfaceLayout {
   // Which opening corners the surface spans, in vertex order.
   corners: (from: OpeningCorners, to: OpeningCorners) => Vector3[];
   indices: number[];
-  // Unscaled UV for a vertex; makeGeometryUvs passes the vertex index modulo 3.
-  uv: (vertIndex: number) => [number, number];
+  // UV of a quad's corner (0-3) on a unit quad; quadUvs scales it to meters.
+  uv: (quadCorner: number) => [number, number];
+  // u runs along the edge from corner 0 to this corner, v along the edge from corner 0 to the other.
+  uEdge: 1 | 2;
   className?: 'collidable' | 'walkable';
 }
 
@@ -40,18 +43,21 @@ const SURFACE_LAYOUTS: Record<SurfaceType, SurfaceLayout> = {
   floor: {
     corners: (from, to) => [to[0], to[2], from[2], from[0]],
     indices: QUAD,
-    uv: vertIndex => [1 - (vertIndex % 2), 1 - Math.floor(vertIndex / 2)],
+    uv: corner => [1 - (corner % 2), 1 - Math.floor(corner / 2)],
+    uEdge: 1,
     className: 'walkable'
   },
   ceiling: {
     corners: (from, to) => [to[3], to[1], from[1], from[3]],
     indices: QUAD,
-    uv: vertIndex => [vertIndex % 2, 1 - Math.floor(vertIndex / 2)]
+    uv: corner => [corner % 2, 1 - Math.floor(corner / 2)],
+    uEdge: 1
   },
   sides: {
     corners: (from, to) => [to[2], to[3], from[0], from[1], from[2], from[3], to[0], to[1]],
     indices: TWO_QUADS,
-    uv: vertIndex => [1 - Math.floor(vertIndex / 2), vertIndex % 2],
+    uv: corner => [1 - Math.floor(corner / 2), corner % 2],
+    uEdge: 2,
     className: 'collidable'
   }
 };
@@ -77,7 +83,7 @@ const makeGeometryUvs = (geom: BufferGeometry, callback: UvCallback) => {
   const uvs: number[] = [];
   for (const vertexIndex of indices) {
     vertex.set(pos.getX(vertexIndex), pos.getY(vertexIndex), pos.getZ(vertexIndex));
-    const [u, v] = callback(vertex, vertexIndex % 3);
+    const [u, v] = callback(vertex);
     uvs[vertexIndex * 2 + 0] = u;
     uvs[vertexIndex * 2 + 1] = v;
   }
@@ -158,7 +164,10 @@ const positionOpening = ({ wallEl, nextWallEl }: WallSpan, openingEl: OpeningEl,
 // Walls form a closed loop, so the last wall's neighbour is the first.
 const nextWallOf = (walls: WallEl[], index: number) => required(walls[(index + 1) % walls.length], 'next wall');
 
-const sortWalls = (walls: WallEl[], isOutside: boolean) => {
+// Returns the walls in build order, without reordering roomEl.walls: a width/length room places its
+// corners by authored order, and must place them the same way on every build.
+const wallsInBuildOrder = (authored: WallEl[], isOutside: boolean) => {
+  const walls = [...authored];
   // Shoelace formula: positive sum means clockwise winding in XZ plane.
   let cwSum = 0;
   for (const [i, wallEl] of walls.entries()) {
@@ -171,40 +180,32 @@ const sortWalls = (walls: WallEl[], isOutside: boolean) => {
   }
 
   if ((cwSum > 0) !== isOutside) walls.reverse();
+  return walls;
 };
 
 const capCorner = (wallEl: WallEl, isCeiling: boolean) => {
   const lift = isCeiling ? wallEl.getHeight() : 0;
   const { x, y, z } = wallEl.object3D.position;
-  return [x, y + lift, z] as const;
+  return [x, y + lift, z];
 };
 
-// Wall corners, then the centroid; fan triangles reference the centroid as vertex n.
-const capPositions = (walls: WallEl[], isCeiling: boolean) => {
-  const corners = walls.map(wallEl => capCorner(wallEl, isCeiling));
-  let cx = 0;
-  let cy = 0;
-  let cz = 0;
-  for (const [x, y, z] of corners) {
-    cx += x;
-    cy += y;
-    cz += z;
-  }
-  const n = corners.length;
-  return [...corners.flat(), cx / n, cy / n, cz / n];
+// Triangulates the wall corners in the XZ plane, which handles concave rooms. Earcut indexes into
+// the contour as given, so vertex i stays wall i and keeps that wall's height.
+const capIndices = (walls: WallEl[]) => {
+  const contour = walls.map(({ object3D: { position } }) => new THREE.Vector2(position.x, position.z));
+  return THREE.ShapeUtils.triangulateShape(contour, []).flat();
 };
 
-const fanIndices = (n: number) => Array.from({ length: n }, (_, i) => [i, (i + 1) % n, n]).flat();
-
-const buildCap = ({ walls, capEl, kind, isOutside }: CapOptions) => {
+const buildCap = ({ walls, capEl, kind }: CapOptions) => {
   const isCeiling = kind === 'ceiling';
+  const positions = walls.flatMap(wallEl => capCorner(wallEl, isCeiling));
   const geom = new THREE.BufferGeometry();
-  geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(capPositions(walls, isCeiling)), 3));
-  geom.setIndex(fanIndices(walls.length));
+  geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
+  geom.setIndex(capIndices(walls));
 
-  // Outside rooms have reversed wall order and ceilings face opposite from floors, so flip only
-  // when exactly one of those reversals applies.
-  if (isCeiling === isOutside) flipGeometry(geom);
+  // Earcut winds counterclockwise in (x, z) whichever way the walls run, and x cross z is -y, so
+  // its triangles face down: right for a ceiling, flipped for a floor.
+  if (!isCeiling) flipGeometry(geom);
 
   const { uvScale } = capEl.getAttribute(kind);
   const uSign = isCeiling ? 1 : -1;
@@ -326,11 +327,9 @@ const placeRectangleWalls = (walls: WallEl[], width: number, length: number) => 
 
 const buildRoom = (roomEl: RoomEl) => {
   const { outside, length, width } = roomEl.getAttribute('room');
-  const walls = roomEl.walls;
+  if (width && length) placeRectangleWalls(roomEl.walls, width, length);
 
-  if (width && length) placeRectangleWalls(walls, width, length);
-
-  sortWalls(walls, outside);
+  const walls = wallsInBuildOrder(roomEl.walls, outside);
 
   for (const [i, wallEl] of walls.entries()) {
     const nextWallEl = nextWallOf(walls, i);
@@ -339,10 +338,10 @@ const buildRoom = (roomEl: RoomEl) => {
   }
 
   if (roomEl.floor) {
-    buildCap({ walls, capEl: roomEl.floor, kind: 'floor', isOutside: outside });
+    buildCap({ walls, capEl: roomEl.floor, kind: 'floor' });
     roomEl.floor.classList.add('walkable');
   }
-  if (roomEl.ceiling) buildCap({ walls, capEl: roomEl.ceiling, kind: 'ceiling', isOutside: outside });
+  if (roomEl.ceiling) buildCap({ walls, capEl: roomEl.ceiling, kind: 'ceiling' });
 };
 
 const toCorners = (vertices: Vector3[] | undefined): OpeningCorners | null => {
@@ -350,6 +349,16 @@ const toCorners = (vertices: Vector3[] | undefined): OpeningCorners | null => {
   if (!leftBottom || !leftTop || !rightBottom || !rightTop) return null;
   return [leftBottom, leftTop, rightBottom, rightTop];
 };
+
+// UVs in meters: each quad's unit UVs times the lengths of the edges u and v run along.
+const quadUvs = (corners: Vector3[], { uv, uEdge }: SurfaceLayout, uvScale: number) => corners.flatMap((_, i) => {
+  const quadStart = i - (i % 4);
+  const origin = required(corners[quadStart], 'quad corner');
+  const uLength = origin.distanceTo(required(corners[quadStart + uEdge], 'quad corner'));
+  const vLength = origin.distanceTo(required(corners[quadStart + 3 - uEdge], 'quad corner'));
+  const [u, v] = uv(i % 4);
+  return [u * uLength * uvScale, v * vLength * uvScale];
+});
 
 const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, { from, to, fallbackMaterial }: PortalSurfaceContext) => {
   const layout = SURFACE_LAYOUTS[type];
@@ -363,14 +372,12 @@ const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, { from, to, 
   childEl.mesh = new THREE.Mesh(geom, material);
   childEl.setObject3D(type, childEl.mesh);
 
-  const positions = layout.corners(from, to).flatMap(vertex => toChildLocal(vertex, childEl));
+  const corners = layout.corners(from, to);
+  const positions = corners.flatMap(vertex => toChildLocal(vertex, childEl));
   geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positions), 3));
 
   const { uvScale } = childEl.getAttribute(type);
-  makeGeometryUvs(geom, (_point, vertIndex) => {
-    const [u, v] = layout.uv(vertIndex);
-    return [u * uvScale, v * uvScale];
-  });
+  geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(quadUvs(corners, layout, uvScale)), 2));
   finishGeometry(geom);
   if (layout.className) childEl.classList.add(layout.className);
 };

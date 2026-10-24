@@ -181,7 +181,7 @@ The same path handles both the initial build on page load and runtime rebuilds t
 
 Rooms are always built before portals because building a room populates the world-space vertices on its openings, and portals consume those vertices to construct the tunnel geometry connecting them. When a room is rebuilt at runtime, its connected portals are automatically added to the dirty set so their geometry stays in sync.
 
-Floor and ceiling caps use centroid fan triangulation: the corner position of each wall is collected in world space, the centroid is computed, and each adjacent pair of corners forms a triangle with the centroid as the apex. This handles any convex room shape regardless of wall count or height variation between walls.
+Floor and ceiling caps are triangulated from the wall corners in the horizontal plane, so concave rooms (L- or U-shaped, for example) work as well as convex ones. Each corner then takes its own wall's height, so the floor follows walls at different heights and the ceiling follows walls of different heights.
 
 ### Collision system
 

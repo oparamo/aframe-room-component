@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import type { Mesh } from 'three';
+import type { BufferGeometry, Mesh } from 'three';
 import type { PortalEl } from '../../src/types/elements';
 import {
   fake, makeCap, makeObject3D, makeWall, makeRoom, makeSquareRoom,
@@ -10,6 +10,26 @@ afterEach(() => vi.restoreAllMocks());
 import { buildRoom, buildPortal } from '../../src/systems/buildingService';
 
 // --- buildRoom ---
+
+// UVs as [u, v] pairs, rounded so float noise doesn't fail an exact comparison.
+const uvPairs = (geom: BufferGeometry | undefined) => {
+  const uv = geom?.getAttribute('uv');
+  return Array.from({ length: uv?.count ?? 0 }, (_, i) => [uv?.getX(i), uv?.getY(i)].map(n => Math.round((n ?? NaN) * 1e4) / 1e4));
+};
+
+// The Y component of each triangle's face normal, from its winding.
+const faceNormalYs = (geom: BufferGeometry | undefined) => {
+  const pos = geom?.getAttribute('position');
+  const index = Array.from(geom?.getIndex()?.array ?? []);
+  const corner = (i: number) => new THREE.Vector3(pos?.getX(i), pos?.getY(i), pos?.getZ(i));
+  const ys = [];
+  for (let t = 0; t < index.length; t += 3) {
+    const [a, b, c] = [index[t], index[t + 1], index[t + 2]].map(i => corner(i ?? 0));
+    if (!a || !b || !c) continue;
+    ys.push(b.sub(a).cross(c.sub(a)).y);
+  }
+  return ys;
+};
 
 describe('buildRoom', () => {
   describe('with implicit wall positions', () => {
@@ -103,6 +123,21 @@ describe('buildRoom', () => {
   });
 
   describe('outside room', () => {
+    it('keeps each wall at the same corner when a width/length room is rebuilt', () => {
+      // Arrange
+      const walls = [makeWall(), makeWall(), makeWall(), makeWall()];
+      const room = makeRoom([...walls], { width: 4, length: 6, outside: true });
+      const corners = () => walls.map(wall => ({ x: wall.object3D.position.x, z: wall.object3D.position.z }));
+      buildRoom(room);
+      const firstBuild = corners();
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      expect(corners()).toEqual(firstBuild);
+    });
+
     it('still creates meshes for all walls', () => {
       // Arrange
       const room = makeSquareRoom({ outside: true });
@@ -186,36 +221,69 @@ describe('buildRoom', () => {
     });
   });
 
+  describe('cap facing', () => {
+    it.each([
+      { outside: false, kind: 'floor', up: true },
+      { outside: false, kind: 'ceiling', up: false },
+      { outside: true, kind: 'floor', up: true },
+      { outside: true, kind: 'ceiling', up: false }
+    ] as const)('faces $kind triangles up=$up when outside=$outside', ({ outside, kind, up }) => {
+      // Arrange
+      const room = makeSquareRoom({ outside });
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      const ys = faceNormalYs(room[kind]?.mesh?.geometry);
+      expect(ys.length).toBeGreaterThan(0);
+      for (const y of ys) expect(y > 0).toBe(up);
+    });
+  });
+
   describe('cap triangulation', () => {
-    it('uses centroid fan for a 4-wall room', () => {
-      const room = makeRoom([
+    it('covers a concave room without spanning its notch', () => {
+      // Arrange: a U-shaped room, open between x=1 and x=2 for z > 1
+      const corners = [[0, 0], [3, 0], [3, 3], [2, 3], [2, 1], [1, 1], [1, 3], [0, 3]] as const;
+      const room = makeRoom(corners.map(([x, z]) => makeWall({ x, z })));
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      const geom = room.floor?.mesh?.geometry;
+      const pos = geom?.getAttribute('position');
+      const index = Array.from(geom?.getIndex()?.array ?? []);
+      expect(index).toHaveLength((corners.length - 2) * 3);
+      for (let t = 0; t < index.length; t += 3) {
+        const tri = [index[t], index[t + 1], index[t + 2]].map(i => i ?? 0);
+        const cx = tri.reduce((sum, i) => sum + (pos?.getX(i) ?? 0), 0) / 3;
+        const cz = tri.reduce((sum, i) => sum + (pos?.getZ(i) ?? 0), 0) / 3;
+        const inNotch = cx > 1 && cx < 2 && cz > 1;
+        expect(inNotch).toBe(false);
+      }
+    });
+
+    it('lifts each ceiling corner to its own wall height', () => {
+      // Arrange
+      const walls = [
         makeWall({ height: 2 }),
         makeWall({ x: 4, height: 2 }),
         makeWall({ x: 4, z: 4, height: 4 }),
-        makeWall({ z: 4, height: 2 })
-      ]);
+        makeWall({ z: 4, y: 1, height: 2 })
+      ];
+      const room = makeRoom(walls);
 
+      // Act
       buildRoom(room);
 
-      // 4 corners + 1 centroid = 5 vertices; 4 triangles × 3 indices = 12
-      expect(room.ceiling?.mesh?.geometry.getAttribute('position').count).toBe(5);
-      expect(room.ceiling?.mesh?.geometry.getIndex()?.count).toBe(12);
-    });
-
-    it('uses centroid fan for a 5-wall room', () => {
-      const room = makeRoom([
-        makeWall({ height: 2 }),
-        makeWall({ x: 4, height: 2 }),
-        makeWall({ x: 6, z: 2, height: 2 }),
-        makeWall({ x: 4, z: 4 }),
-        makeWall({ z: 4, height: 2 })
-      ]);
-
-      buildRoom(room);
-
-      // 5 corners + 1 centroid = 6 vertices; 5 triangles × 3 indices = 15
-      expect(room.ceiling?.mesh?.geometry.getAttribute('position').count).toBe(6);
-      expect(room.ceiling?.mesh?.geometry.getIndex()?.count).toBe(15);
+      // Assert
+      const pos = room.ceiling?.mesh?.geometry.getAttribute('position');
+      expect(pos?.count).toBe(walls.length);
+      for (let i = 0; i < (pos?.count ?? 0); i++) {
+        const wall = walls.find(w => w.object3D.position.x === pos?.getX(i) && w.object3D.position.z === pos.getZ(i));
+        expect(pos?.getY(i)).toBe((wall?.object3D.position.y ?? NaN) + (wall?.getHeight() ?? NaN));
+      }
     });
   });
 
@@ -367,7 +435,7 @@ describe('buildPortal', () => {
 
   it('frees the previous surface geometry when rebuilt', () => {
     // Arrange
-    const floorChild = makePortalChild('floor');
+    const floorChild = makePortalChild({ type: 'floor' });
     const portal = makePortal({ fromVerts, toVerts, children: [floorChild] });
     buildPortal(portal);
     const disposed = vi.fn();
@@ -382,7 +450,7 @@ describe('buildPortal', () => {
 
   it('creates a mesh on a floor child', () => {
     // Arrange
-    const floorChild = makePortalChild('floor');
+    const floorChild = makePortalChild({ type: 'floor' });
     const portal = makePortal({ fromVerts, toVerts, children: [floorChild] });
 
     // Act
@@ -394,7 +462,7 @@ describe('buildPortal', () => {
 
   it('creates a mesh on a ceiling child', () => {
     // Arrange
-    const ceilingChild = makePortalChild('ceiling');
+    const ceilingChild = makePortalChild({ type: 'ceiling' });
     const portal = makePortal({ fromVerts, toVerts, children: [ceilingChild] });
 
     // Act
@@ -406,7 +474,7 @@ describe('buildPortal', () => {
 
   it('creates a mesh on a sides child', () => {
     // Arrange
-    const sidesChild = makePortalChild('sides');
+    const sidesChild = makePortalChild({ type: 'sides' });
     const portal = makePortal({ fromVerts, toVerts, children: [sidesChild] });
 
     // Act
@@ -418,7 +486,7 @@ describe('buildPortal', () => {
 
   it('floor geometry has 4 vertices', () => {
     // Arrange
-    const floorChild = makePortalChild('floor');
+    const floorChild = makePortalChild({ type: 'floor' });
     const portal = makePortal({ fromVerts, toVerts, children: [floorChild] });
 
     // Act
@@ -430,7 +498,7 @@ describe('buildPortal', () => {
 
   it('ceiling geometry has 4 vertices', () => {
     // Arrange
-    const ceilingChild = makePortalChild('ceiling');
+    const ceilingChild = makePortalChild({ type: 'ceiling' });
     const portal = makePortal({ fromVerts, toVerts, children: [ceilingChild] });
 
     // Act
@@ -442,7 +510,7 @@ describe('buildPortal', () => {
 
   it('sides geometry has 8 vertices', () => {
     // Arrange
-    const sidesChild = makePortalChild('sides');
+    const sidesChild = makePortalChild({ type: 'sides' });
     const portal = makePortal({ fromVerts, toVerts, children: [sidesChild] });
 
     // Act
@@ -454,7 +522,7 @@ describe('buildPortal', () => {
 
   it('logs an error and does nothing when from element is missing', () => {
     // Arrange
-    const floorChild = makePortalChild('floor');
+    const floorChild = makePortalChild({ type: 'floor' });
     const portal = makePortal({ fromVerts: null, toVerts, children: [floorChild] });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -468,7 +536,7 @@ describe('buildPortal', () => {
 
   it('includes portal id in error message when id is set', () => {
     // Arrange
-    const floorChild = makePortalChild('floor');
+    const floorChild = makePortalChild({ type: 'floor' });
     const portal = makePortal({ fromVerts: null, toVerts, children: [floorChild] });
     portal.id = 'my-portal';
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
@@ -482,7 +550,7 @@ describe('buildPortal', () => {
 
   it('logs an error and does nothing when to element is missing', () => {
     // Arrange
-    const floorChild = makePortalChild('floor');
+    const floorChild = makePortalChild({ type: 'floor' });
     const portal = makePortal({ fromVerts, toVerts: null, children: [floorChild] });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -496,7 +564,7 @@ describe('buildPortal', () => {
 
   it('skips children with no matching type component', () => {
     // Arrange: child has no floor/ceiling/sides component
-    const unknownChild = makePortalChild('floor');
+    const unknownChild = makePortalChild({ type: 'floor' });
     unknownChild.components = {};
     const portal = makePortal({ fromVerts, toVerts, children: [unknownChild] });
 
@@ -505,11 +573,55 @@ describe('buildPortal', () => {
     expect(unknownChild.mesh).toBeNull();
   });
 
+  describe('surface UVs', () => {
+    // A doorway 1 m wide and 2 m tall, with the far opening 3 m away. The openings face each other,
+    // so the far one's left edge lines up with the near one's right.
+    const near = makeOpeningVerts(0, 1, 2);
+    const far = near.map(vertex => new THREE.Vector3(-vertex.x, vertex.y, 3));
+
+    it('spans the floor in meters, across the width and along the depth', () => {
+      // Arrange
+      const floorChild = makePortalChild({ type: 'floor' });
+      const portal = makePortal({ fromVerts: near, toVerts: far, children: [floorChild] });
+
+      // Act
+      buildPortal(portal);
+
+      // Assert
+      expect(uvPairs(floorChild.mesh?.geometry)).toEqual([[1, 3], [0, 3], [1, 0], [0, 0]]);
+    });
+
+    it('multiplies the UVs by uv-scale', () => {
+      // Arrange
+      const floorChild = makePortalChild({ type: 'floor', uvScale: 2 });
+      const portal = makePortal({ fromVerts: near, toVerts: far, children: [floorChild] });
+
+      // Act
+      buildPortal(portal);
+
+      // Assert
+      expect(uvPairs(floorChild.mesh?.geometry)).toEqual([[2, 6], [0, 6], [2, 0], [0, 0]]);
+    });
+
+    it('spans each side wall in meters, with V running up the wall', () => {
+      // Arrange
+      const sidesChild = makePortalChild({ type: 'sides' });
+      const portal = makePortal({ fromVerts: near, toVerts: far, children: [sidesChild] });
+
+      // Act
+      buildPortal(portal);
+
+      // Assert
+      const sideWall = [[3, 0], [3, 2], [0, 0], [0, 2]];
+      expect(uvPairs(sidesChild.mesh?.geometry)).toEqual([...sideWall, ...sideWall]);
+    });
+  });
+
   it('processes multiple children in one call', () => {
     // Arrange
-    const floorChild = makePortalChild('floor');
-    const ceilingChild = makePortalChild('ceiling');
-    const sidesChild = makePortalChild('sides');
+    const floorChild = makePortalChild({ type: 'floor' });
+    const ceilingChild = makePortalChild({ type: 'ceiling' });
+    const sidesChild = makePortalChild({ type: 'sides' });
     const portal = makePortal({ fromVerts, toVerts, children: [floorChild, ceilingChild, sidesChild] });
 
     // Act
