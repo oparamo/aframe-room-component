@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { makeEl, registeredComponent } from '../utils/mocks';
 import '../../src/components/ceiling';
 
@@ -26,6 +26,32 @@ describe('ceiling', () => {
 
       // Act / Assert
       expect(() => registeredComponent('ceiling').init.call(comp)).toThrow();
+    });
+  });
+
+  describe('update', () => {
+    it('rebuilds its parent room', () => {
+      // Arrange
+      const rebuild = vi.fn();
+      const comp = { el: makeEl({ tag: 'a-ceiling', parentTag: 'a-room', parentComponents: { room: { rebuild } } }) };
+
+      // Act
+      registeredComponent('ceiling').update.call(comp);
+
+      // Assert
+      expect(rebuild).toHaveBeenCalledOnce();
+    });
+
+    it('rebuilds its parent portal', () => {
+      // Arrange
+      const rebuild = vi.fn();
+      const comp = { el: makeEl({ tag: 'a-ceiling', parentTag: 'a-portal', parentComponents: { portal: { rebuild } } }) };
+
+      // Act
+      registeredComponent('ceiling').update.call(comp);
+
+      // Assert
+      expect(rebuild).toHaveBeenCalledOnce();
     });
   });
 });

@@ -67,6 +67,7 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
 
     this.el.sceneEl.addEventListener('loaded', this._onLoaded);
     this.el.sceneEl.addEventListener('room-building-complete', this._onBuildComplete);
+    if (this.el.sceneEl.hasLoaded) this._onLoaded();
   },
 
   remove: function () {

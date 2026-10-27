@@ -132,12 +132,15 @@ Window portals (any portal with `floor-height > 0`) automatically block player m
 
 Rooms and portals rebuild their geometry when they change, with nothing to wire up:
 
-- Attributes, and `position`, `rotation` or `scale` set through `setAttribute` (as the A-Frame inspector does), rebuild right away, even while the scene is paused.
-- Movement that bypasses `setAttribute`, such as the `animation` component or code that sets `object3D` directly, is picked up on the next frame. This includes a room moving because its parent entity moves.
+- Attributes of a room, wall, portal, floor, ceiling or sides, and `position`, `rotation` or `scale` set through `setAttribute` (as the A-Frame inspector does), rebuild right away, even while the scene is paused.
+- Movement that bypasses `setAttribute`, such as the `animation` component or code that sets `object3D` directly, is picked up on the next frame. This covers a room or portal moving, including when its parent entity moves, and a single wall moving within its room.
+- A portal added to the scene cuts its openings on the next build, and removing a portal fills them back in.
 
 Rebuilding a room also rebuilds the portals connected to it, and rebuilds in the same frame are batched into one pass.
 
-Detection watches each room's and portal's own world transform. For a change it can't see, such as moving a single wall's `object3D` while its room stays put, call `rebuild()`:
+A room's walls, and each wall's openings, are the ones it had when it was created. To change them, replace the `a-room` element.
+
+To queue a rebuild by hand, call `rebuild()`:
 
 ```js
 roomEl.components.room.rebuild();

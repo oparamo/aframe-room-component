@@ -50,6 +50,40 @@ describe('room-collision', () => {
     });
   });
 
+  describe('init after the scene has loaded', () => {
+    it('collects the wall and floor meshes right away', () => {
+      // Arrange
+      const wallMesh = {};
+      const floorMesh = {};
+      const el = makeCollisionEl({
+        sceneLoaded: true, wallCollidables: [{ mesh: wallMesh }], floorCollidables: [{ mesh: floorMesh }]
+      });
+
+      // Act
+      const comp = makeCollisionComponent(el);
+
+      // Assert
+      expect(comp.wallMeshes).toEqual([wallMesh]);
+      expect(comp.floorMeshes).toEqual([floorMesh]);
+    });
+
+    it('snaps to the floor at the camera height', () => {
+      // Arrange
+      const el = makeCollisionEl({ position: new THREE.Vector3(0, 1.6, 0), sceneLoaded: true });
+      const comp = makeCollisionComponent(el);
+      vi.spyOn(comp._floorRaycaster, 'intersectObjects').mockReturnValue([
+        fake<Intersection>({ point: new THREE.Vector3(0, 0.5, 0) })
+      ]);
+      const pos = new THREE.Vector3();
+
+      // Act
+      comp._snapToFloor(pos);
+
+      // Assert
+      expect(pos.y).toBeCloseTo(2.1);
+    });
+  });
+
   describe('_onBuildComplete', () => {
     it('refreshes wall and floor mesh lists', () => {
       // Arrange

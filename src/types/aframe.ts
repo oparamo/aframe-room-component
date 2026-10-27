@@ -22,6 +22,7 @@ interface Entity extends HTMLElement {
 }
 
 interface Scene extends Entity {
+  hasLoaded: boolean;
   systems: Partial<Record<string, System>>;
 }
 

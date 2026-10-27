@@ -195,5 +195,19 @@ describe('room', () => {
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);
     });
+
+    it('tells the building system the room is gone', () => {
+      // Arrange
+      const removeRoom = vi.fn();
+      const sceneEl = makeSceneEl({ systems: { building: { removeRoom } } });
+      const comp = makeRoomComp({ data: {}, sceneEl });
+      registeredComponent('room').init.call(comp);
+
+      // Act
+      registeredComponent('room').remove.call(comp);
+
+      // Assert
+      expect(removeRoom).toHaveBeenCalledExactlyOnceWith(comp.el);
+    });
   });
 });

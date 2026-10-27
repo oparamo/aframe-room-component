@@ -154,6 +154,50 @@ describe('building system', () => {
     });
   });
 
+  describe('removePortal', () => {
+    it('queues the connected rooms and schedules a build', () => {
+      // Arrange
+      const system = makeSystem();
+      const roomA = makeRoom();
+      const roomB = makeRoom();
+
+      // Act
+      system.removePortal(makePortal({ roomA, roomB }));
+
+      // Assert
+      expect([...system.dirtyRooms]).toEqual([roomA, roomB]);
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalledOnce();
+    });
+
+    it('drops the portal from the next build', () => {
+      // Arrange
+      const system = makeSystem();
+      const portal = makePortal();
+      system.buildPortal(portal);
+
+      // Act
+      system.removePortal(portal);
+
+      // Assert
+      expect(system.dirtyPortals.has(portal)).toBe(false);
+    });
+  });
+
+  describe('removeRoom', () => {
+    it('drops the room from the next build', () => {
+      // Arrange
+      const system = makeSystem();
+      const room = makeRoom();
+      system.buildRoom(room);
+
+      // Act
+      system.removeRoom(room);
+
+      // Assert
+      expect(system.dirtyRooms.has(room)).toBe(false);
+    });
+  });
+
   describe('requestBuild', () => {
     it('calls buildRoom for each dirty room and makes it visible', () => {
       // Arrange
