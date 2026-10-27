@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { immediateAnimationFrame, makePortal, makeRoomWithLinks, makeRoomWithLinks as makeRoom, makeSystem, registeredSystem } from '../utils/mocks';
+import { immediateAnimationFrame, makePortal, makeRoomWithLinks, makeSystem, registeredSystem } from '../utils/mocks';
 
 vi.mock('../../src/systems/buildingService', () => ({
   buildRoom: vi.fn(),
@@ -36,7 +36,7 @@ describe('building system', () => {
     it('adds the room to dirtyRooms', () => {
       // Arrange
       const system = makeSystem();
-      const room = makeRoom();
+      const room = makeRoomWithLinks();
 
       // Act
       system.buildRoom(room);
@@ -49,7 +49,7 @@ describe('building system', () => {
       // Arrange
       const system = makeSystem();
       const portal = makePortal();
-      const room = makeRoom(portal);
+      const room = makeRoomWithLinks({ portals: [portal] });
 
       // Act
       system.buildRoom(room);
@@ -59,9 +59,9 @@ describe('building system', () => {
     });
 
     it('does not add to dirtyPortals when an opening has no portal', () => {
-      // Arrange: makeRoomWithLinks(null) creates a room with an opening whose getPortal() returns null
+      // Arrange: makeRoomWithLinks({ portals: [null] }) creates a room with an opening whose getPortal() returns null
       const system = makeSystem();
-      const room = makeRoomWithLinks(null);
+      const room = makeRoomWithLinks({ portals: [null] });
 
       // Act
       system.buildRoom(room);
@@ -75,7 +75,7 @@ describe('building system', () => {
       const system = makeSystem();
 
       // Act
-      system.buildRoom(makeRoom());
+      system.buildRoom(makeRoomWithLinks());
 
       // Assert
       expect(globalThis.requestAnimationFrame).toHaveBeenCalledOnce();
@@ -86,8 +86,8 @@ describe('building system', () => {
       const system = makeSystem();
 
       // Act
-      system.buildRoom(makeRoom());
-      system.buildRoom(makeRoom());
+      system.buildRoom(makeRoomWithLinks());
+      system.buildRoom(makeRoomWithLinks());
 
       // Assert
       expect(globalThis.requestAnimationFrame).toHaveBeenCalledOnce();
@@ -110,8 +110,8 @@ describe('building system', () => {
     it('adds connected rooms to dirtyRooms', () => {
       // Arrange
       const system = makeSystem();
-      const roomA = makeRoom();
-      const roomB = makeRoom();
+      const roomA = makeRoomWithLinks();
+      const roomB = makeRoomWithLinks();
       const portal = makePortal({ roomA, roomB });
 
       // Act
@@ -158,8 +158,8 @@ describe('building system', () => {
     it('queues the connected rooms and schedules a build', () => {
       // Arrange
       const system = makeSystem();
-      const roomA = makeRoom();
-      const roomB = makeRoom();
+      const roomA = makeRoomWithLinks();
+      const roomB = makeRoomWithLinks();
 
       // Act
       system.removePortal(makePortal({ roomA, roomB }));
@@ -187,7 +187,7 @@ describe('building system', () => {
     it('drops the room from the next build', () => {
       // Arrange
       const system = makeSystem();
-      const room = makeRoom();
+      const room = makeRoomWithLinks();
       system.buildRoom(room);
 
       // Act
@@ -203,7 +203,7 @@ describe('building system', () => {
       // Arrange
       globalThis.requestAnimationFrame = immediateAnimationFrame();
       const system = makeSystem();
-      const room = makeRoom();
+      const room = makeRoomWithLinks();
 
       // Act
       system.buildRoom(room);
@@ -232,7 +232,7 @@ describe('building system', () => {
       const system = makeSystem();
 
       // Act
-      system.buildRoom(makeRoom());
+      system.buildRoom(makeRoomWithLinks());
 
       // Assert
       expect(system.dirtyRooms.size).toBe(0);
@@ -246,8 +246,8 @@ describe('building system', () => {
       const system = makeSystem();
 
       // Act
-      system.buildRoom(makeRoom());
-      system.buildRoom(makeRoom());
+      system.buildRoom(makeRoomWithLinks());
+      system.buildRoom(makeRoomWithLinks());
 
       // Assert
       expect(globalThis.requestAnimationFrame).toHaveBeenCalledTimes(2);

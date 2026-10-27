@@ -167,6 +167,33 @@
       <a-sides material="color:#778"></a-sides>
     </a-portal>
 
+    <!-- Rotated pavilion; its door portal is a child of the shell wall, so it moves with the rooms. -->
+    <a-room id="pavilion" position="14 0 -8" rotation="0 -30 0" height="2.6" material="color:#EDB">
+      <a-wall position="0 0 0"></a-wall>
+      <a-wall position="3 0 0"></a-wall>
+      <a-wall position="3 0 3">
+        <a-opening id="pavilionDoor"></a-opening>
+      </a-wall>
+      <a-wall position="0 0 3"></a-wall>
+      <a-floor mixin="floorMat"></a-floor>
+      <a-ceiling material="color:#AAA"></a-ceiling>
+    </a-room>
+
+    <a-room id="pavilionShell" position="14 0 -8" rotation="0 -30 0" height="3" outside="true"
+      material="color:#9a8">
+      <a-wall position="-0.3 0 -0.3"></a-wall>
+      <a-wall position="3.3 0 -0.3"></a-wall>
+      <a-wall position="3.3 0 3.3"></a-wall>
+      <a-wall position="-0.3 0 3.3">
+        <a-opening id="pavilionShellDoor"></a-opening>
+        <a-portal from="#pavilionDoor" to="#pavilionShellDoor" width="1.2" height="2.2" position="1.8 0 0">
+          <a-floor mixin="floorMat"></a-floor>
+          <a-ceiling material="color:#778"></a-ceiling>
+          <a-sides material="color:#778"></a-sides>
+        </a-portal>
+      </a-wall>
+    </a-room>
+
     <!-- U-shaped room inside a U-shaped shell; the notch opens toward the path as a courtyard. -->
     <a-room id="uRoom" height="2.8" material="color:#ACE">
       <a-wall position="-22 0 -12"></a-wall>
