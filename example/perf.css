@@ -1,0 +1,13 @@
+#readout {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 10;
+  padding: 6px 10px;
+  font: 13px/1.4 monospace;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 4px;
+  pointer-events: none;
+}
