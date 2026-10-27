@@ -274,7 +274,6 @@ addInfo({
 addToggle({
   position: '12.4 1.4 -1.2',
   label: 'Grow pavilion 1.5x',
-  onLabel: 'Shrink pavilion to original size',
   action: (on) => {
     const scale = on ? '1.5 1 1.5' : '1 1 1';
     for (const id of ['pavilion', 'pavilionShell']) byId(id).setAttribute('scale', scale);
