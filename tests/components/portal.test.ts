@@ -142,5 +142,19 @@ describe('portal', () => {
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);
     });
+
+    it('tells the building system the portal is gone', () => {
+      // Arrange
+      const removePortal = vi.fn();
+      const sceneEl = makeSceneEl({ systems: { building: { removePortal } } });
+      const comp = makePortalComp({ sceneEl });
+      registeredComponent('portal').init.call(comp);
+
+      // Act
+      registeredComponent('portal').remove.call(comp);
+
+      // Assert
+      expect(removePortal).toHaveBeenCalledExactlyOnceWith(comp.el);
+    });
   });
 });

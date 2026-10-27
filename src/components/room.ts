@@ -62,5 +62,6 @@ AFRAME.registerComponent<RoomComponent>('room', {
   },
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
+    this.el.sceneEl.systems.building?.removeRoom(this.el);
   }
 });

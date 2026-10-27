@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { makeOpeningComp, makeSceneEl, registeredComponent } from '../utils/mocks';
 import '../../src/components/opening';
 
@@ -53,21 +53,55 @@ describe('opening', () => {
       expect(result).toBe(portal);
     });
 
-    it('returns cached result on subsequent calls without re-querying the scene', () => {
+    it('finds a portal added after an earlier lookup', () => {
       // Arrange
       const comp = makeOpeningComp();
       registeredComponent('opening').init.call(comp);
+      const portals: object[] = [];
+      comp.el.sceneEl = makeSceneEl({ portals });
+      comp.el.getPortal();
       const portal = { components: { portal: { data: { from: comp.el, to: null } } } };
-      comp.el.sceneEl = makeSceneEl({ portals: [portal] });
-      const querySelectorAll = vi.spyOn(comp.el.sceneEl, 'querySelectorAll');
+      portals.push(portal);
 
       // Act
-      comp.el.getPortal();
       const result = comp.el.getPortal();
 
       // Assert
-      expect(querySelectorAll).toHaveBeenCalledTimes(1);
       expect(result).toBe(portal);
+    });
+
+    it('returns null once the portal connects a different opening', () => {
+      // Arrange
+      const comp = makeOpeningComp();
+      registeredComponent('opening').init.call(comp);
+      const data = { from: comp.el as object, to: null };
+      comp.el.sceneEl = makeSceneEl({ portals: [{ components: { portal: { data } } }] });
+      comp.el.getPortal();
+      data.from = {};
+
+      // Act
+      const result = comp.el.getPortal();
+
+      // Assert
+      expect(result).toBeNull();
+    });
+
+    it('returns null once the portal component is removed', () => {
+      // Arrange
+      const comp = makeOpeningComp();
+      registeredComponent('opening').init.call(comp);
+      const portal: { components: { portal?: object } } = {
+        components: { portal: { data: { from: comp.el, to: null } } }
+      };
+      comp.el.sceneEl = makeSceneEl({ portals: [portal] });
+      comp.el.getPortal();
+      delete portal.components.portal;
+
+      // Act
+      const result = comp.el.getPortal();
+
+      // Assert
+      expect(result).toBeNull();
     });
 
     it('returns null when no portal references this opening', () => {

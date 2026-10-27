@@ -318,6 +318,7 @@ const buildWall = (wallEl: WallEl, nextWallEl: WallEl) => {
   finishGeometry(wallGeom);
   applyMesh(wallEl, 'wallMesh', wallGeom);
   wallEl.classList.add('collidable');
+  (wallEl.builtPosition ??= new THREE.Vector3()).copy(wallEl.object3D.position);
 };
 
 const placeRectangleWalls = (walls: WallEl[], width: number, length: number) => {

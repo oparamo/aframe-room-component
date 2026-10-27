@@ -1,5 +1,11 @@
-import type { BuildingSystem } from '../types/elements';
+import type { BuildingSystem, PortalEl } from '../types/elements';
 import { buildPortal, buildRoom } from './buildingService';
+
+// The rooms whose walls hold the portal's openings.
+const roomsOf = (portalEl: PortalEl) => {
+  const data = portalEl.components.portal?.data;
+  return [data?.from, data?.to].flatMap(openingEl => openingEl ? [openingEl.parentEl.parentEl] : []);
+};
 
 AFRAME.registerSystem<BuildingSystem>('building', {
   init: function () {
@@ -22,14 +28,21 @@ AFRAME.registerSystem<BuildingSystem>('building', {
   },
   buildPortal: function (portalEl) {
     // Portal width/height/position affects the wall cutout, so parent rooms must rebuild first.
-    const data = portalEl.components.portal?.data;
-    const roomA = data?.from?.parentEl.parentEl;
-    const roomB = data?.to?.parentEl.parentEl;
-    if (roomA) this.dirtyRooms.add(roomA);
-    if (roomB) this.dirtyRooms.add(roomB);
+    for (const roomEl of roomsOf(portalEl)) this.dirtyRooms.add(roomEl);
 
     this.dirtyPortals.add(portalEl);
     this.requestBuild();
+  },
+  // Rebuilds the portal's rooms. By then the portal has left the scene or lost its portal component,
+  // so its openings build as solid wall.
+  removePortal: function (portalEl) {
+    for (const roomEl of roomsOf(portalEl)) this.dirtyRooms.add(roomEl);
+
+    this.dirtyPortals.delete(portalEl);
+    this.requestBuild();
+  },
+  removeRoom: function (roomEl) {
+    this.dirtyRooms.delete(roomEl);
   },
   requestBuild: function () {
     if (this.buildPending) return;

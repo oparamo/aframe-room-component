@@ -227,6 +227,7 @@ interface ElOptions {
   tag?: string;
   parentTag?: string | null;
   parentAttrs?: Record<string, object>;
+  parentComponents?: DeepPartial<BuildingEl['components']>;
   walls?: DeepPartial<WallEl>[];
   openings?: DeepPartial<OpeningEl>[];
   ceilingEl?: DeepPartial<BuildingEl> | null;
@@ -239,6 +240,7 @@ const makeEl = ({
   tag = 'a-entity',
   parentTag = null,
   parentAttrs = {},
+  parentComponents = {},
   walls = [],
   openings = [],
   ceilingEl = null,
@@ -248,7 +250,9 @@ const makeEl = ({
 }: ElOptions = {}) => {
   const el = {
     localName: tag,
-    parentEl: parentTag ? { localName: parentTag, getAttribute: (a: string) => parentAttrs[a] ?? null } : null,
+    parentEl: parentTag
+      ? { localName: parentTag, components: parentComponents, getAttribute: (a: string) => parentAttrs[a] ?? null }
+      : null,
     object3D: makeObject3D(),
     sceneEl: sceneEl ?? makeSceneEl(),
     _listeners: {} as ListenerLog['_listeners'],
@@ -288,6 +292,8 @@ interface CollisionElOptions {
   wallCollidables?: DeepPartial<BuildingEl>[];
   floorCollidables?: DeepPartial<BuildingEl>[];
   childCamera?: boolean;
+  // The scene finished loading before room-collision was added, so its loaded event never fires.
+  sceneLoaded?: boolean;
 }
 
 const makeCollisionEl = ({
@@ -295,7 +301,8 @@ const makeCollisionEl = ({
   cameraY = 1.6,
   wallCollidables = [],
   floorCollidables = [],
-  childCamera = false
+  childCamera = false,
+  sceneLoaded = false
 }: CollisionElOptions = {}) => {
   const cameraObjEl = childCamera
     ? {
@@ -313,7 +320,8 @@ const makeCollisionEl = ({
     querySelector: () => cameraObjEl,
     components: {},
     sceneEl: {
-      addEventListener (event: string, cb: () => void) { if (event === 'loaded') cb(); },
+      hasLoaded: sceneLoaded,
+      addEventListener (event: string, cb: () => void) { if (event === 'loaded' && !sceneLoaded) cb(); },
       removeEventListener () {},
       querySelectorAll: (sel: string) => sel === '.collidable' ? wallCollidables : floorCollidables
     }

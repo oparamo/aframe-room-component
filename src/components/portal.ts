@@ -42,5 +42,6 @@ AFRAME.registerComponent<PortalComponent>('portal', {
   },
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
+    this.el.sceneEl.systems.building?.removePortal(this.el);
   }
 });

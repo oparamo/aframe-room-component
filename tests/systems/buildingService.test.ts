@@ -46,6 +46,17 @@ describe('buildRoom', () => {
       }
     });
 
+    it('records the position each wall was built at', () => {
+      // Arrange
+      const room = makeSquareRoom();
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      expect(room.walls.map(wall => wall.builtPosition?.toArray())).toEqual([[0, 0, 0], [5, 0, 0], [5, 0, 5], [0, 0, 5]]);
+    });
+
     it('creates a mesh for the floor', () => {
       // Arrange
       const room = makeSquareRoom();
