@@ -9,7 +9,7 @@ describe('room', () => {
       const comp = makeRoomComp({ data: { width: 5 } });
 
       // Act / Assert
-      expect(() => registeredComponent('room').init.call(comp)).toThrow();
+      expect(() => registeredComponent('room').init.call(comp)).toThrow('<a-room> with WIDTH must also have LENGTH (and vice versa).');
     });
 
     it('throws when only length is provided', () => {
@@ -17,7 +17,7 @@ describe('room', () => {
       const comp = makeRoomComp({ data: { length: 5 } });
 
       // Act / Assert
-      expect(() => registeredComponent('room').init.call(comp)).toThrow();
+      expect(() => registeredComponent('room').init.call(comp)).toThrow('<a-room> with WIDTH must also have LENGTH (and vice versa).');
     });
 
     it('throws when no width/length and fewer than 3 walls', () => {
@@ -25,7 +25,7 @@ describe('room', () => {
       const comp = makeRoomComp({ walls: [{}, {}] });
 
       // Act / Assert
-      expect(() => registeredComponent('room').init.call(comp)).toThrow();
+      expect(() => registeredComponent('room').init.call(comp)).toThrow('<a-room> needs at least 3 walls.');
     });
 
     it('throws when width and length given but fewer than 4 walls', () => {
@@ -33,7 +33,7 @@ describe('room', () => {
       const comp = makeRoomComp({ data: { width: 4, length: 6 }, walls: [{}, {}] });
 
       // Act / Assert
-      expect(() => registeredComponent('room').init.call(comp)).toThrow();
+      expect(() => registeredComponent('room').init.call(comp)).toThrow('<a-room> with WIDTH and LENGTH must have four walls.');
     });
 
     it('sets object3D.visible to false', () => {

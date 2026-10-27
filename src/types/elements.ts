@@ -72,7 +72,6 @@ interface RoomEl extends BuildingEl {
 interface WallEl extends BuildingEl {
   parentEl: RoomEl;
   openings: OpeningEl[];
-  nextWallEl?: WallEl;
   // The wall's position as of its last build.
   builtPosition?: Vector3;
   getHeight(): number;

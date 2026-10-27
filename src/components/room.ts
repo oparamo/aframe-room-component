@@ -30,10 +30,7 @@ AFRAME.registerComponent<RoomComponent>('room', {
     const walls = Array.from(roomEl.querySelectorAll<WallEl>('a-wall'));
 
     const error = roomShapeError(this.data, walls.length);
-    if (error) {
-      console.error(error);
-      throw new Error(error);
-    }
+    if (error) throw new Error(error);
 
     roomEl.ceiling = roomEl.querySelector<BuildingEl>('a-ceiling');
     roomEl.floor = roomEl.querySelector<BuildingEl>('a-floor');

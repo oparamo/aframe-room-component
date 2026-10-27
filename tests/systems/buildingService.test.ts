@@ -79,28 +79,15 @@ describe('buildRoom', () => {
       expect(room.ceiling?.mesh).not.toBeNull();
     });
 
-    it('sets nextWallEl on each wall', () => {
-      // Arrange
+    it('turns the last wall to run back to the first wall', () => {
+      // Arrange: the last wall's corner is (0, 0, 5) and the first wall's is (0, 0, 0)
       const room = makeSquareRoom();
 
       // Act
       buildRoom(room);
 
-      // Assert
-      for (const wall of room.walls) {
-        expect(wall.nextWallEl).not.toBeNull();
-      }
-    });
-
-    it('links last wall back to first wall', () => {
-      // Arrange
-      const room = makeSquareRoom();
-
-      // Act
-      buildRoom(room);
-
-      // Assert
-      expect(room.walls.at(-1)?.nextWallEl).toBe(room.walls[0]);
+      // Assert: running toward -z means a quarter turn
+      expect(room.walls.at(-1)?.object3D.rotation.y).toBeCloseTo(Math.PI / 2);
     });
 
     it('assigns wall mesh geometry with vertices', () => {
@@ -457,6 +444,20 @@ describe('buildPortal', () => {
 
     // Assert
     expect(disposed).toHaveBeenCalledOnce();
+  });
+
+  it('keeps the surface mesh when rebuilt', () => {
+    // Arrange
+    const floorChild = makePortalChild({ type: 'floor' });
+    const portal = makePortal({ fromVerts, toVerts, children: [floorChild] });
+    buildPortal(portal);
+    const firstMesh = floorChild.mesh;
+
+    // Act
+    buildPortal(portal);
+
+    // Assert
+    expect(floorChild.mesh).toBe(firstMesh);
   });
 
   it('creates a mesh on a floor child', () => {
