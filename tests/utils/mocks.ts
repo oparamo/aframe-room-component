@@ -57,7 +57,9 @@ const registeredSystem = (name: string) =>
 
 // --- Geometry fixtures ---
 
-const makeObject3D = (x = 0, y = 0, z = 0) => ({
+interface Object3DOptions { x?: number; y?: number; z?: number }
+
+const makeObject3D = ({ x = 0, y = 0, z = 0 }: Object3DOptions = {}) => ({
   matrixWorld: new THREE.Matrix4(),
   updateWorldMatrix () {},
   position: {
@@ -82,7 +84,9 @@ const makeObject3D = (x = 0, y = 0, z = 0) => ({
   }
 });
 
-const makeCap = (parentMaterial: Material | null) => {
+interface CapOptions { parentMaterial?: Material | null }
+
+const makeCap = ({ parentMaterial = null }: CapOptions = {}) => {
   const el = {
     mesh: null as BuildingEl['mesh'],
     components: {},
@@ -98,12 +102,12 @@ interface WallOptions { x?: number; y?: number; z?: number; height?: number; ope
 
 const makeWall = ({ x = 0, y = 0, z = 0, height = 3, openings = [] }: WallOptions = {}) => {
   const el = {
-    object3D: makeObject3D(x, y, z),
+    object3D: makeObject3D({ x, y, z }),
     openings,
     getHeight () { return height; },
     getAttribute: (attr: string) => attr === 'wall' ? { height, uvScale: 1 } : null,
     components: {},
-    parentEl: { components: {} },
+    parentEl: { components: {}, object3D: makeObject3D() },
     mesh: null as BuildingEl['mesh'],
     nextWallEl: null,
     classList: { add: () => {} },
@@ -120,8 +124,8 @@ const makeRoom = (walls: WallEl[], { outside = false, width = null, length = nul
     return null;
   },
   walls,
-  floor: makeCap(null),
-  ceiling: makeCap(null),
+  floor: makeCap(),
+  ceiling: makeCap(),
   object3D: { visible: false }
 }) as unknown as RoomEl;
 
@@ -133,10 +137,10 @@ const makeSquareRoom = (opts?: RoomOptions) => makeRoom([
 ], opts);
 
 // Convenience for building system tests: builds a room with one wall per portal.
-const makeRoomWithLinks = (...portals: (PortalEl | null)[]) =>
-  makeRoom(portals.map(p => makeWall({ openings: [makeOpening(p)] })));
+const makeRoomWithLinks = ({ portals = [] }: { portals?: (PortalEl | null)[] } = {}) =>
+  makeRoom(portals.map(portalEl => makeWall({ openings: [makeOpening({ portalEl })] })));
 
-const makeOpening = (portalEl: PortalEl | null) => ({
+const makeOpening = ({ portalEl = null }: { portalEl?: PortalEl | null } = {}) => ({
   object3D: makeObject3D(),
   vertices: [],
   mesh: null,
@@ -146,14 +150,54 @@ const makeOpening = (portalEl: PortalEl | null) => ({
   setObject3D () {}
 }) as unknown as OpeningEl;
 
-const makeVertex = (x: number, y: number, z: number) => new THREE.Vector3(x, y, z);
+interface OpeningVertsOptions { x: number; width: number; height: number }
 
-const makeOpeningVerts = (x: number, width: number, height: number) => [
-  makeVertex(x - width / 2, 0, 0),
-  makeVertex(x - width / 2, height, 0),
-  makeVertex(x + width / 2, 0, 0),
-  makeVertex(x + width / 2, height, 0)
+const makeOpeningVerts = ({ x, width, height }: OpeningVertsOptions) => [
+  new THREE.Vector3(x - width / 2, 0, 0),
+  new THREE.Vector3(x - width / 2, height, 0),
+  new THREE.Vector3(x + width / 2, 0, 0),
+  new THREE.Vector3(x + width / 2, height, 0)
 ];
+
+interface TransformedRoomOptions {
+  corners: [number, number][];
+  position?: [number, number, number];
+  rotationY?: number;
+  scale?: [number, number, number];
+  portalAt: [number, number, number];
+  portalWidth?: number;
+}
+
+// A room whose object3D, walls and opening are real THREE.Object3Ds parented as A-Frame would, so
+// the room's transform reaches the build. The first wall holds the opening, and the portal sits at a
+// world point.
+const makeTransformedRoom = ({
+  corners, position = [0, 0, 0], rotationY = 0, scale = [1, 1, 1], portalAt, portalWidth = 1
+}: TransformedRoomOptions) => {
+  const roomObject3D = new THREE.Object3D();
+  roomObject3D.position.set(...position);
+  roomObject3D.rotation.y = rotationY;
+  roomObject3D.scale.set(...scale);
+
+  const portalObject3D = new THREE.Object3D();
+  portalObject3D.position.set(...portalAt);
+  const portalEl = fake<PortalEl>({
+    object3D: portalObject3D,
+    getAttribute: () => ({ width: portalWidth, height: 2, floorHeight: 0 })
+  });
+  const openingEl = makeOpening({ portalEl });
+
+  const walls = corners.map(([x, z], i) => {
+    const wallEl = makeWall({ x, z, openings: i === 0 ? [openingEl] : [] });
+    const wallObject3D = new THREE.Object3D();
+    wallObject3D.position.set(x, 0, z);
+    roomObject3D.add(wallObject3D);
+    return Object.assign(wallEl, { object3D: wallObject3D });
+  });
+  const roomEl = Object.assign(makeRoom(walls), { object3D: roomObject3D, components: {} });
+  for (const wallEl of walls) Object.assign(wallEl, { parentEl: roomEl });
+  return { roomEl, openingEl };
+};
 
 interface PortalChildOptions { type: string; uvScale?: number }
 
@@ -382,7 +426,7 @@ export {
   makeSceneEl,
   makeSquareRoom,
   makeSystem,
-  makeVertex,
+  makeTransformedRoom,
   makeWall,
   makeWallComp,
   registeredComponent,

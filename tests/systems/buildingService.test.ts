@@ -3,7 +3,7 @@ import type { BufferGeometry, Mesh } from 'three';
 import type { PortalEl } from '../../src/types/elements';
 import {
   fake, makeCap, makeObject3D, makeWall, makeRoom, makeSquareRoom,
-  makeOpening, makeOpeningVerts, makePortalChild, makePortal
+  makeOpening, makeOpeningVerts, makePortalChild, makePortal, makeTransformedRoom
 } from '../utils/mocks';
 
 afterEach(() => vi.restoreAllMocks());
@@ -187,9 +187,9 @@ describe('buildRoom', () => {
           if (attr === 'portal') return { width: 1, height: 3, floorHeight: 0 };
           return null;
         },
-        object3D: makeObject3D(2.5, 0, 0)
+        object3D: makeObject3D({ x: 2.5, y: 0, z: 0 })
       });
-      const opening = makeOpening(tallPortal);
+      const opening = makeOpening({ portalEl: tallPortal });
       const wall0 = makeWall({ height: 2, openings: [opening] });
       opening.parentEl = wall0;
       const room = makeRoom([wall0, makeWall({ x: 5, height: 2 }), makeWall({ x: 5, z: 5, height: 2 }), makeWall({ z: 5, height: 2 })]);
@@ -210,9 +210,9 @@ describe('buildRoom', () => {
           if (attr === 'portal') return { width: 1, height: 2, floorHeight: 0 };
           return null;
         },
-        object3D: makeObject3D(2, 0, 2)
+        object3D: makeObject3D({ x: 2, y: 0, z: 2 })
       });
-      const opening = makeOpening(portalEl);
+      const opening = makeOpening({ portalEl: portalEl });
       // Wall at (0,0,0), next wall at (4,2,4): slopes upward by 2 units over XZ length ~5.66
       const wall0 = makeWall({ openings: [opening] });
       const wall1 = makeWall({ x: 4, y: 2, z: 4 });
@@ -301,7 +301,7 @@ describe('buildRoom', () => {
   describe('stale mesh cleanup', () => {
     it('removes and nulls a stale window-blocker mesh before rebuilding', () => {
       // Arrange
-      const opening = makeOpening(null);
+      const opening = makeOpening();
       const remove = vi.fn();
       const staleMesh = fake<Mesh>({ parent: { remove }, geometry: { dispose: vi.fn() }, material: { dispose: vi.fn() } });
       opening.mesh = staleMesh;
@@ -317,7 +317,7 @@ describe('buildRoom', () => {
 
     it('frees the stale window-blocker geometry and material', () => {
       // Arrange
-      const opening = makeOpening(null);
+      const opening = makeOpening();
       const disposeGeometry = vi.fn();
       const disposeMaterial = vi.fn();
       opening.mesh = fake<Mesh>({ geometry: { dispose: disposeGeometry }, material: { dispose: disposeMaterial } });
@@ -365,7 +365,7 @@ describe('buildRoom', () => {
       // Arrange
       const material = new THREE.MeshBasicMaterial();
       const room = makeSquareRoom();
-      room.floor = makeCap(material);
+      room.floor = makeCap({ parentMaterial: material });
       buildRoom(room);
 
       // Act
@@ -397,9 +397,9 @@ describe('buildRoom', () => {
           if (attr === 'portal') return { width: 1, height: 1, floorHeight: 0.5 };
           return null;
         },
-        object3D: makeObject3D(2.5, 0, 0)
+        object3D: makeObject3D({ x: 2.5, y: 0, z: 0 })
       });
-      const opening = makeOpening(windowPortal);
+      const opening = makeOpening({ portalEl: windowPortal });
       const addClassSpy = vi.spyOn(opening.classList, 'add');
       const wall0 = makeWall({ openings: [opening] });
       opening.parentEl = wall0;
@@ -441,8 +441,8 @@ describe('buildRoom', () => {
 // --- buildPortal ---
 
 describe('buildPortal', () => {
-  const fromVerts = makeOpeningVerts(0, 2, 2.5);
-  const toVerts = makeOpeningVerts(0, 2, 2.5);
+  const fromVerts = makeOpeningVerts({ x: 0, width: 2, height: 2.5 });
+  const toVerts = makeOpeningVerts({ x: 0, width: 2, height: 2.5 });
 
   it('frees the previous surface geometry when rebuilt', () => {
     // Arrange
@@ -587,7 +587,7 @@ describe('buildPortal', () => {
   describe('surface UVs', () => {
     // A doorway 1 m wide and 2 m tall, with the far opening 3 m away. The openings face each other,
     // so the far one's left edge lines up with the near one's right.
-    const near = makeOpeningVerts(0, 1, 2);
+    const near = makeOpeningVerts({ x: 0, width: 1, height: 2 });
     const far = near.map(vertex => new THREE.Vector3(-vertex.x, vertex.y, 3));
 
     it('spans the floor in meters, across the width and along the depth', () => {
@@ -642,5 +642,42 @@ describe('buildPortal', () => {
     expect(floorChild.mesh).not.toBeNull();
     expect(ceilingChild.mesh).not.toBeNull();
     expect(sidesChild.mesh).not.toBeNull();
+  });
+});
+
+describe('buildRoom in a transformed room', () => {
+  const SQUARE: [number, number][] = [[0, 0], [4, 0], [4, 4], [0, 4]];
+
+  it('places the opening at the portal in a scaled room', () => {
+    // Arrange: the portal sits halfway along the first wall, which is 8m long in world space
+    const { roomEl, openingEl } = makeTransformedRoom({ corners: SQUARE, scale: [2, 1, 2], portalAt: [4, 0, 0] });
+
+    // Act
+    buildRoom(roomEl);
+
+    // Assert: halfway along the wall in the room's own units
+    expect(openingEl.object3D.position.x).toBeCloseTo(2);
+  });
+
+  it('places the opening at the portal in a rotated, moved room', () => {
+    // Arrange
+    const rotationY = Math.PI / 6;
+    const position: [number, number, number] = [10, 0, -5];
+    const portal = new THREE.Vector3(1.5, 0, 0)
+      .applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationY)
+      .add(new THREE.Vector3(...position));
+    const { roomEl, openingEl } = makeTransformedRoom({
+      corners: SQUARE, position, rotationY, portalAt: [portal.x, portal.y, portal.z]
+    });
+
+    // Act
+    buildRoom(roomEl);
+
+    // Assert: the opening's world corners are centered on the portal
+    const center = openingEl.vertices
+      .reduce((sum, vertex) => sum.add(vertex), new THREE.Vector3())
+      .divideScalar(openingEl.vertices.length);
+    expect(center.x).toBeCloseTo(portal.x);
+    expect(center.z).toBeCloseTo(portal.z);
   });
 });

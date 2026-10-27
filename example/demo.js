@@ -267,6 +267,19 @@ addAction({
   action: () => { for (const id of ['lobbyShell', 'lobby']) byId(id).components.room.rebuild(); }
 });
 addInfo({
+  position: '14.5 2.2 -0.6',
+  label: 'Rooms move, rotate and scale like any entity. Each <a-opening> follows its <a-portal>, and a door '
+    + 'scales with its rooms.'
+});
+addToggle({
+  position: '12.4 1.4 -1.2',
+  label: 'Grow pavilion 1.5x',
+  action: (on) => {
+    const scale = on ? '1.5 1 1.5' : '1 1 1';
+    for (const id of ['pavilion', 'pavilionShell']) byId(id).setAttribute('scale', scale);
+  }
+});
+addInfo({
   position: '-18 1.8 -4.5',
   label: 'A concave outside room leaves this courtyard open. Its door is a 1m deep textured <a-portal>.'
 });

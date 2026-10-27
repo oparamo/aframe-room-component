@@ -11,7 +11,15 @@ type OpeningCorners = readonly [Vector3, Vector3, Vector3, Vector3];
 interface PlaneUvs { uKey: Axis; vKey: Axis; uMult: number; vMult: number }
 
 // A wall measured against the next wall in the loop, in the wall's local frame.
-interface WallSpan { wallEl: WallEl; nextWallEl: WallEl; length: number; gapY: number; heightGap: number }
+interface WallSpan {
+  wallEl: WallEl;
+  nextWallEl: WallEl;
+  length: number;
+  gapX: number;
+  gapY: number;
+  gapZ: number;
+  heightGap: number;
+}
 
 interface OpeningCut { span: WallSpan; openingEl: OpeningEl; portal: PortalData }
 interface OpeningEdge { ptX: number; bottomY: number; topY: number }
@@ -128,36 +136,24 @@ const addOpeningWorldVertex = (wallEl: WallEl, openingEl: OpeningEl, point: { x:
   openingEl.vertices.push(vertex);
 };
 
-const positionOpening = ({ wallEl, nextWallEl }: WallSpan, openingEl: OpeningEl, portalEl: PortalEl | null) => {
+// Places the opening on the wall where the portal crosses it. The portal is measured in the room's
+// local space, the frame buildWall works in, so the room's own position, rotation and scale apply.
+const positionOpening = (span: WallSpan, openingEl: OpeningEl, portalEl: PortalEl | null) => {
   if (!portalEl) return;
 
-  const wallWorldPosition = new THREE.Vector3();
-  wallEl.object3D.getWorldPosition(wallWorldPosition);
+  const portalPosition = portalEl.object3D.getWorldPosition(new THREE.Vector3());
+  span.wallEl.parentEl.object3D.worldToLocal(portalPosition);
 
-  const nextWallWorldPosition = new THREE.Vector3();
-  nextWallEl.object3D.getWorldPosition(nextWallWorldPosition);
-
-  const portalWorldPosition = new THREE.Vector3();
-  portalEl.object3D.getWorldPosition(portalWorldPosition);
-
-  const portalGapX = portalWorldPosition.x - wallWorldPosition.x;
-  const portalGapZ = portalWorldPosition.z - wallWorldPosition.z;
-
-  const wallGapX = nextWallWorldPosition.x - wallWorldPosition.x;
-  const wallGapY = nextWallWorldPosition.y - wallWorldPosition.y;
-  const wallGapZ = nextWallWorldPosition.z - wallWorldPosition.z;
-
-  const wallLength = Math.hypot(wallGapX, wallGapZ);
-
+  const { x: wallX, z: wallZ } = span.wallEl.object3D.position;
+  const wallDir = new THREE.Vector2(span.gapX, span.gapZ).normalize();
+  const portalOffset = new THREE.Vector2(portalPosition.x - wallX, portalPosition.z - wallZ);
   const portalHalfWidth = portalEl.getAttribute('portal').width / 2;
 
-  const wallDir = new THREE.Vector2(wallGapX, wallGapZ).normalize();
-  const portalOffset = new THREE.Vector2(portalGapX, portalGapZ);
   let portalLocalX = portalOffset.dot(wallDir);
   portalLocalX = Math.max(portalLocalX, portalHalfWidth + HAIR);
-  portalLocalX = Math.min(portalLocalX, wallLength - portalHalfWidth - HAIR);
+  portalLocalX = Math.min(portalLocalX, span.length - portalHalfWidth - HAIR);
 
-  const floorY = (portalLocalX / wallLength) * wallGapY;
+  const floorY = (portalLocalX / span.length) * span.gapY;
   openingEl.object3D.position.set(portalLocalX, floorY, 0);
 };
 
@@ -295,7 +291,9 @@ const buildWall = (wallEl: WallEl, nextWallEl: WallEl) => {
     wallEl,
     nextWallEl,
     length: Math.hypot(gapX, gapZ),
+    gapX,
     gapY,
+    gapZ,
     heightGap: nextWallEl.getHeight() - wallEl.getHeight()
   };
 
