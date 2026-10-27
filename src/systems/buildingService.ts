@@ -164,8 +164,8 @@ const positionOpening = ({ wallEl, nextWallEl }: WallSpan, openingEl: OpeningEl,
 // Walls form a closed loop, so the last wall's neighbour is the first.
 const nextWallOf = (walls: WallEl[], index: number) => required(walls[(index + 1) % walls.length], 'next wall');
 
-// Returns the walls in build order, without reordering roomEl.walls: a width/length room places its
-// corners by authored order, and must place them the same way on every build.
+// Returns a copy of the walls in build order. roomEl.walls stays in authored order, which a
+// width/length room uses to place its corners on every build.
 const wallsInBuildOrder = (authored: WallEl[], isOutside: boolean) => {
   const walls = [...authored];
   // Shoelace formula: positive sum means clockwise winding in XZ plane.
