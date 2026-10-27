@@ -5,6 +5,8 @@ const SPACING = ROOM_SIZE + 0.3;
 const OUR_COMPONENTS = ['room', 'portal', 'wall'];
 const REPORT_MS = 1000;
 const LOOK_DOWN = -0.6;
+const FACING_EAST = -Math.PI / 2;
+const EYE_HEIGHT = 1.6;
 
 const scene = document.querySelector('a-scene');
 const player = document.getElementById('player');
@@ -18,9 +20,10 @@ const rows = Math.ceil(roomCount / columns);
 
 const colorFor = index => `#${new THREE.Color().setHSL((index * 0.13) % 1, 0.45, 0.7).getHexString()}`;
 
+const roomCorner = index => ({ x: (index % columns) * SPACING, z: Math.floor(index / columns) * SPACING });
+
 const roomMarkup = (index) => {
-  const x = (index % columns) * SPACING;
-  const z = Math.floor(index / columns) * SPACING;
+  const { x, z } = roomCorner(index);
   return `<a-room id="room${index}" position="${x} 0 ${z}" width="${ROOM_SIZE}" length="${ROOM_SIZE}"
       height="2.6" material="color: ${colorFor(index)}">
     <a-wall></a-wall>
@@ -48,12 +51,43 @@ const indices = Array.from({ length: roomCount }, (_, index) => index);
 const portalIndices = indices.filter(hasEastNeighbor);
 scene.insertAdjacentHTML('beforeend', [...indices.map(roomMarkup), ...portalIndices.map(portalMarkup)].join(''));
 
-// Stand south of the grid, high enough to see all of it.
+// --- Where the player stands. ---
+
+// South of the grid, high enough to see all of it.
 const gridWidth = columns * SPACING;
 const gridDepth = rows * SPACING;
-player.setAttribute('position', `${gridWidth / 2} ${Math.max(8, gridWidth * 0.6)} ${gridDepth + 6}`);
+const OVERVIEW = {
+  position: `${gridWidth / 2} ${Math.max(8, gridWidth * 0.6)} ${gridDepth + 6}`,
+  pitch: LOOK_DOWN,
+  yaw: 0,
+  acceleration: 200,
+  collision: false
+};
+
+// In the room nearest the middle of the grid, facing east along its row of doorways.
+const middleRoom = Math.min(roomCount - 1, Math.floor(rows / 2) * columns + Math.floor(columns / 2));
+const middleCorner = roomCorner(middleRoom);
+const INSIDE = {
+  position: `${middleCorner.x + ROOM_SIZE / 2} ${EYE_HEIGHT} ${middleCorner.z + ROOM_SIZE / 2}`,
+  pitch: 0,
+  yaw: FACING_EAST,
+  acceleration: 65,
+  collision: true
+};
+
+// Collision comes off before the jump, so it doesn't treat the jump as a step to block.
+const placePlayer = ({ position, pitch, yaw, acceleration, collision }) => {
+  player.removeAttribute('room-collision');
+  player.setAttribute('position', position);
+  player.setAttribute('wasd-controls', 'acceleration', acceleration);
+  const look = player.components['look-controls'];
+  look.pitchObject.rotation.x = pitch;
+  look.yawObject.rotation.y = yaw;
+  if (collision) player.setAttribute('room-collision', '');
+};
+
 scene.addEventListener('loaded', () => {
-  player.components['look-controls'].pitchObject.rotation.x = LOOK_DOWN;
+  placePlayer(OVERVIEW);
 });
 
 // --- Measuring: time each of our components' tick pass, and let them be paused. ---
@@ -106,11 +140,59 @@ const tickSummary = () => {
   return `our ticks ${microsPerFrame(total)} µs/frame (${parts.join(', ')})`;
 };
 
+// --- Rendering comparisons: pixel ratio and material cost. ---
+
+let lowResolution = false;
+const togglePixelRatio = () => {
+  lowResolution = !lowResolution;
+  const ratio = lowResolution ? 1 : window.devicePixelRatio;
+  scene.renderer.setPixelRatio(ratio);
+};
+
+// Swaps every mesh's material for an unlit copy with the same color and texture, and back. A room that
+// rebuilds while flat gets its own materials back.
+let flatMaterials = false;
+const flatCopies = new Map();
+const originalMaterials = new Map();
+
+const flatCopyOf = (material) => {
+  if (!flatCopies.has(material)) {
+    const { color, map, side, visible, transparent, opacity } = material;
+    flatCopies.set(material, new THREE.MeshBasicMaterial({ color, map, side, visible, transparent, opacity }));
+  }
+  return flatCopies.get(material);
+};
+
+const flatten = (mesh) => {
+  originalMaterials.set(mesh, mesh.material);
+  mesh.material = flatCopyOf(mesh.material);
+};
+
+const restore = (mesh) => {
+  mesh.material = originalMaterials.get(mesh) ?? mesh.material;
+};
+
+const toggleFlatMaterials = () => {
+  flatMaterials = !flatMaterials;
+  const apply = flatMaterials ? flatten : restore;
+  scene.object3D.traverse((object) => {
+    if (object.isMesh) apply(object);
+  });
+  if (!flatMaterials) originalMaterials.clear();
+};
+
+const renderSummary = () => {
+  const materials = flatMaterials ? 'flat' : 'standard';
+  return `pixel ratio ${scene.renderer?.getPixelRatio() ?? 1}, ${materials} materials`;
+};
+
 const report = () => {
   const counts = `${roomCount} rooms, ${roomCount * 4} walls, ${portalIndices.length} portals`;
   const calls = scene.renderer?.info.render.calls ?? 0;
   readout.textContent = `${counts} | ${tickSummary()} | ${framesSinceReport} fps | ${calls} draw calls`
-    + ' | keys: 1/2/3 = 25/100/400 rooms, P = pause our ticks, M = move a room, WASD + drag to look';
+    + ` | ${renderSummary()}`
+    + ' | keys: 1/2/3 = 25/100/400 rooms, P = pause our ticks, M = move a room, I = walk inside, O = overview,'
+    + ' R = pixel ratio 1, L = flat materials, WASD + drag to look';
   for (const name of OUR_COMPONENTS) tickTotals[name] = 0;
   framesSinceReport = 0;
 };
@@ -132,7 +214,15 @@ const KEY_ACTIONS = {
   p: () => {
     ticksPaused = !ticksPaused;
   },
-  m: toggleRoomMoving
+  m: toggleRoomMoving,
+  i: () => {
+    placePlayer(INSIDE);
+  },
+  o: () => {
+    placePlayer(OVERVIEW);
+  },
+  r: togglePixelRatio,
+  l: toggleFlatMaterials
 };
 
 document.addEventListener('keydown', (event) => {
