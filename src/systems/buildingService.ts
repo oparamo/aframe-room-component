@@ -13,7 +13,6 @@ interface PlaneUvs { uKey: Axis; vKey: Axis; uMult: number; vMult: number }
 // A wall measured against the next wall in the loop, in the wall's local frame.
 interface WallSpan {
   wallEl: WallEl;
-  nextWallEl: WallEl;
   length: number;
   gapX: number;
   gapY: number;
@@ -26,6 +25,8 @@ interface OpeningEdge { ptX: number; bottomY: number; topY: number }
 interface OpeningEdges { left: OpeningEdge; right: OpeningEdge }
 
 interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
+
+interface MeshOptions { el: BuildingEl; objectName: string; geom: BufferGeometry; fallbackMaterial?: Material }
 
 interface PortalSurfaceContext { from: OpeningCorners; to: OpeningCorners; fallbackMaterial: Material | undefined }
 
@@ -110,10 +111,11 @@ const finishGeometry = (geom: BufferGeometry) => {
 const getMaterial = (el: Entity | null | undefined) => el?.components.material?.material;
 
 // Reuses the element's mesh across rebuilds. The old geometry is freed, since three.js only
-// releases GPU buffers on dispose(). With no material found, the mesh keeps the one it has, which
-// on a first build without one is the default new THREE.Mesh() applies.
-const applyMesh = (el: BuildingEl, objectName: string, geom: BufferGeometry) => {
-  const material = getMaterial(el) ?? getMaterial(el.parentEl);
+// releases GPU buffers on dispose(). The material comes from the element, then its parent, then the
+// fallback; with none found, the mesh keeps the one it has, which on a first build without one is the
+// default new THREE.Mesh() applies.
+const applyMesh = ({ el, objectName, geom, fallbackMaterial }: MeshOptions) => {
+  const material = getMaterial(el) ?? getMaterial(el.parentEl) ?? fallbackMaterial;
   if (el.mesh) {
     el.mesh.geometry.dispose();
     el.mesh.geometry = geom;
@@ -208,7 +210,7 @@ const buildCap = ({ walls, capEl, kind, isOutside }: CapOptions) => {
   const uSign = isCeiling ? 1 : -1;
   makePlaneUvs(geom, { uKey: 'x', vKey: 'z', uMult: uSign * uvScale, vMult: uvScale });
   finishGeometry(geom);
-  applyMesh(capEl, kind, geom);
+  applyMesh({ el: capEl, objectName: kind, geom });
 };
 
 // side = -1 is the left edge of the opening, side = +1 is the right edge.
@@ -289,7 +291,6 @@ const buildWall = (wallEl: WallEl, nextWallEl: WallEl) => {
   const gapZ = nextWallEl.object3D.position.z - wallEl.object3D.position.z;
   const span: WallSpan = {
     wallEl,
-    nextWallEl,
     length: Math.hypot(gapX, gapZ),
     gapX,
     gapY,
@@ -314,7 +315,7 @@ const buildWall = (wallEl: WallEl, nextWallEl: WallEl) => {
   const { uvScale } = wallEl.getAttribute('wall');
   makePlaneUvs(wallGeom, { uKey: 'x', vKey: 'y', uMult: uvScale, vMult: uvScale });
   finishGeometry(wallGeom);
-  applyMesh(wallEl, 'wallMesh', wallGeom);
+  applyMesh({ el: wallEl, objectName: 'wallMesh', geom: wallGeom });
   wallEl.classList.add('collidable');
   (wallEl.builtPosition ??= new THREE.Vector3()).copy(wallEl.object3D.position);
 };
@@ -333,7 +334,6 @@ const buildRoom = (roomEl: RoomEl) => {
 
   for (const [i, wallEl] of walls.entries()) {
     const nextWallEl = nextWallOf(walls, i);
-    wallEl.nextWallEl = nextWallEl;
     buildWall(wallEl, nextWallEl);
   }
 
@@ -362,15 +362,8 @@ const quadUvs = (corners: Vector3[], { uv, uEdge }: SurfaceLayout, uvScale: numb
 
 const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, { from, to, fallbackMaterial }: PortalSurfaceContext) => {
   const layout = SURFACE_LAYOUTS[type];
-  const material = getMaterial(childEl) ?? getMaterial(childEl.parentEl) ?? fallbackMaterial;
-
   const geom = new THREE.BufferGeometry();
   geom.setIndex(layout.indices);
-
-  // The previous surface's geometry was made here; its material belongs to the material component.
-  childEl.mesh?.geometry.dispose();
-  childEl.mesh = new THREE.Mesh(geom, material);
-  childEl.setObject3D(type, childEl.mesh);
 
   const corners = layout.corners(from, to);
   const positions = corners.flatMap(vertex => toChildLocal(vertex, childEl));
@@ -379,6 +372,7 @@ const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, { from, to, 
   const { uvScale } = childEl.getAttribute(type);
   geom.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(quadUvs(corners, layout, uvScale)), 2));
   finishGeometry(geom);
+  applyMesh({ el: childEl, objectName: type, geom, fallbackMaterial });
   if (layout.className) childEl.classList.add(layout.className);
 };
 

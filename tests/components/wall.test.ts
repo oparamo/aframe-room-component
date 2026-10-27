@@ -12,7 +12,7 @@ describe('wall', () => {
       expect(() => registeredComponent('wall').init.call(comp)).toThrow();
     });
 
-    it('collects openings sorted by x-position ascending', () => {
+    it('collects openings in document order', () => {
       // Arrange
       const a = { object3D: { position: { x: 2 } } };
       const b = { object3D: { position: { x: 1 } } };
@@ -22,8 +22,7 @@ describe('wall', () => {
       registeredComponent('wall').init.call(comp);
 
       // Assert
-      expect(comp.el.openings[0]).toBe(b);
-      expect(comp.el.openings[1]).toBe(a);
+      expect(comp.el.openings).toEqual([a, b]);
     });
 
     it('getHeight returns the wall-specific height when set', () => {

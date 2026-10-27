@@ -109,7 +109,6 @@ const makeWall = ({ x = 0, y = 0, z = 0, height = 3, openings = [] }: WallOption
     components: {},
     parentEl: { components: {}, object3D: makeObject3D() },
     mesh: null as BuildingEl['mesh'],
-    nextWallEl: null,
     classList: { add: () => {} },
     setObject3D (_name: string, mesh: BuildingEl['mesh']) { el.mesh = mesh; }
   };
