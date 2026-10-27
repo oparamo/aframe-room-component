@@ -155,7 +155,9 @@ const makeOpeningVerts = (x: number, width: number, height: number) => [
   makeVertex(x + width / 2, height, 0)
 ];
 
-const makePortalChild = (type: string) => {
+interface PortalChildOptions { type: string; uvScale?: number }
+
+const makePortalChild = ({ type, uvScale = 1 }: PortalChildOptions) => {
   const el = {
     components: {
       [type]: {},
@@ -165,7 +167,7 @@ const makePortalChild = (type: string) => {
     object3D: makeObject3D(),
     mesh: null as BuildingEl['mesh'],
     classList: { add: () => {} },
-    getAttribute () { return { uvScale: 1 }; },
+    getAttribute () { return { uvScale }; },
     setObject3D (_name: string, mesh: BuildingEl['mesh']) { el.mesh = mesh; }
   };
   return el as unknown as BuildingEl;
