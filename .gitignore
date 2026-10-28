@@ -62,3 +62,6 @@ typings/
 
 # Build output, published to npm, never committed
 dist
+
+# Track CLAUDE.md despite a personal global gitignore that excludes it
+!CLAUDE.md

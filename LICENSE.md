@@ -1,7 +1,7 @@
 The MIT License (MIT)
 
 Copyright (c) 2023 Oscar Paramo
-Copyright (c) 2017 Andrew Fraticelli <andrew.fraticelli@gmail.com>
+Copyright (c) 2017 Hazel Fraticelli <omgitsraven@gmail.com>
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
