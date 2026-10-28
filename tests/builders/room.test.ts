@@ -168,7 +168,7 @@ describe('buildRoom', () => {
   });
 
   describe('stale mesh cleanup', () => {
-    it('removes and nulls a stale window-blocker mesh before rebuilding', () => {
+    it('removes and nulls a stale blocker mesh before rebuilding', () => {
       // Arrange
       const opening = makeOpening();
       const remove = vi.fn();
@@ -184,7 +184,7 @@ describe('buildRoom', () => {
       expect(opening.mesh).toBeNull();
     });
 
-    it('frees the stale window-blocker geometry and material', () => {
+    it('frees the stale blocker geometry and material', () => {
       // Arrange
       const opening = makeOpening();
       const disposeGeometry = vi.fn();
@@ -258,7 +258,7 @@ describe('buildRoom', () => {
     });
   });
 
-  describe('window blocker', () => {
+  describe('blocker', () => {
     it('creates an invisible collidable mesh for openings with floorHeight > 0', () => {
       // Arrange
       const windowPortal = fake<PortalEl>({

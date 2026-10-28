@@ -3,12 +3,12 @@ import type { BuildingEl, OpeningEl, PortalEl, RoomEl, WallEl } from '../types/e
 import type { OpeningEdges, WallSpan } from '../types/geometry';
 import { capGeometry } from '../geometry/caps';
 import {
-  holePath, isClockwise, openingEdges, openingPlacement, rectangleCorners, wallAngle, wallGeometry, wallSpan,
-  windowBlockerGeometry
+  blockerGeometry, holePath, isClockwise, openingEdges, openingPlacement, rectangleCorners, wallAngle, wallGeometry,
+  wallSpan
 } from '../geometry/walls';
 import { assertDefined } from '../utils/assert';
 import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
-import { addWindowBlocker, applyMesh, removeWindowBlocker } from './mesh';
+import { addBlocker, applyMesh, removeBlocker } from './mesh';
 
 interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
 
@@ -73,14 +73,14 @@ const cutOpening = (wall: WallBuild, openingEl: OpeningEl): Path | null => {
   const portalEl = openingEl.getPortal();
   positionOpening(wall, openingEl, portalEl);
   openingEl.vertices = [];
-  removeWindowBlocker(openingEl);
+  removeBlocker(openingEl);
   if (!portalEl) return null;
 
   const portal = portalEl.getAttribute('portal');
   const edges = openingEdges({ span: wall.span, openingX: openingEl.object3D.position.x, portal });
   recordOpeningVertices(wall.wallEl, openingEl, edges);
   if (portal.floorHeight > 0) {
-    addWindowBlocker({ wallEl: wall.wallEl, openingEl, geom: windowBlockerGeometry(edges) });
+    addBlocker({ wallEl: wall.wallEl, openingEl, geom: blockerGeometry(edges) });
   }
   return holePath(edges);
 };

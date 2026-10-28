@@ -5,7 +5,7 @@ import { COLLIDABLE } from '../utils/surfaceClasses';
 
 interface MeshOptions { el: BuildingEl; objectName: string; geom: BufferGeometry; fallbackMaterial?: Material }
 
-interface WindowBlocker { wallEl: WallEl; openingEl: OpeningEl; geom: BufferGeometry }
+interface Blocker { wallEl: WallEl; openingEl: OpeningEl; geom: BufferGeometry }
 
 const getMaterial = (el: Entity | null | undefined) => el?.components.material?.material;
 
@@ -25,8 +25,8 @@ const applyMesh = ({ el, objectName, geom, fallbackMaterial }: MeshOptions) => {
   }
 };
 
-// An invisible collidable quad across a window, so the player cannot walk through it at torso height.
-const addWindowBlocker = ({ wallEl, openingEl, geom }: WindowBlocker) => {
+// An invisible collidable quad across an opening, so the player cannot walk through it.
+const addBlocker = ({ wallEl, openingEl, geom }: Blocker) => {
   // MeshBasicMaterial is required, because Mesh.raycast returns early when material is undefined.
   // DoubleSide so raycasts from both the room interior and exterior are caught.
   const blockMesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
@@ -36,9 +36,8 @@ const addWindowBlocker = ({ wallEl, openingEl, geom }: WindowBlocker) => {
   openingEl.classList.add(COLLIDABLE);
 };
 
-// Removes the window-blocker mesh left by a previous build. Its geometry and material were made
-// by the build, so both are freed.
-const removeWindowBlocker = (openingEl: OpeningEl) => {
+// Removes the blocker left by a previous build, freeing its geometry and material.
+const removeBlocker = (openingEl: OpeningEl) => {
   const blocker = openingEl.mesh;
   if (!blocker) return;
   blocker.parent?.remove(blocker);
@@ -47,4 +46,4 @@ const removeWindowBlocker = (openingEl: OpeningEl) => {
   openingEl.mesh = null;
 };
 
-export { addWindowBlocker, applyMesh, getMaterial, removeWindowBlocker };
+export { addBlocker, applyMesh, getMaterial, removeBlocker };
