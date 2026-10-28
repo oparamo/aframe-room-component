@@ -86,16 +86,35 @@ export default tseslint.config(
         { selector: 'ExportNamedDeclaration[declaration]', message: 'Export from one export { } list at the bottom of the file.' }
       ],
       'import-x/no-cycle': 'error',
-      // Layers: primitives and components sit on top of systems, and buildingService stays free of A-Frame.
+      // Layers, top to bottom: primitives, components, systems, builders, geometry, utils. Each imports
+      // only from the layers below it. Geometry is pure, so it never sees A-Frame or element types.
       'import-x/no-restricted-paths': ['error', {
         zones: [
-          { target: './src/systems', from: ['./src/components', './src/primitives'] },
           { target: './src/components', from: './src/primitives' },
-          { target: './src/systems/buildingService.ts', from: './src/systems/building.ts' }
+          { target: './src/systems', from: ['./src/components', './src/primitives'] },
+          { target: './src/builders', from: ['./src/systems', './src/components', './src/primitives'] },
+          {
+            target: './src/geometry',
+            from: [
+              './src/builders', './src/systems', './src/components', './src/primitives',
+              './src/types/aframe.ts', './src/types/elements.ts'
+            ]
+          },
+          {
+            target: './src/utils',
+            from: ['./src/geometry', './src/builders', './src/systems', './src/components', './src/primitives', './src/types']
+          }
         ]
       }],
       'local/no-em-dash': 'error',
       'local/file-name-case': 'error'
+    }
+  },
+  {
+    // Below the building system the code works on three.js values and entities, never A-Frame itself.
+    files: ['src/builders/**', 'src/geometry/**', 'src/utils/**'],
+    rules: {
+      'no-restricted-globals': ['error', { name: 'AFRAME', message: 'Only components, primitives and systems register with A-Frame.' }]
     }
   },
   {

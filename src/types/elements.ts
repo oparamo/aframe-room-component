@@ -1,5 +1,6 @@
 import type { Mesh, Vector3 } from 'three';
 import type { ComponentMap, Entity, Scene, System } from './aframe';
+import type { SurfaceType } from './geometry';
 
 interface RoomData {
   outside: boolean;
@@ -24,8 +25,6 @@ interface PortalData {
 interface SurfaceData {
   uvScale: number;
 }
-
-type SurfaceType = 'floor' | 'ceiling' | 'sides';
 
 interface ComponentDataMap extends Record<SurfaceType, SurfaceData> {
   room: RoomData;
@@ -97,7 +96,6 @@ export type {
   RoomData,
   RoomEl,
   SurfaceData,
-  SurfaceType,
   WallData,
   WallEl
 };

@@ -1,12 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { immediateAnimationFrame, makePortal, makeRoomWithLinks, makeSystem, registeredSystem } from '../utils/mocks';
 
-vi.mock('../../src/systems/buildingService', () => ({
-  buildRoom: vi.fn(),
-  buildPortal: vi.fn()
-}));
+vi.mock('../../src/builders/room', () => ({ buildRoom: vi.fn() }));
+vi.mock('../../src/builders/portal', () => ({ buildPortal: vi.fn() }));
 
-import { buildRoom as mockBuildRoom, buildPortal as mockBuildPortal } from '../../src/systems/buildingService';
+import { buildPortal as mockBuildPortal } from '../../src/builders/portal';
+import { buildRoom as mockBuildRoom } from '../../src/builders/room';
 import '../../src/systems/building';
 
 beforeEach(() => {

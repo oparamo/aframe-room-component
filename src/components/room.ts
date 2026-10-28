@@ -1,7 +1,7 @@
 import type { Matrix4 } from 'three';
 import type { Component } from '../types/aframe';
 import type { BuildingEl, RoomData, RoomEl, WallEl } from '../types/elements';
-import { hasMovedSince, isTransformChange, snapshotWorldMatrix } from './shared';
+import { hasMovedSince, isTransformChange, snapshotWorldMatrix } from './helpers/transforms';
 
 interface RoomComponent extends Component<RoomData, RoomEl> {
   _onTransformChanged: (event: Event) => void;

@@ -1,6 +1,7 @@
 import type { Component } from '../types/aframe';
 import type { OpeningEl, WallData, WallEl } from '../types/elements';
-import { isTransformChange, rebuildParent, requireParent } from './shared';
+import { rebuildParent, requireParent } from './helpers/hierarchy';
+import { isTransformChange } from './helpers/transforms';
 
 interface WallComponent extends Component<WallData, WallEl> {
   _onTransformChanged: (event: Event) => void;
