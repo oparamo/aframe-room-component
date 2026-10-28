@@ -1,7 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { Mesh } from 'three';
-import type { PortalEl } from '../../src/types/elements';
+import type { PortalEl, WallEl } from '../../src/types/elements';
 import { buildRoom } from '../../src/builders/room';
+import { assertDefined } from '../../src/utils/assert';
+import { meshOf, worldCenter, worldNormals } from '../utils/meshes';
 import {
   fake, makeCap, makeObject3D, makeWall, makeRoom, makeSquareRoom, makeOpening, makeTransformedRoom
 } from '../utils/mocks';
@@ -78,6 +80,34 @@ describe('buildRoom', () => {
       for (const wall of room.walls) {
         expect(wall.mesh?.geometry.getAttribute('position')).toBeDefined();
       }
+    });
+  });
+
+  describe('wall facing', () => {
+    const SQUARE: [number, number][] = [[0, 0], [5, 0], [5, 5], [0, 5]];
+    const roomCenter = new THREE.Vector3(2.5, 0, 2.5);
+
+    // Whether each wall's front faces the middle of the room.
+    const facesCenter = (wallEl: WallEl) => {
+      const mesh = meshOf(wallEl);
+      const toCenter = roomCenter.clone().sub(worldCenter(mesh)).setY(0);
+      return new THREE.Vector3(...assertDefined(worldNormals(mesh)[0], 'wall normal')).dot(toCenter) > 0;
+    };
+
+    it.each([
+      { outside: false, corners: SQUARE, inward: true },
+      { outside: false, corners: SQUARE.toReversed(), inward: true },
+      { outside: true, corners: SQUARE, inward: false },
+      { outside: true, corners: SQUARE.toReversed(), inward: false }
+    ])('faces walls inward=$inward when outside=$outside, corners $corners', ({ outside, corners, inward }) => {
+      // Arrange
+      const room = makeRoom(corners.map(([x, z]) => makeWall({ x, z })), { outside });
+
+      // Act
+      buildRoom(room);
+
+      // Assert
+      expect(room.walls.map(facesCenter)).toEqual(Array(corners.length).fill(inward));
     });
   });
 
