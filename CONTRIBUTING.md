@@ -39,8 +39,9 @@ The tests run in Node with Vitest, without a browser or A-Frame. `tests/setup.ts
 - `tests/geometry/` tests the pure geometry functions with plain values and no mocks.
 - `tests/builders/` checks what a build leaves on elements: meshes, classes, positions and opening vertices.
 - `tests/components/`, `tests/primitives/` and `tests/systems/` cover the A-Frame layer.
+- `tests/integration/rooms.test.ts` builds two rooms joined by a door and a window, then checks which way every surface faces, that the openings line up, and that `room-collision` walks through the door and stops at the window and the walls. Refactors must leave it passing unchanged; a behavior change edits it only where the change is intended.
 
-All mocks live in `tests/utils/mocks.ts`, and every mock factory takes an options object. Tests follow arrange, act, assert.
+All mocks live in `tests/utils/mocks.ts`, and every mock factory takes an options object. Element mocks hold real `THREE.Object3D`s, parented the way A-Frame parents them, so transforms, raycasts and world normals are real. Collision tests raycast against real meshes and fire the scene's `loaded` event themselves (`loadScene`). `tests/utils/meshes.ts` reads built meshes in world space. Tests follow arrange, act, assert.
 
 ## The demo is the test bench
 
