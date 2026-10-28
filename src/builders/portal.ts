@@ -4,7 +4,7 @@ import type { BuildingEl, PortalEl } from '../types/elements';
 import type { OpeningCorners, SurfaceType } from '../types/geometry';
 import { surfaceCorners, surfaceGeometry, toCorners } from '../geometry/surfaces';
 import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
-import { applyMesh, getMaterial } from './mesh';
+import { applyMesh, getMaterial } from './helpers/mesh';
 
 interface PortalSurfaceContext { from: OpeningCorners; to: OpeningCorners; fallbackMaterial: Material | undefined }
 

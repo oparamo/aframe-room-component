@@ -1,7 +1,7 @@
 import type { BufferGeometry, Material } from 'three';
-import type { Entity } from '../types/aframe';
-import type { BuildingEl, OpeningEl, WallEl } from '../types/elements';
-import { COLLIDABLE } from '../utils/surfaceClasses';
+import type { Entity } from '../../types/aframe';
+import type { BuildingEl, OpeningEl, WallEl } from '../../types/elements';
+import { COLLIDABLE } from '../../utils/surfaceClasses';
 
 interface MeshOptions { el: BuildingEl; objectName: string; geom: BufferGeometry; fallbackMaterial?: Material }
 

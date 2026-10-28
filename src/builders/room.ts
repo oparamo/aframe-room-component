@@ -8,7 +8,7 @@ import {
 } from '../geometry/walls';
 import { assertDefined } from '../utils/assert';
 import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
-import { addBlocker, applyMesh, removeBlocker } from './mesh';
+import { addBlocker, applyMesh, removeBlocker } from './helpers/mesh';
 
 interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
 

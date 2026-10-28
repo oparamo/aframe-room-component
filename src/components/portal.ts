@@ -1,8 +1,8 @@
 import type { Matrix4 } from 'three';
 import type { Component } from '../types/aframe';
 import type { PortalData, PortalEl } from '../types/elements';
-import { requireParent } from './hierarchy';
-import { hasMovedSince, isTransformChange, snapshotWorldMatrix } from './transforms';
+import { requireParent } from './helpers/hierarchy';
+import { hasMovedSince, isTransformChange, snapshotWorldMatrix } from './helpers/transforms';
 
 interface PortalComponent extends Component<PortalData, PortalEl> {
   _onTransformChanged: (event: Event) => void;

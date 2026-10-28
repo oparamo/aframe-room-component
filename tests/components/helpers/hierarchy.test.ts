@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import type { Entity } from '../../src/types/aframe';
-import { requireParent } from '../../src/components/hierarchy';
-import { fake } from '../utils/mocks';
+import type { Entity } from '../../../src/types/aframe';
+import { requireParent } from '../../../src/components/helpers/hierarchy';
+import { fake } from '../../utils/mocks';
 
 describe('requireParent', () => {
   it('does not throw when parent tag matches an allowed tag', () => {

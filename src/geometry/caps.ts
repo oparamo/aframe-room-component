@@ -1,6 +1,6 @@
 import type { BufferGeometry, Vector3 } from 'three';
 import { assertDefined } from '../utils/assert';
-import { makePlaneUvs } from './uvs';
+import { makePlaneUvs } from './helpers/uvs';
 
 interface CapOptions { corners: Vector3[]; isCeiling: boolean; isOutside: boolean; uvScale: number }
 

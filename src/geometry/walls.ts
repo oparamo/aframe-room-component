@@ -1,8 +1,8 @@
 import type { Path, Vector3 } from 'three';
 import type { OpeningEdge, OpeningEdges, OpeningSize, WallSpan } from '../types/geometry';
 import { assertDefined } from '../utils/assert';
-import { QUAD } from './surfaces';
-import { makePlaneUvs } from './uvs';
+import { QUAD } from './helpers/quads';
+import { makePlaneUvs } from './helpers/uvs';
 
 interface WallHeights { start: number; end: number }
 

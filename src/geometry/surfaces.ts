@@ -1,6 +1,7 @@
 import type { Vector3 } from 'three';
 import type { OpeningCorners, SurfaceType } from '../types/geometry';
 import { assertDefined } from '../utils/assert';
+import { QUAD, TWO_QUADS } from './helpers/quads';
 
 interface SurfaceOptions { type: SurfaceType; corners: Vector3[]; positions: number[]; uvScale: number }
 
@@ -14,9 +15,6 @@ interface SurfaceLayout {
   // u runs along the edge from corner 0 to this corner, v along the edge from corner 0 to the other.
   uEdge: 1 | 2;
 }
-
-const QUAD = [0, 1, 2, 1, 3, 2];
-const TWO_QUADS = [0, 1, 2, 1, 3, 2, 4, 5, 6, 5, 7, 6];
 
 // Floor and ceiling are one quad between the openings; sides are two, the left and right walls.
 const SURFACE_LAYOUTS: Record<SurfaceType, SurfaceLayout> = {
@@ -73,4 +71,4 @@ const surfaceGeometry = ({ type, corners, positions, uvScale }: SurfaceOptions) 
   return geom;
 };
 
-export { QUAD, surfaceCorners, surfaceGeometry, toCorners };
+export { surfaceCorners, surfaceGeometry, toCorners };

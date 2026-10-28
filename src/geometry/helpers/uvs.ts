@@ -1,5 +1,5 @@
 import type { BufferGeometry, Vector3 } from 'three';
-import { assertDefined } from '../utils/assert';
+import { assertDefined } from '../../utils/assert';
 
 type UvCallback = (vertex: Vector3) => [number, number];
 type Axis = 'x' | 'y' | 'z';

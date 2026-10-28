@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TRANSFORM_PROPS } from '../../src/components/transforms';
+import { TRANSFORM_PROPS } from '../../../src/components/helpers/transforms';
 
 describe('TRANSFORM_PROPS', () => {
   it('contains position, rotation, and scale', () => {

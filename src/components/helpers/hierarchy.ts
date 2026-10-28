@@ -1,5 +1,5 @@
-import type { Entity } from '../types/aframe';
-import type { BuildingEl } from '../types/elements';
+import type { Entity } from '../../types/aframe';
+import type { BuildingEl } from '../../types/elements';
 
 // Queues the parent room or portal for a rebuild. While the scene first loads, children initialize
 // before their parent, so the parent's component is missing here and its own update does the build.

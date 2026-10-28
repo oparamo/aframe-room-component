@@ -1,5 +1,5 @@
 import type { Matrix4 } from 'three';
-import type { Entity } from '../types/aframe';
+import type { Entity } from '../../types/aframe';
 
 const TRANSFORM_PROPS = new Set(['position', 'rotation', 'scale']);
 
