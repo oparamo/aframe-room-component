@@ -287,3 +287,59 @@ addInfo({
   position: '-21 1.6 -10',
   label: 'Concave <a-room>: <a-floor> and <a-ceiling> cover only the U, with nothing across the notch.'
 });
+
+// Yard.
+addToggle({
+  position: '-21.5 1.4 14',
+  label: 'Remove the annex\'s back-left wall',
+  action: (on) => {
+    if (on) {
+      byId('annexCorner').remove();
+      return;
+    }
+    const wall = document.createElement('a-wall');
+    wall.id = 'annexCorner';
+    wall.setAttribute('position', '-23 0 13');
+    byId('annex').insertBefore(wall, byId('annexFloor'));
+  }
+});
+addInfo({
+  position: '-21.5 2.4 14',
+  label: 'Removing an <a-wall> rebuilds its room without it: the annex becomes a triangle, and comes back '
+    + 'square when the wall returns.'
+});
+const YARD_DOOR = {
+  annex: { from: '#kioskWest', to: '#annexEast', position: '-19 0 11.5' },
+  shed: { from: '#kioskEast', to: '#shedWest', position: '-14 0 11.5' }
+};
+addToggle({
+  position: '-16.5 1.4 14',
+  label: 'Move the kiosk door to the shed',
+  action: (on) => {
+    const placement = on ? YARD_DOOR.shed : YARD_DOOR.annex;
+    for (const [attr, value] of Object.entries(placement)) byId('yardDoor').setAttribute(attr, value);
+  }
+});
+addInfo({
+  position: '-16.5 2.4 14',
+  label: 'Changing an <a-portal>\'s from and to moves the tunnel, and the walls it left fill back in.'
+});
+addInfo({
+  position: '-12.5 2.2 8',
+  label: '#store behind the kiosk has visible="false". Rebuilds leave it hidden, so only its tunnel shows.'
+});
+addAction({
+  position: '-13.2 1.4 8',
+  label: 'Rebuild the hidden store. It should stay hidden.',
+  action: () => byId('store').components.room.rebuild()
+});
+addToggle({
+  position: '-11.8 1.4 8',
+  label: 'Show the hidden store',
+  action: on => byId('store').setAttribute('visible', on)
+});
+addInfo({
+  position: '-7 1.6 12',
+  label: '#brokenRoom has two walls and #typoPortal selects nothing. Both log a console error and are '
+    + 'skipped; everything else builds.'
+});

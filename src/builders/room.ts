@@ -8,7 +8,7 @@ import {
 } from '../geometry/walls';
 import { assertDefined } from '../utils/assert';
 import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
-import { addBlocker, applyMesh, removeBlocker } from './helpers/mesh';
+import { addBlocker, applyMesh, removeBlocker, WALL_MESH } from './helpers/mesh';
 import { capOf, dataOf, openingsOf, wallHeight, wallsOf } from './helpers/structure';
 
 interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
@@ -87,7 +87,7 @@ const buildWall = (wallEl: WallEl, nextWallEl: WallEl, state: BuildState) => {
 
   const holes = openingsOf(wallEl).flatMap(openingEl => cutOpening({ wallEl, span, state }, openingEl) ?? []);
   const { uvScale } = dataOf(wallEl, 'wall');
-  applyMesh({ el: wallEl, objectName: 'wallMesh', geom: wallGeometry({ span, holes, uvScale }) });
+  applyMesh({ el: wallEl, objectName: WALL_MESH, geom: wallGeometry({ span, holes, uvScale }) });
   wallEl.classList.add(COLLIDABLE);
 };
 

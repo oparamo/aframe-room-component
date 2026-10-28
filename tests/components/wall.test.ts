@@ -1,15 +1,21 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireComponentChanged, makeSceneEl, makeWallComp, registeredComponent } from '../utils/mocks';
 import '../../src/components/wall';
 
+afterEach(() => vi.restoreAllMocks());
+
 describe('wall', () => {
   describe('init', () => {
-    it('throws when parent is not a-room', () => {
+    it('logs a markup error when its parent is not a-room', () => {
       // Arrange
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
       const comp = makeWallComp({ parentTag: 'a-scene' });
 
-      // Act / Assert
-      expect(() => registeredComponent('wall').init.call(comp)).toThrow();
+      // Act
+      registeredComponent('wall').init.call(comp);
+
+      // Assert
+      expect(errorSpy).toHaveBeenCalledOnce();
     });
   });
 
@@ -71,7 +77,7 @@ describe('wall', () => {
       // Arrange
       const rebuild = vi.fn();
       const hasWallMoved = vi.fn(() => moved);
-      const sceneEl = makeSceneEl({ systems: { building: { hasWallMoved } } });
+      const sceneEl = makeSceneEl({ building: { hasWallMoved } });
       const comp = makeWallComp({ parentComponents: { room: { rebuild } }, sceneEl });
 
       // Act
@@ -95,6 +101,25 @@ describe('wall', () => {
 
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);
+    });
+
+    it('frees its mesh and rebuilds its room', () => {
+      // Arrange
+      const rebuild = vi.fn();
+      const comp = makeWallComp({ parentComponents: { room: { rebuild } } });
+      registeredComponent('wall').init.call(comp);
+      const mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
+      comp.el.setObject3D('wallMesh', mesh);
+      const disposed = vi.fn();
+      mesh.geometry.addEventListener('dispose', disposed);
+
+      // Act
+      registeredComponent('wall').remove.call(comp);
+
+      // Assert
+      expect(comp.el.getObject3D('wallMesh')).toBeUndefined();
+      expect(disposed).toHaveBeenCalledOnce();
+      expect(rebuild).toHaveBeenCalledOnce();
     });
   });
 });

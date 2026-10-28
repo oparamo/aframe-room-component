@@ -4,6 +4,9 @@ import { assertDefined } from '../../utils/assert';
 
 // The structure is read from the DOM on every build, so it is never out of date.
 
+// How log messages name an element: by id when it has one, otherwise by tag.
+const nameOf = (el: Entity) => el.id ? `#${el.id}` : `<${el.localName}>`;
+
 // The data of a component the element must have.
 const dataOf = <K extends keyof ComponentDataMap>(el: BuildingEl, name: K): ComponentDataMap[K] =>
   assertDefined(el.getAttribute(name), `<${el.localName}> ${name} data`);
@@ -33,4 +36,4 @@ const portalEnds = ({ from, to }: Partial<PortalData>) => ({
   to: isOpening(to) ? to : null
 });
 
-export { capOf, dataOf, isEntity, openingsOf, portalEnds, wallHeight, wallsOf };
+export { capOf, dataOf, isEntity, isOpening, nameOf, openingsOf, portalEnds, wallHeight, wallsOf };

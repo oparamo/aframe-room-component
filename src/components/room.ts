@@ -1,20 +1,29 @@
 import type { Component } from '../types/aframe';
 import type { RoomData, RoomEl } from '../types/elements';
-import { wallsOf } from '../builders/helpers/structure';
+import { nameOf, wallsOf } from '../builders/helpers/structure';
 import { isTransformChange } from './helpers/transforms';
 
 interface RoomComponent extends Component<RoomData, RoomEl> {
   _onTransformChanged: (event: Event) => void;
+  // Why the room can't be built, from its markup when it initialized; null when it can.
+  _shapeError: string | null;
   rebuild(): void;
 }
 
 // Why the room's dimensions and wall count don't fit together, or null when they do.
 const roomShapeError = ({ width, length }: RoomData, wallCount: number): string | null => {
   const dimensions = [width, length].filter(Boolean).length;
-  if (dimensions === 1) return '<a-room> with WIDTH must also have LENGTH (and vice versa).';
-  if (dimensions === 2 && wallCount !== 4) return '<a-room> with WIDTH and LENGTH must have four walls.';
-  if (dimensions === 0 && wallCount < 3) return '<a-room> needs at least 3 walls.';
+  if (dimensions === 1) return 'WIDTH needs LENGTH, and LENGTH needs WIDTH';
+  if (dimensions === 2 && wallCount !== 4) return 'with WIDTH and LENGTH it must have four walls';
+  if (dimensions === 0 && wallCount < 3) return 'it needs at least 3 walls';
   return null;
+};
+
+// A width/length room places its walls itself, so a position written on one has no effect.
+const warnAuthoredPositions = (roomEl: RoomEl) => {
+  for (const wallEl of wallsOf(roomEl).filter(el => el.hasAttribute('position'))) {
+    console.warn(`${nameOf(roomEl)} has WIDTH and LENGTH, so the position of this wall is ignored.`, wallEl);
+  }
 };
 
 AFRAME.registerComponent<RoomComponent>('room', {
@@ -25,10 +34,14 @@ AFRAME.registerComponent<RoomComponent>('room', {
     length: { type: 'number' }
   },
   init: function () {
-    const error = roomShapeError(this.data, wallsOf(this.el).length);
-    if (error) throw new Error(error);
-
-    this.el.object3D.visible = false;
+    this._shapeError = roomShapeError(this.data, wallsOf(this.el).length);
+    if (this._shapeError) {
+      console.error(`${nameOf(this.el)} was not built: ${this._shapeError}.`, this.el);
+    } else if (this.el.object3D.visible) {
+      // Markup's visible="false" has already applied, since A-Frame initializes visible first.
+      this.el.sceneEl.systems.building?.hideUntilBuilt(this.el);
+    }
+    if (this.data.width && this.data.length) warnAuthoredPositions(this.el);
 
     this._onTransformChanged = (event) => {
       if (isTransformChange(event)) this.rebuild();
@@ -45,6 +58,7 @@ AFRAME.registerComponent<RoomComponent>('room', {
   },
   // Public: queues this room, and the portals connected to it, for the next build pass.
   rebuild: function () {
+    if (this._shapeError) return;
     this.el.sceneEl.systems.building?.buildRoom(this.el);
   },
   remove: function () {

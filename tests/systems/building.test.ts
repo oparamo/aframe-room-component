@@ -2,7 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { wallsOf } from '../../src/builders/helpers/structure';
 import { assertDefined } from '../../src/utils/assert';
 import {
-  immediateAnimationFrame, makeOpening, makePortal, makeRoom, makeRoomWithOpening, makeSquareRoom, makeSystem, makeWall
+  immediateAnimationFrame, makeOpening, makeOpeningCorners, makePortal, makeRoom, makeRoomWithOpening, makeSquareRoom, makeSystem,
+  makeWall
 } from '../utils/mocks';
 
 vi.mock('../../src/builders/room', () => ({ buildRoom: vi.fn() }));
@@ -185,6 +186,18 @@ describe('building system', () => {
       expect(system.state.portalOf.get(far.openingEl)).toBe(portal);
     });
 
+    it('queues the rooms of the openings it released, so their holes fill in', () => {
+      // Arrange
+      const { system, near, far, portal } = makeLinkedPair();
+      Object.assign(assertDefined(portal.getAttribute('portal'), 'portal data'), { from: makeOpening() });
+
+      // Act
+      system.linkPortal(portal, { from: near.openingEl, to: far.openingEl });
+
+      // Assert
+      expect([...system.dirtyRooms]).toEqual([near.roomEl]);
+    });
+
     it('leaves an opening another portal has taken since', () => {
       // Arrange
       const { system, near, far, portal } = makeLinkedPair();
@@ -252,10 +265,114 @@ describe('building system', () => {
       // Assert
       expect(system.dirtyRooms.has(room)).toBe(false);
     });
+
+    it('runs a pass, whose room-building-complete lets room-collision drop the room', () => {
+      // Arrange
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
+      const system = makeSystem();
+      const emit = vi.spyOn(system.el, 'emit');
+
+      // Act
+      system.removeRoom(makeSquareRoom());
+
+      // Assert
+      expect(emit).toHaveBeenCalledExactlyOnceWith('room-building-complete');
+    });
   });
 
-  describe('requestBuild', () => {
-    it('builds each dirty room with the build state and makes it visible', () => {
+  describe('removeOpening', () => {
+    it('forgets the opening\'s corners and queues its portal', () => {
+      // Arrange
+      const { system, near, portal } = makeLinkedPair();
+      system.state.cornersOf.set(near.openingEl, makeOpeningCorners({ x: 0, width: 1, height: 2 }));
+
+      // Act
+      system.removeOpening(near.openingEl);
+
+      // Assert
+      expect(system.state.cornersOf.has(near.openingEl)).toBe(false);
+      expect(system.dirtyPortals.has(portal)).toBe(true);
+    });
+
+    it('queues nothing for an opening without a portal', () => {
+      // Arrange
+      const system = makeSystem();
+
+      // Act
+      system.removeOpening(makeOpening());
+
+      // Assert
+      expect(system.dirtyPortals.size).toBe(0);
+    });
+  });
+
+  describe('hideUntilBuilt', () => {
+    it('hides the room, then shows it once it has built', () => {
+      // Arrange
+      const system = makeSystem();
+      const room = makeSquareRoom();
+      system.hideUntilBuilt(room);
+      const hidden = room.object3D.visible;
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
+
+      // Act
+      system.buildRoom(room);
+
+      // Assert
+      expect(hidden).toBe(false);
+      expect(room.object3D.visible).toBe(true);
+    });
+
+    it('keeps a room hidden while its build fails', () => {
+      // Arrange
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.mocked(mockBuildRoom).mockImplementationOnce(() => {
+        throw new Error('bad wall');
+      });
+      const system = makeSystem();
+      const room = makeSquareRoom();
+      system.hideUntilBuilt(room);
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
+
+      // Act
+      system.buildRoom(room);
+
+      // Assert
+      expect(room.object3D.visible).toBe(false);
+    });
+  });
+
+  describe('tick', () => {
+    it('runs a pending pass', () => {
+      // Arrange
+      const system = makeSystem();
+      const room = makeSquareRoom();
+      system.buildRoom(room);
+
+      // Act
+      system.tick();
+
+      // Assert
+      expect(mockBuildRoom).toHaveBeenCalledExactlyOnceWith(room, system.state);
+    });
+
+    it('leaves nothing for the animation frame once it has taken the pass', () => {
+      // Arrange
+      const system = makeSystem();
+      system.buildRoom(makeSquareRoom());
+      system.tick();
+      const [[frame]] = vi.mocked(globalThis.requestAnimationFrame).mock.calls as [[FrameRequestCallback]];
+
+      // Act
+      frame(0);
+
+      // Assert
+      expect(mockBuildRoom).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('the build pass', () => {
+    it('builds each dirty room with the build state', () => {
       // Arrange
       globalThis.requestAnimationFrame = immediateAnimationFrame();
       const system = makeSystem();
@@ -266,7 +383,77 @@ describe('building system', () => {
 
       // Assert
       expect(mockBuildRoom).toHaveBeenCalledWith(room, system.state);
-      expect(room.object3D.visible).toBe(true);
+    });
+
+    it('leaves alone the visibility of a room it did not hide', () => {
+      // Arrange
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
+      const system = makeSystem();
+      const room = makeSquareRoom();
+      room.object3D.visible = false;
+
+      // Act
+      system.buildRoom(room);
+
+      // Assert
+      expect(room.object3D.visible).toBe(false);
+    });
+
+    it.each([
+      { gone: 'left the document', leave: (room: ReturnType<typeof makeSquareRoom>) => Object.assign(room, { isConnected: false }) },
+      { gone: 'lost its room component', leave: (room: ReturnType<typeof makeSquareRoom>) => Object.assign(room, { components: {} }) }
+    ])('skips a room that has $gone', ({ leave }) => {
+      // Arrange
+      const system = makeSystem();
+      const room = makeSquareRoom();
+      system.buildRoom(room);
+      leave(room);
+
+      // Act
+      system.tick();
+
+      // Assert
+      expect(mockBuildRoom).not.toHaveBeenCalled();
+    });
+
+    it('logs a room whose build throws and still builds the rest', () => {
+      // Arrange
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const error = new Error('bad wall');
+      vi.mocked(mockBuildRoom).mockImplementationOnce(() => {
+        throw error;
+      });
+      const system = makeSystem();
+      const [broken, fine] = [makeSquareRoom(), makeSquareRoom()];
+      const portal = makePortal();
+      system.buildRoom(broken);
+      system.buildRoom(fine);
+      system.buildPortal(portal);
+
+      // Act
+      system.tick();
+
+      // Assert
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith('<a-room> failed to build and was skipped.', broken, error);
+      expect(mockBuildRoom).toHaveBeenLastCalledWith(fine, system.state);
+      expect(mockBuildPortal).toHaveBeenCalledWith(portal, system.state);
+    });
+
+    it('starts the next pass clean after a build throws', () => {
+      // Arrange
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.mocked(mockBuildRoom).mockImplementationOnce(() => {
+        throw new Error('bad wall');
+      });
+      const system = makeSystem();
+      system.buildRoom(makeSquareRoom());
+
+      // Act
+      system.tick();
+
+      // Assert
+      expect(system.dirtyRooms.size).toBe(0);
+      expect(system.buildPending).toBe(false);
     });
 
     it('builds each dirty portal with the build state', () => {

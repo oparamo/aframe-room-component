@@ -1,15 +1,3 @@
-import type { Component } from '../types/aframe';
-import type { BuildingEl, SurfaceData } from '../types/elements';
-import { rebuildParent, requireParent } from './helpers/hierarchy';
+import { surfaceComponent } from './helpers/surface';
 
-AFRAME.registerComponent<Component<SurfaceData, BuildingEl>>('ceiling', {
-  schema: {
-    uvScale: { type: 'number', default: 1 }
-  },
-  init: function () {
-    requireParent(this.el, 'a-portal', 'a-room');
-  },
-  update: function () {
-    rebuildParent(this.el);
-  }
-});
+AFRAME.registerComponent('ceiling', surfaceComponent('ceiling', 'a-portal', 'a-room'));

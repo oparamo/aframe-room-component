@@ -5,6 +5,7 @@ import { COLLIDABLE } from '../../utils/surfaceClasses';
 
 interface MeshOptions { el: BuildingEl; objectName: string; geom: BufferGeometry; fallbackMaterial?: Material }
 
+const WALL_MESH = 'wallMesh';
 const BLOCKER = 'blocker';
 
 const getMaterial = (el: Entity | null | undefined) => el?.components.material?.material;
@@ -27,6 +28,16 @@ const applyMesh = ({ el, objectName, geom, fallbackMaterial }: MeshOptions) => {
   }
 };
 
+// Takes the element's mesh off it and frees the geometry. The material is left alone, since it
+// belongs to the element's material component, or to whoever assigned it.
+const removeMesh = (el: Entity, objectName: string) => {
+  const mesh = el.getObject3D(objectName);
+  if (!isMesh(mesh)) return null;
+  el.removeObject3D(objectName);
+  mesh.geometry.dispose();
+  return mesh;
+};
+
 // An invisible collidable quad across an opening, so the player cannot walk through it. The
 // geometry is in the wall's local space, and the opening sits on the wall unrotated, so moving the
 // mesh back by the opening's position puts it where the geometry says.
@@ -40,13 +51,10 @@ const addBlocker = (openingEl: OpeningEl, geom: BufferGeometry) => {
   openingEl.classList.add(COLLIDABLE);
 };
 
-// Removes the blocker left by a previous build, freeing its geometry and material.
+// Removes the blocker left by a previous build, freeing its geometry and the material addBlocker made.
 const removeBlocker = (openingEl: OpeningEl) => {
-  const blocker = openingEl.getObject3D(BLOCKER);
-  if (!isMesh(blocker)) return;
-  openingEl.removeObject3D(BLOCKER);
-  blocker.geometry.dispose();
-  for (const material of [blocker.material].flat()) material.dispose();
+  const blocker = removeMesh(openingEl, BLOCKER);
+  for (const material of [blocker?.material ?? []].flat()) material.dispose();
 };
 
-export { addBlocker, applyMesh, getMaterial, isMesh, removeBlocker };
+export { addBlocker, applyMesh, getMaterial, isMesh, removeBlocker, removeMesh, WALL_MESH };
