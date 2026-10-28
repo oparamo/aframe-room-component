@@ -229,26 +229,29 @@
       <a-sides material="src:#testTex; repeat:0.5 0.5"></a-sides>
     </a-portal>
 
-    <!-- Yard west of the path: annex, kiosk and shed in a row, the hidden store behind the kiosk. -->
+    <!-- Yard west of the path: annex, kiosk and shed in a row, the hidden store behind the kiosk. Each
+    has a front door to the yard shell, so no kiosk door placement leaves a room without a way out. -->
     <a-room id="annex" height="2.6" material="color:#CDB">
-      <a-wall position="-23 0 10"></a-wall>
+      <a-wall id="annexCorner" position="-23 0 10"></a-wall>
       <a-wall position="-20 0 10">
         <a-opening id="annexEast"></a-opening>
       </a-wall>
-      <a-wall position="-20 0 13"></a-wall>
-      <a-wall id="annexCorner" position="-23 0 13"></a-wall>
-      <a-floor id="annexFloor" mixin="floorMat"></a-floor>
+      <a-wall position="-20 0 13">
+        <a-opening id="annexSouth"></a-opening>
+      </a-wall>
+      <a-wall position="-23 0 13"></a-wall>
+      <a-floor mixin="floorMat"></a-floor>
       <a-ceiling material="color:#AAA"></a-ceiling>
     </a-room>
 
     <a-room id="kiosk" height="2.6" material="color:#BCD">
-      <a-wall position="-18 0 10">
-        <a-opening id="kioskNorth"></a-opening>
-      </a-wall>
+      <a-wall position="-18 0 10"></a-wall>
       <a-wall position="-15 0 10">
         <a-opening id="kioskEast"></a-opening>
       </a-wall>
-      <a-wall position="-15 0 13"></a-wall>
+      <a-wall position="-15 0 13">
+        <a-opening id="kioskSouth"></a-opening>
+      </a-wall>
       <a-wall position="-18 0 13">
         <a-opening id="kioskWest"></a-opening>
       </a-wall>
@@ -259,7 +262,9 @@
     <a-room id="shed" height="2.6" material="color:#DCB">
       <a-wall position="-13 0 10"></a-wall>
       <a-wall position="-10 0 10"></a-wall>
-      <a-wall position="-10 0 13"></a-wall>
+      <a-wall position="-10 0 13">
+        <a-opening id="shedSouth"></a-opening>
+      </a-wall>
       <a-wall position="-13 0 13">
         <a-opening id="shedWest"></a-opening>
       </a-wall>
@@ -267,28 +272,49 @@
       <a-ceiling material="color:#AAA"></a-ceiling>
     </a-room>
 
+    <a-room id="yardShell" outside="true" height="3.2" material="color:#987">
+      <a-wall position="-23.5 0 9.5"></a-wall>
+      <a-wall position="-9.5 0 9.5"></a-wall>
+      <a-wall position="-9.5 0 13.5"></a-wall>
+      <a-wall position="-23.5 0 13.5">
+        <a-opening id="yardShellAnnex"></a-opening>
+        <a-opening id="yardShellKiosk"></a-opening>
+        <a-opening id="yardShellShed"></a-opening>
+      </a-wall>
+    </a-room>
+
+    <a-portal from="#annexSouth" to="#yardShellAnnex" width="1" height="2.1" position="-22.2 0 13.25">
+      <a-floor mixin="floorMat"></a-floor>
+      <a-ceiling material="color:#778"></a-ceiling>
+      <a-sides material="color:#778"></a-sides>
+    </a-portal>
+
+    <a-portal from="#kioskSouth" to="#yardShellKiosk" width="1" height="2.1" position="-17.2 0 13.25">
+      <a-floor mixin="floorMat"></a-floor>
+      <a-ceiling material="color:#778"></a-ceiling>
+      <a-sides material="color:#778"></a-sides>
+    </a-portal>
+
+    <a-portal from="#shedSouth" to="#yardShellShed" width="1" height="2.1" position="-11.5 0 13.25">
+      <a-floor mixin="floorMat"></a-floor>
+      <a-ceiling material="color:#778"></a-ceiling>
+      <a-sides material="color:#778"></a-sides>
+    </a-portal>
+
     <a-portal id="yardDoor" from="#kioskWest" to="#annexEast" width="1" height="2.1" position="-19 0 11.5">
       <a-floor mixin="floorMat"></a-floor>
       <a-ceiling material="color:#778"></a-ceiling>
       <a-sides material="color:#778"></a-sides>
     </a-portal>
 
-    <a-room id="store" visible="false" height="2.6" material="color:#DBD">
+    <!-- Stands apart from the yard shell, so showing and hiding it can be seen from outside. -->
+    <a-room id="store" outside="true" visible="false" height="2.6" material="color:#DBD">
       <a-wall position="-18 0 6"></a-wall>
       <a-wall position="-15 0 6"></a-wall>
-      <a-wall position="-15 0 8">
-        <a-opening id="storeSouth"></a-opening>
-      </a-wall>
+      <a-wall position="-15 0 8"></a-wall>
       <a-wall position="-18 0 8"></a-wall>
-      <a-floor mixin="floorMat"></a-floor>
       <a-ceiling material="color:#AAA"></a-ceiling>
     </a-room>
-
-    <a-portal from="#kioskNorth" to="#storeSouth" width="1" height="2.1" position="-16.5 0 9">
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#778"></a-ceiling>
-      <a-sides material="color:#778"></a-sides>
-    </a-portal>
 
     <!-- Broken on purpose: each logs to the console and the rest of the page still builds. -->
     <a-room id="brokenRoom">

@@ -29,13 +29,16 @@ AFRAME.registerComponent('check-marker', {
     this.right = new THREE.Vector3();
 
     // The text's own plane is hidden and only measures the wrapped text; the background is a padded
-    // plane behind it, stretched to that height every frame.
+    // plane behind it, stretched to that height every frame. The plane's mesh is hidden rather than
+    // its material: until the font loads its height is NaN, and the renderer would still cull it.
     this.pivot = document.createElement('a-entity');
     this.plane = document.createElement('a-entity');
     this.plane.setAttribute('position', `${LABEL_WIDTH / 2} 0 0`);
     this.text = document.createElement('a-entity');
     this.text.setAttribute('geometry', `primitive: plane; width: ${LABEL_WIDTH - 2 * LABEL_PADDING}; height: auto`);
-    this.text.setAttribute('material', 'visible: false');
+    this.text.addEventListener('loaded', () => {
+      this.text.getObject3D('mesh').visible = false;
+    });
     this.background = document.createElement('a-entity');
     this.background.setAttribute('position', '0 0 -0.002');
     this.background.setAttribute('geometry', `primitive: plane; width: ${LABEL_WIDTH}; height: 1`);
@@ -290,7 +293,7 @@ addInfo({
 
 // Yard.
 addToggle({
-  position: '-21.5 1.4 14',
+  position: '-20.8 1.4 14',
   label: 'Remove the annex\'s back-left wall',
   action: (on) => {
     if (on) {
@@ -299,12 +302,12 @@ addToggle({
     }
     const wall = document.createElement('a-wall');
     wall.id = 'annexCorner';
-    wall.setAttribute('position', '-23 0 13');
-    byId('annex').insertBefore(wall, byId('annexFloor'));
+    wall.setAttribute('position', '-23 0 10');
+    byId('annex').prepend(wall);
   }
 });
 addInfo({
-  position: '-21.5 2.4 14',
+  position: '-20.8 2.4 14',
   label: 'Removing an <a-wall> rebuilds its room without it: the annex becomes a triangle, and comes back '
     + 'square when the wall returns.'
 });
@@ -313,7 +316,7 @@ const YARD_DOOR = {
   shed: { from: '#kioskEast', to: '#shedWest', position: '-14 0 11.5' }
 };
 addToggle({
-  position: '-16.5 1.4 14',
+  position: '-15.8 1.4 14',
   label: 'Move the kiosk door to the shed',
   action: (on) => {
     const placement = on ? YARD_DOOR.shed : YARD_DOOR.annex;
@@ -321,12 +324,13 @@ addToggle({
   }
 });
 addInfo({
-  position: '-16.5 2.4 14',
+  position: '-15.8 2.4 14',
   label: 'Changing an <a-portal>\'s from and to moves the tunnel, and the walls it left fill back in.'
 });
 addInfo({
   position: '-12.5 2.2 8',
-  label: '#store behind the kiosk has visible="false". Rebuilds leave it hidden, so only its tunnel shows.'
+  label: '#store, the empty lot behind the yard, has visible="false". Rebuilds leave it hidden; the show '
+    + 'toggle puts a building there.'
 });
 addAction({
   position: '-13.2 1.4 8',
