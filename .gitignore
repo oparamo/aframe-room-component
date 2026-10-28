@@ -17,6 +17,10 @@ lib-cov
 # Coverage directory used by tools like istanbul
 coverage
 
+# Playwright results and traces
+test-results
+playwright-report
+
 # nyc test coverage
 .nyc_output
 

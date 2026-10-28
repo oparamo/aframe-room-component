@@ -1,10 +1,12 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
     setupFiles: ['./tests/setup.ts'],
+    // Playwright runs these in a real browser.
+    exclude: [...configDefaults.exclude, 'tests/browser/**'],
     coverage: {
       provider: 'v8',
       include: ['src/**'],
