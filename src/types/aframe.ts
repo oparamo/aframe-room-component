@@ -17,7 +17,10 @@ interface Entity extends HTMLElement {
   sceneEl: Scene;
   parentEl: Entity | null;
   components: ComponentMap;
+  object3DMap: Record<string, Three.Object3D | undefined>;
+  getObject3D(type: string): Three.Object3D | undefined;
   setObject3D(type: string, object: Three.Object3D): void;
+  removeObject3D(type: string): void;
   emit(name: string, detail?: unknown): void;
 }
 
@@ -37,9 +40,10 @@ interface System<El extends Scene = Scene> {
 
 type Schema = Record<string, { type: string; default?: unknown }>;
 
-interface ComponentLifecycle {
+// update receives the data from before the change, which is empty on the first update.
+interface ComponentLifecycle<Data = unknown> {
   init?(): void;
-  update?(): void;
+  update?(oldData: Partial<Data>): void;
   remove?(): void;
   tick?(time: number, delta: number): void;
 }
@@ -50,7 +54,7 @@ interface SystemLifecycle {
 
 // Methods and state the definition declares beyond the lifecycle get `this` typed as the instance.
 type ComponentDefinition<T extends Component>
-  = { schema?: Schema } & ComponentLifecycle & Partial<Omit<T, keyof Component>> & ThisType<T>;
+  = { schema?: Schema } & ComponentLifecycle<T['data']> & Partial<Omit<T, keyof Component>> & ThisType<T>;
 
 type SystemDefinition<T extends System>
   = SystemLifecycle & Partial<Omit<T, keyof System>> & ThisType<T>;

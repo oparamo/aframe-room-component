@@ -1,23 +1,35 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import type { BuildingEl, BuildState } from '../../src/types/elements';
 import { buildPortal } from '../../src/builders/portal';
-import { makeOpeningVerts, makePortalChild, makePortal } from '../utils/mocks';
+import { meshOf } from '../utils/meshes';
+import {
+  makeBuildState, makeOpening, makeOpeningCorners, makePortal, makePortalChild, makeRoom, makeWall
+} from '../utils/mocks';
 
 afterEach(() => vi.restoreAllMocks());
 
-describe('buildPortal', () => {
-  const fromVerts = makeOpeningVerts({ x: 0, width: 2, height: 2.5 });
-  const toVerts = makeOpeningVerts({ x: 0, width: 2, height: 2.5 });
+// A portal between two openings whose corners the state already holds, as after their rooms built.
+const makeBuiltPortal = ({ children = [] as BuildingEl[], recorded = { from: true, to: true } } = {}) => {
+  const from = makeOpening();
+  const to = makeOpening();
+  makeRoom([makeWall({ openings: [from] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 })]);
+  const state: BuildState = makeBuildState();
+  if (recorded.from) state.cornersOf.set(from, makeOpeningCorners({ x: 0, width: 2, height: 2.5 }));
+  if (recorded.to) state.cornersOf.set(to, makeOpeningCorners({ x: 0, width: 2, height: 2.5 }));
+  return { portal: makePortal({ from, to, children }), state };
+};
 
+describe('buildPortal', () => {
   it('frees the previous surface geometry when rebuilt', () => {
     // Arrange
     const floorChild = makePortalChild({ type: 'floor' });
-    const portal = makePortal({ fromVerts, toVerts, children: [floorChild] });
-    buildPortal(portal);
+    const { portal, state } = makeBuiltPortal({ children: [floorChild] });
+    buildPortal(portal, state);
     const disposed = vi.fn();
-    floorChild.mesh?.geometry.addEventListener('dispose', disposed);
+    meshOf(floorChild).geometry.addEventListener('dispose', disposed);
 
     // Act
-    buildPortal(portal);
+    buildPortal(portal, state);
 
     // Assert
     expect(disposed).toHaveBeenCalledOnce();
@@ -26,155 +38,94 @@ describe('buildPortal', () => {
   it('keeps the surface mesh when rebuilt', () => {
     // Arrange
     const floorChild = makePortalChild({ type: 'floor' });
-    const portal = makePortal({ fromVerts, toVerts, children: [floorChild] });
-    buildPortal(portal);
-    const firstMesh = floorChild.mesh;
+    const { portal, state } = makeBuiltPortal({ children: [floorChild] });
+    buildPortal(portal, state);
+    const firstMesh = meshOf(floorChild);
 
     // Act
-    buildPortal(portal);
+    buildPortal(portal, state);
 
     // Assert
-    expect(floorChild.mesh).toBe(firstMesh);
+    expect(meshOf(floorChild)).toBe(firstMesh);
   });
 
-  it('creates a mesh on a floor child', () => {
+  it.each([
+    { type: 'floor', count: 4 },
+    { type: 'ceiling', count: 4 },
+    { type: 'sides', count: 8 }
+  ])('gives a $type child a mesh of $count vertices', ({ type, count }) => {
+    // Arrange
+    const child = makePortalChild({ type });
+    const { portal, state } = makeBuiltPortal({ children: [child] });
+
+    // Act
+    buildPortal(portal, state);
+
+    // Assert
+    expect(meshOf(child).geometry.getAttribute('position').count).toBe(count);
+  });
+
+  it.each([
+    { end: 'from', recorded: { from: false, to: true } },
+    { end: 'to', recorded: { from: true, to: false } }
+  ])('logs an error and does nothing when the $end corners are missing', ({ recorded }) => {
     // Arrange
     const floorChild = makePortalChild({ type: 'floor' });
-    const portal = makePortal({ fromVerts, toVerts, children: [floorChild] });
-
-    // Act
-    buildPortal(portal);
-
-    // Assert
-    expect(floorChild.mesh).not.toBeNull();
-  });
-
-  it('creates a mesh on a ceiling child', () => {
-    // Arrange
-    const ceilingChild = makePortalChild({ type: 'ceiling' });
-    const portal = makePortal({ fromVerts, toVerts, children: [ceilingChild] });
-
-    // Act
-    buildPortal(portal);
-
-    // Assert
-    expect(ceilingChild.mesh).not.toBeNull();
-  });
-
-  it('creates a mesh on a sides child', () => {
-    // Arrange
-    const sidesChild = makePortalChild({ type: 'sides' });
-    const portal = makePortal({ fromVerts, toVerts, children: [sidesChild] });
-
-    // Act
-    buildPortal(portal);
-
-    // Assert
-    expect(sidesChild.mesh).not.toBeNull();
-  });
-
-  it('floor geometry has 4 vertices', () => {
-    // Arrange
-    const floorChild = makePortalChild({ type: 'floor' });
-    const portal = makePortal({ fromVerts, toVerts, children: [floorChild] });
-
-    // Act
-    buildPortal(portal);
-
-    // Assert
-    expect(floorChild.mesh?.geometry.getAttribute('position').count).toBe(4);
-  });
-
-  it('ceiling geometry has 4 vertices', () => {
-    // Arrange
-    const ceilingChild = makePortalChild({ type: 'ceiling' });
-    const portal = makePortal({ fromVerts, toVerts, children: [ceilingChild] });
-
-    // Act
-    buildPortal(portal);
-
-    // Assert
-    expect(ceilingChild.mesh?.geometry.getAttribute('position').count).toBe(4);
-  });
-
-  it('sides geometry has 8 vertices', () => {
-    // Arrange
-    const sidesChild = makePortalChild({ type: 'sides' });
-    const portal = makePortal({ fromVerts, toVerts, children: [sidesChild] });
-
-    // Act
-    buildPortal(portal);
-
-    // Assert
-    expect(sidesChild.mesh?.geometry.getAttribute('position').count).toBe(8);
-  });
-
-  it('logs an error and does nothing when from element is missing', () => {
-    // Arrange
-    const floorChild = makePortalChild({ type: 'floor' });
-    const portal = makePortal({ fromVerts: null, toVerts, children: [floorChild] });
+    const { portal, state } = makeBuiltPortal({ children: [floorChild], recorded });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Act
-    buildPortal(portal);
+    buildPortal(portal, state);
 
     // Assert
     expect(errorSpy).toHaveBeenCalledOnce();
-    expect(floorChild.mesh).toBeNull();
+    expect(floorChild.object3DMap).toEqual({});
+  });
+
+  it('logs an error when from is not an opening', () => {
+    // Arrange
+    const portal = makePortal({ from: makeWall(), to: makeOpening() });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Act
+    buildPortal(portal, makeBuildState());
+
+    // Assert
+    expect(errorSpy).toHaveBeenCalledOnce();
   });
 
   it('includes portal id in error message when id is set', () => {
     // Arrange
-    const floorChild = makePortalChild({ type: 'floor' });
-    const portal = makePortal({ fromVerts: null, toVerts, children: [floorChild] });
+    const { portal, state } = makeBuiltPortal({ recorded: { from: false, to: false } });
     portal.id = 'my-portal';
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Act
-    buildPortal(portal);
+    buildPortal(portal, state);
 
     // Assert
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('#my-portal'));
-  });
-
-  it('logs an error and does nothing when to element is missing', () => {
-    // Arrange
-    const floorChild = makePortalChild({ type: 'floor' });
-    const portal = makePortal({ fromVerts, toVerts: null, children: [floorChild] });
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    // Act
-    buildPortal(portal);
-
-    // Assert
-    expect(errorSpy).toHaveBeenCalledOnce();
-    expect(floorChild.mesh).toBeNull();
   });
 
   it('skips children with no matching type component', () => {
     // Arrange: child has no floor/ceiling/sides component
     const unknownChild = makePortalChild({ type: 'floor' });
     unknownChild.components = {};
-    const portal = makePortal({ fromVerts, toVerts, children: [unknownChild] });
-
-    // Act / Assert: should not throw and mesh remains null
-    expect(() => buildPortal(portal)).not.toThrow();
-    expect(unknownChild.mesh).toBeNull();
-  });
-
-  it('processes multiple children in one call', () => {
-    // Arrange
-    const floorChild = makePortalChild({ type: 'floor' });
-    const ceilingChild = makePortalChild({ type: 'ceiling' });
-    const sidesChild = makePortalChild({ type: 'sides' });
-    const portal = makePortal({ fromVerts, toVerts, children: [floorChild, ceilingChild, sidesChild] });
+    const { portal, state } = makeBuiltPortal({ children: [unknownChild] });
 
     // Act
-    buildPortal(portal);
+    buildPortal(portal, state);
 
     // Assert
-    expect(floorChild.mesh).not.toBeNull();
-    expect(ceilingChild.mesh).not.toBeNull();
-    expect(sidesChild.mesh).not.toBeNull();
+    expect(unknownChild.object3DMap).toEqual({});
+  });
+
+  it('skips children that are not A-Frame entities', () => {
+    // Arrange
+    const { portal, state } = makeBuiltPortal();
+    Object.assign(portal, { children: [{ localName: 'span' }] });
+
+    // Act / Assert
+    expect(() => buildPortal(portal, state)).not.toThrow();
   });
 });

@@ -22,7 +22,7 @@ describe('room', () => {
 
     it('throws when no width/length and fewer than 3 walls', () => {
       // Arrange
-      const comp = makeRoomComp({ walls: [{}, {}] });
+      const comp = makeRoomComp({ children: [{ localName: 'a-wall' }, { localName: 'a-wall' }] });
 
       // Act / Assert
       expect(() => registeredComponent('room').init.call(comp)).toThrow('<a-room> needs at least 3 walls.');
@@ -30,7 +30,7 @@ describe('room', () => {
 
     it('throws when width and length given but fewer than 4 walls', () => {
       // Arrange
-      const comp = makeRoomComp({ data: { width: 4, length: 6 }, walls: [{}, {}] });
+      const comp = makeRoomComp({ data: { width: 4, length: 6 }, children: [{ localName: 'a-wall' }, { localName: 'a-wall' }] });
 
       // Act / Assert
       expect(() => registeredComponent('room').init.call(comp)).toThrow('<a-room> with WIDTH and LENGTH must have four walls.');
@@ -45,32 +45,6 @@ describe('room', () => {
 
       // Assert
       expect(comp.el.object3D.visible).toBe(false);
-    });
-
-    it('collects walls from a-wall children', () => {
-      // Arrange
-      const walls = [{}, {}, {}];
-      const comp = makeRoomComp({ data: {}, walls });
-
-      // Act
-      registeredComponent('room').init.call(comp);
-
-      // Assert
-      expect(comp.el.walls).toEqual(walls);
-    });
-
-    it('stores ceiling and floor refs', () => {
-      // Arrange
-      const ceilingEl = {};
-      const floorEl = {};
-      const comp = makeRoomComp({ data: {}, ceilingEl, floorEl });
-
-      // Act
-      registeredComponent('room').init.call(comp);
-
-      // Assert
-      expect(comp.el.ceiling).toBe(ceilingEl);
-      expect(comp.el.floor).toBe(floorEl);
     });
 
     it('registers componentchanged listener', () => {
@@ -148,37 +122,22 @@ describe('room', () => {
   });
 
   describe('tick', () => {
-    it('rebuilds when the room has moved since its last rebuild', () => {
+    it.each([
+      { moved: true, rebuilds: 1 },
+      { moved: false, rebuilds: 0 }
+    ])('rebuilds $rebuilds times when the system says moved=$moved', ({ moved, rebuilds }) => {
       // Arrange
       const buildRoom = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
+      const hasMoved = vi.fn(() => moved);
+      const sceneEl = makeSceneEl({ systems: { building: { buildRoom, hasMoved } } });
       const comp = makeRoomComp({ data: {}, sceneEl });
-      registeredComponent('room').init.call(comp);
-      comp.rebuild();
-      buildRoom.mockClear();
-      comp.el.object3D.matrixWorld.makeTranslation(1, 0, 0);
 
       // Act
       comp.tick();
 
       // Assert
-      expect(buildRoom).toHaveBeenCalledExactlyOnceWith(comp.el);
-    });
-
-    it('does nothing when the room has not moved', () => {
-      // Arrange
-      const buildRoom = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
-      const comp = makeRoomComp({ data: {}, sceneEl });
-      registeredComponent('room').init.call(comp);
-      comp.rebuild();
-      buildRoom.mockClear();
-
-      // Act
-      comp.tick();
-
-      // Assert
-      expect(buildRoom).not.toHaveBeenCalled();
+      expect(hasMoved).toHaveBeenCalledWith(comp.el);
+      expect(buildRoom).toHaveBeenCalledTimes(rebuilds);
     });
   });
 

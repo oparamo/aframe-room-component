@@ -1,14 +1,28 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { Mesh } from 'three';
-import type { PortalEl, WallEl } from '../../src/types/elements';
+import type { WallEl } from '../../src/types/elements';
+import { capOf, wallsOf } from '../../src/builders/helpers/structure';
 import { buildRoom } from '../../src/builders/room';
 import { assertDefined } from '../../src/utils/assert';
 import { meshOf, worldCenter, worldNormals } from '../utils/meshes';
 import {
-  fake, makeCap, makeObject3D, makeWall, makeRoom, makeSquareRoom, makeOpening, makeTransformedRoom
+  makeBuildState, makeOpening, makePortal, makeRoom, makeSquareRoom, makeTransformedRoom, makeWall
 } from '../utils/mocks';
 
 afterEach(() => vi.restoreAllMocks());
+
+const floorOf = (room: Parameters<typeof capOf>[0]) => assertDefined(capOf(room, 'floor'), 'floor');
+const firstWallOf = (room: Parameters<typeof wallsOf>[0]) => assertDefined(wallsOf(room)[0], 'first wall');
+
+// A square room whose first wall holds an opening for a window 1 m wide, with its sill at 0.5 m.
+const makeWindowRoom = () => {
+  const openingEl = makeOpening();
+  const portalEl = makePortal({ at: { x: 2.5 }, height: 1, floorHeight: 0.5 });
+  const room = makeRoom([makeWall({ openings: [openingEl] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
+  return { room, openingEl, state: makeBuildState({ links: [[openingEl, portalEl]] }) };
+};
+
+const blockerOf = (openingEl: ReturnType<typeof makeOpening>) => openingEl.getObject3D('blocker') as Mesh | undefined;
 
 describe('buildRoom', () => {
   describe('with implicit wall positions', () => {
@@ -17,23 +31,12 @@ describe('buildRoom', () => {
       const room = makeSquareRoom();
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
-      for (const wall of room.walls) {
-        expect(wall.mesh).not.toBeNull();
+      for (const wall of wallsOf(room)) {
+        expect(meshOf(wall).geometry.getAttribute('position').count).toBeGreaterThan(0);
       }
-    });
-
-    it('records the position each wall was built at', () => {
-      // Arrange
-      const room = makeSquareRoom();
-
-      // Act
-      buildRoom(room);
-
-      // Assert
-      expect(room.walls.map(wall => wall.builtPosition?.toArray())).toEqual([[0, 0, 0], [5, 0, 0], [5, 0, 5], [0, 0, 5]]);
     });
 
     it('creates a mesh for the floor', () => {
@@ -41,10 +44,10 @@ describe('buildRoom', () => {
       const room = makeSquareRoom();
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
-      expect(room.floor?.mesh).not.toBeNull();
+      expect(meshOf(floorOf(room))).toBeDefined();
     });
 
     it('creates a mesh for the ceiling', () => {
@@ -52,10 +55,10 @@ describe('buildRoom', () => {
       const room = makeSquareRoom();
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
-      expect(room.ceiling?.mesh).not.toBeNull();
+      expect(meshOf(assertDefined(capOf(room, 'ceiling'), 'ceiling'))).toBeDefined();
     });
 
     it('turns the last wall to run back to the first wall', () => {
@@ -63,23 +66,10 @@ describe('buildRoom', () => {
       const room = makeSquareRoom();
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert: running toward -z means a quarter turn
-      expect(room.walls.at(-1)?.object3D.rotation.y).toBeCloseTo(Math.PI / 2);
-    });
-
-    it('assigns wall mesh geometry with vertices', () => {
-      // Arrange
-      const room = makeSquareRoom();
-
-      // Act
-      buildRoom(room);
-
-      // Assert
-      for (const wall of room.walls) {
-        expect(wall.mesh?.geometry.getAttribute('position')).toBeDefined();
-      }
+      expect(wallsOf(room).at(-1)?.object3D.rotation.y).toBeCloseTo(Math.PI / 2);
     });
   });
 
@@ -104,10 +94,10 @@ describe('buildRoom', () => {
       const room = makeRoom(corners.map(([x, z]) => makeWall({ x, z })), { outside });
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
-      expect(room.walls.map(facesCenter)).toEqual(Array(corners.length).fill(inward));
+      expect(wallsOf(room).map(facesCenter)).toEqual(Array(corners.length).fill(inward));
     });
   });
 
@@ -117,59 +107,26 @@ describe('buildRoom', () => {
       const room = makeRoom([makeWall(), makeWall(), makeWall(), makeWall()], { width: 4, length: 6 });
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
-      expect(room.walls[0]?.object3D.position).toMatchObject({ x: 0, z: 0 });
-      expect(room.walls[1]?.object3D.position).toMatchObject({ x: 4, z: 0 });
-      expect(room.walls[2]?.object3D.position).toMatchObject({ x: 4, z: 6 });
-      expect(room.walls[3]?.object3D.position).toMatchObject({ x: 0, z: 6 });
+      expect(wallsOf(room).map(wall => [wall.object3D.position.x, wall.object3D.position.z])).toEqual([[0, 0], [4, 0], [4, 6], [0, 6]]);
     });
   });
 
   describe('outside room', () => {
     it('keeps each wall at the same corner when a width/length room is rebuilt', () => {
       // Arrange
-      const walls = [makeWall(), makeWall(), makeWall(), makeWall()];
-      const room = makeRoom([...walls], { width: 4, length: 6, outside: true });
-      const corners = () => walls.map(wall => ({ x: wall.object3D.position.x, z: wall.object3D.position.z }));
-      buildRoom(room);
+      const room = makeRoom([makeWall(), makeWall(), makeWall(), makeWall()], { width: 4, length: 6, outside: true });
+      const corners = () => wallsOf(room).map(wall => ({ x: wall.object3D.position.x, z: wall.object3D.position.z }));
+      buildRoom(room, makeBuildState());
       const firstBuild = corners();
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
       expect(corners()).toEqual(firstBuild);
-    });
-
-    it('still creates meshes for all walls', () => {
-      // Arrange
-      const room = makeSquareRoom({ outside: true });
-      vi.spyOn(console, 'warn').mockImplementation(() => {});
-
-      // Act
-      buildRoom(room);
-
-      // Assert
-      for (const wall of room.walls) {
-        expect(wall.mesh).not.toBeNull();
-      }
-    });
-  });
-
-  describe('re-entrant build', () => {
-    it('replaces geometry on subsequent buildRoom calls', () => {
-      // Arrange
-      const room = makeSquareRoom();
-      buildRoom(room);
-      const firstGeom = room.walls[0]?.mesh?.geometry;
-
-      // Act
-      buildRoom(room);
-
-      // Assert
-      expect(room.walls[0]?.mesh?.geometry).not.toBe(firstGeom);
     });
   });
 
@@ -185,49 +142,86 @@ describe('buildRoom', () => {
       const room = makeRoom(walls);
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
-      const pos = room.ceiling?.mesh?.geometry.getAttribute('position');
-      expect(pos?.count).toBe(walls.length);
-      for (let i = 0; i < (pos?.count ?? 0); i++) {
-        const wall = walls.find(w => w.object3D.position.x === pos?.getX(i) && w.object3D.position.z === pos.getZ(i));
-        expect(pos?.getY(i)).toBe((wall?.object3D.position.y ?? NaN) + (wall?.getHeight() ?? NaN));
-      }
+      const pos = meshOf(assertDefined(capOf(room, 'ceiling'), 'ceiling')).geometry.getAttribute('position');
+      const heights = Array.from({ length: pos.count }, (_, i) => [pos.getX(i), pos.getY(i), pos.getZ(i)]);
+      expect(heights).toEqual(expect.arrayContaining([[0, 2, 0], [4, 2, 0], [4, 4, 4], [0, 3, 4]]));
     });
   });
 
-  describe('stale mesh cleanup', () => {
-    it('removes and nulls a stale blocker mesh before rebuilding', () => {
+  describe('openings', () => {
+    it('records the corners of an opening with a portal', () => {
       // Arrange
-      const opening = makeOpening();
-      const remove = vi.fn();
-      const staleMesh = fake<Mesh>({ parent: { remove }, geometry: { dispose: vi.fn() }, material: { dispose: vi.fn() } });
-      opening.mesh = staleMesh;
-      const room = makeRoom([makeWall({ openings: [opening] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
+      const { room, openingEl, state } = makeWindowRoom();
 
       // Act
-      buildRoom(room);
+      buildRoom(room, state);
 
-      // Assert
-      expect(remove).toHaveBeenCalledWith(staleMesh);
-      expect(opening.mesh).toBeNull();
+      // Assert: left bottom, left top, right bottom, right top, on the wall at z = 0
+      expect(state.cornersOf.get(openingEl)?.map(corner => corner.toArray())).toEqual([
+        [2, 0.5, 0], [2, 1.5, 0], [3, 0.5, 0], [3, 1.5, 0]
+      ]);
     });
 
-    it('frees the stale blocker geometry and material', () => {
+    it('drops the corners once the opening has no portal', () => {
       // Arrange
-      const opening = makeOpening();
-      const disposeGeometry = vi.fn();
-      const disposeMaterial = vi.fn();
-      opening.mesh = fake<Mesh>({ geometry: { dispose: disposeGeometry }, material: { dispose: disposeMaterial } });
-      const room = makeRoom([makeWall({ openings: [opening] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
+      const { room, openingEl, state } = makeWindowRoom();
+      buildRoom(room, state);
+      state.portalOf.delete(openingEl);
 
       // Act
-      buildRoom(room);
+      buildRoom(room, state);
 
       // Assert
-      expect(disposeGeometry).toHaveBeenCalledOnce();
-      expect(disposeMaterial).toHaveBeenCalledOnce();
+      expect(state.cornersOf.has(openingEl)).toBe(false);
+    });
+  });
+
+  describe('blocker', () => {
+    it('creates an invisible collidable mesh for openings with floorHeight > 0', () => {
+      // Arrange
+      const { room, openingEl, state } = makeWindowRoom();
+
+      // Act
+      buildRoom(room, state);
+
+      // Assert
+      expect(blockerOf(openingEl)?.visible).toBe(false);
+      expect((openingEl.classList as unknown as Set<string>).has('collidable')).toBe(true);
+    });
+
+    it('spans the opening in world space', () => {
+      // Arrange
+      const { room, openingEl, state } = makeWindowRoom();
+
+      // Act
+      buildRoom(room, state);
+
+      // Assert
+      const blocker = assertDefined(blockerOf(openingEl), 'blocker');
+      blocker.updateWorldMatrix(true, false);
+      const box = new THREE.Box3().setFromObject(blocker);
+      expect([box.min.toArray(), box.max.toArray()]).toEqual([[2, 0.5, 0], [3, 1.5, 0]]);
+    });
+
+    it('replaces the blocker on rebuild, freeing the old geometry and material', () => {
+      // Arrange
+      const { room, openingEl, state } = makeWindowRoom();
+      buildRoom(room, state);
+      const stale = assertDefined(blockerOf(openingEl), 'blocker');
+      const disposed = vi.fn();
+      stale.geometry.addEventListener('dispose', disposed);
+      [stale.material].flat()[0]?.addEventListener('dispose', disposed);
+
+      // Act
+      buildRoom(room, state);
+
+      // Assert
+      expect(blockerOf(openingEl)).not.toBe(stale);
+      expect(stale.parent).toBeNull();
+      expect(disposed).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -235,12 +229,12 @@ describe('buildRoom', () => {
     it('frees the previous wall geometry', () => {
       // Arrange
       const room = makeSquareRoom();
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
       const disposed = vi.fn();
-      room.walls[0]?.mesh?.geometry.addEventListener('dispose', disposed);
+      meshOf(firstWallOf(room)).geometry.addEventListener('dispose', disposed);
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
       expect(disposed).toHaveBeenCalledOnce();
@@ -249,90 +243,80 @@ describe('buildRoom', () => {
     it('frees the previous floor geometry', () => {
       // Arrange
       const room = makeSquareRoom();
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
       const disposed = vi.fn();
-      room.floor?.mesh?.geometry.addEventListener('dispose', disposed);
+      meshOf(floorOf(room)).geometry.addEventListener('dispose', disposed);
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
       expect(disposed).toHaveBeenCalledOnce();
     });
 
+    it('keeps the mesh and gives it new geometry', () => {
+      // Arrange
+      const room = makeSquareRoom();
+      buildRoom(room, makeBuildState());
+      const mesh = meshOf(firstWallOf(room));
+      const firstGeom = mesh.geometry;
+
+      // Act
+      buildRoom(room, makeBuildState());
+
+      // Assert
+      expect(meshOf(firstWallOf(room))).toBe(mesh);
+      expect(mesh.geometry).not.toBe(firstGeom);
+    });
+
     it('applies the material found on the parent room', () => {
       // Arrange
       const material = new THREE.MeshBasicMaterial();
-      const room = makeSquareRoom();
-      room.floor = makeCap({ parentMaterial: material });
-      buildRoom(room);
+      const room = makeSquareRoom({ material });
+      buildRoom(room, makeBuildState());
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
-      expect(room.floor.mesh?.material).toBe(material);
+      expect(meshOf(floorOf(room)).material).toBe(material);
     });
 
     it('keeps the mesh material when no material is found', () => {
       // Arrange
       const room = makeSquareRoom();
-      buildRoom(room);
-      const material = room.walls[0]?.mesh?.material;
+      buildRoom(room, makeBuildState());
+      const material = meshOf(firstWallOf(room)).material;
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
-      expect(room.walls[0]?.mesh?.material).toBe(material);
+      expect(meshOf(firstWallOf(room)).material).toBe(material);
     });
   });
 
-  describe('blocker', () => {
-    it('creates an invisible collidable mesh for openings with floorHeight > 0', () => {
+  describe('missing caps', () => {
+    it('builds without a floor', () => {
       // Arrange
-      const windowPortal = fake<PortalEl>({
-        getAttribute (attr: string) {
-          if (attr === 'portal') return { width: 1, height: 1, floorHeight: 0.5 };
-          return null;
-        },
-        object3D: makeObject3D({ x: 2.5, y: 0, z: 0 })
-      });
-      const opening = makeOpening({ portalEl: windowPortal });
-      const addClassSpy = vi.spyOn(opening.classList, 'add');
-      const wall0 = makeWall({ openings: [opening] });
-      opening.parentEl = wall0;
-      const room = makeRoom([wall0, makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
+      const room = makeSquareRoom({ caps: ['ceiling'] });
 
       // Act
-      buildRoom(room);
+      buildRoom(room, makeBuildState());
 
       // Assert
-      expect(opening.mesh).not.toBeNull();
-      expect(opening.mesh?.visible).toBe(false);
-      expect(addClassSpy).toHaveBeenCalledWith('collidable');
-    });
-  });
-
-  describe('input validation', () => {
-    it('skips floor when floor is null', () => {
-      // Arrange
-      const room = makeSquareRoom();
-      room.floor = null;
-
-      // Act / Assert: should not throw
-      expect(() => buildRoom(room)).not.toThrow();
-      expect(room.ceiling?.mesh).not.toBeNull();
+      expect(meshOf(assertDefined(capOf(room, 'ceiling'), 'ceiling'))).toBeDefined();
     });
 
-    it('skips ceiling when ceiling is null', () => {
+    it('builds without a ceiling', () => {
       // Arrange
-      const room = makeSquareRoom();
-      room.ceiling = null;
+      const room = makeSquareRoom({ caps: ['floor'] });
 
-      // Act / Assert: should not throw
-      expect(() => buildRoom(room)).not.toThrow();
-      expect(room.floor?.mesh).not.toBeNull();
+      // Act
+      buildRoom(room, makeBuildState());
+
+      // Assert
+      expect(meshOf(floorOf(room))).toBeDefined();
     });
   });
 });
@@ -342,10 +326,10 @@ describe('buildRoom in a transformed room', () => {
 
   it('places the opening at the portal in a scaled room', () => {
     // Arrange: the portal sits halfway along the first wall, which is 8m long in world space
-    const { roomEl, openingEl } = makeTransformedRoom({ corners: SQUARE, scale: [2, 1, 2], portalAt: [4, 0, 0] });
+    const { roomEl, openingEl, state } = makeTransformedRoom({ corners: SQUARE, scale: [2, 1, 2], portalAt: [4, 0, 0] });
 
     // Act
-    buildRoom(roomEl);
+    buildRoom(roomEl, state);
 
     // Assert: halfway along the wall in the room's own units
     expect(openingEl.object3D.position.x).toBeCloseTo(2);
@@ -358,17 +342,16 @@ describe('buildRoom in a transformed room', () => {
     const portal = new THREE.Vector3(1.5, 0, 0)
       .applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationY)
       .add(new THREE.Vector3(...position));
-    const { roomEl, openingEl } = makeTransformedRoom({
+    const { roomEl, openingEl, state } = makeTransformedRoom({
       corners: SQUARE, position, rotationY, portalAt: [portal.x, portal.y, portal.z]
     });
 
     // Act
-    buildRoom(roomEl);
+    buildRoom(roomEl, state);
 
     // Assert: the opening's world corners are centered on the portal
-    const center = openingEl.vertices
-      .reduce((sum, vertex) => sum.add(vertex), new THREE.Vector3())
-      .divideScalar(openingEl.vertices.length);
+    const corners = assertDefined(state.cornersOf.get(openingEl), 'opening corners');
+    const center = corners.reduce((sum, corner) => sum.add(corner), new THREE.Vector3()).divideScalar(corners.length);
     expect(center.x).toBeCloseTo(portal.x);
     expect(center.z).toBeCloseTo(portal.z);
   });

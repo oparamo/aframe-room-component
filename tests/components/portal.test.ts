@@ -63,18 +63,22 @@ describe('portal', () => {
   });
 
   describe('update', () => {
-    it('calls building.buildPortal with el', () => {
+    it('links the portal to its openings, then queues it', () => {
       // Arrange
-      const buildPortal = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
+      const calls: string[] = [];
+      const linkPortal = vi.fn(() => calls.push('link'));
+      const buildPortal = vi.fn(() => calls.push('build'));
+      const sceneEl = makeSceneEl({ systems: { building: { linkPortal, buildPortal } } });
       const comp = makePortalComp({ sceneEl });
-      registeredComponent('portal').init.call(comp);
+      const oldData = { from: null };
 
       // Act
-      registeredComponent('portal').update.call(comp);
+      registeredComponent('portal').update.call(comp, oldData);
 
       // Assert
+      expect(linkPortal).toHaveBeenCalledWith(comp.el, oldData);
       expect(buildPortal).toHaveBeenCalledWith(comp.el);
+      expect(calls).toEqual(['link', 'build']);
     });
   });
 
@@ -95,37 +99,22 @@ describe('portal', () => {
   });
 
   describe('tick', () => {
-    it('rebuilds when the portal has moved since its last rebuild', () => {
+    it.each([
+      { moved: true, rebuilds: 1 },
+      { moved: false, rebuilds: 0 }
+    ])('rebuilds $rebuilds times when the system says moved=$moved', ({ moved, rebuilds }) => {
       // Arrange
       const buildPortal = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
+      const hasMoved = vi.fn(() => moved);
+      const sceneEl = makeSceneEl({ systems: { building: { buildPortal, hasMoved } } });
       const comp = makePortalComp({ data: {}, sceneEl });
-      registeredComponent('portal').init.call(comp);
-      comp.rebuild();
-      buildPortal.mockClear();
-      comp.el.object3D.matrixWorld.makeTranslation(1, 0, 0);
 
       // Act
       comp.tick();
 
       // Assert
-      expect(buildPortal).toHaveBeenCalledExactlyOnceWith(comp.el);
-    });
-
-    it('does nothing when the portal has not moved', () => {
-      // Arrange
-      const buildPortal = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
-      const comp = makePortalComp({ data: {}, sceneEl });
-      registeredComponent('portal').init.call(comp);
-      comp.rebuild();
-      buildPortal.mockClear();
-
-      // Act
-      comp.tick();
-
-      // Assert
-      expect(buildPortal).not.toHaveBeenCalled();
+      expect(hasMoved).toHaveBeenCalledWith(comp.el);
+      expect(buildPortal).toHaveBeenCalledTimes(rebuilds);
     });
   });
 

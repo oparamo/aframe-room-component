@@ -1,11 +1,11 @@
 import { vi } from 'vitest';
-import type { Material, Mesh, Object3D, Vector3 } from 'three';
+import type { Material, Object3D, Vector3 } from 'three';
 import type { AFrame, Entity } from '../../src/types/aframe';
 import type { CollisionComponent } from '../../src/components/collision';
 import type {
-  BuildingEl, BuildingScene, BuildingSystem, OpeningEl, PortalData, PortalEl, RoomEl, WallEl
+  BuildingEl, BuildingScene, BuildingSystem, BuildState, OpeningEl, PortalEl, RoomEl, WallEl
 } from '../../src/types/elements';
-import { assertDefined } from '../../src/utils/assert';
+import type { OpeningCorners } from '../../src/types/geometry';
 
 // Data shapes are checked a few levels down; deeper than that (and for functions) anything goes,
 // which keeps DOM-sized types such as HTMLElement from blowing the compiler's depth limit.
@@ -41,11 +41,11 @@ const lookup = (kind: keyof typeof registry, name: string) => {
   return definition;
 };
 
-// Component methods as the tests call them: with no arguments, since no component reads tick's.
-// Only room and portal define rebuild.
+// Component methods as the tests call them: with no arguments unless a test passes update's oldData,
+// since no component reads tick's. Only room and portal define rebuild.
 interface Hooks {
   init(): void;
-  update(): void;
+  update(oldData?: object): void;
   remove(): void;
   tick(): void;
   rebuild(): void;
@@ -66,63 +66,83 @@ const makeObject3D = ({ x = 0, y = 0, z = 0 }: Object3DOptions = {}) => {
   return object3D;
 };
 
-// setObject3D as A-Frame does it for our meshes: the mesh joins the element's object3D.
-const holdMesh = (el: { mesh: Mesh | null; object3D: Object3D }) => (_name: string, mesh: Mesh) => {
-  el.mesh = mesh;
-  el.object3D.add(mesh);
-};
+interface ElementOptions {
+  localName: string;
+  // Component data by name, as getAttribute returns it.
+  data?: Record<string, object>;
+  components?: Record<string, object>;
+  children?: BuildingEl[];
+  at?: Object3DOptions;
+}
 
-interface CapOptions { parentMaterial?: Material | null }
-
-const makeCap = ({ parentMaterial = null }: CapOptions = {}) => {
+// An element as the builders see it. Its object3D is real, with its children's beneath it, and
+// setObject3D, getObject3D and removeObject3D keep object3DMap as A-Frame does.
+const makeBuildingEl = ({ localName, data = {}, components = {}, children = [], at = {} }: ElementOptions) => {
+  const object3D = makeObject3D(at);
+  const object3DMap: Record<string, Object3D | undefined> = {};
   const el = {
-    object3D: makeObject3D(),
-    mesh: null as Mesh | null,
-    components: {},
+    localName,
+    object3D,
+    object3DMap,
+    components,
+    children,
+    parentEl: null,
     classList: new Set<string>(),
-    parentEl: { components: { material: { material: parentMaterial } } },
-    getAttribute () { return { uvScale: 1 }; }
-  };
-  return Object.assign(el, { setObject3D: holdMesh(el) }) as unknown as BuildingEl;
-};
-
-interface WallOptions { x?: number; y?: number; z?: number; height?: number; openings?: OpeningEl[] }
-
-const makeWall = ({ x = 0, y = 0, z = 0, height = 3, openings = [] }: WallOptions = {}) => {
-  const el = {
-    object3D: makeObject3D({ x, y, z }),
-    openings,
-    getHeight () { return height; },
-    getAttribute: (attr: string) => attr === 'wall' ? { height, uvScale: 1 } : null,
-    components: {},
-    parentEl: { components: {}, object3D: makeObject3D() },
-    mesh: null as Mesh | null,
-    classList: new Set<string>()
-  };
-  return Object.assign(el, { setObject3D: holdMesh(el) }) as unknown as WallEl;
-};
-
-interface RoomOptions { outside?: boolean; width?: number | null; length?: number | null }
-
-// The walls' and caps' object3Ds become children of the room's, as A-Frame parents them.
-const makeRoom = (walls: WallEl[], { outside = false, width = null, length = null }: RoomOptions = {}) => {
-  const roomEl = {
-    getAttribute (attr: string) {
-      if (attr === 'room') return { outside, width, length };
-      return null;
+    getAttribute: (name: string) => data[name] ?? null,
+    getObject3D: (type: string) => object3DMap[type],
+    setObject3D (type: string, object: Object3D) {
+      object3DMap[type] = object;
+      object3D.add(object);
     },
-    walls,
-    floor: makeCap(),
-    ceiling: makeCap(),
-    components: {},
-    object3D: makeObject3D()
-  } as unknown as RoomEl;
-  for (const childEl of [...walls, roomEl.floor, roomEl.ceiling]) {
-    roomEl.object3D.add(assertDefined(childEl, 'room child').object3D);
+    removeObject3D (type: string) {
+      const object = object3DMap[type];
+      if (object) object3D.remove(object);
+      object3DMap[type] = undefined;
+    }
+  };
+  for (const childEl of children) {
+    object3D.add(childEl.object3D);
+    Object.assign(childEl, { parentEl: el });
   }
-  for (const wallEl of walls) Object.assign(wallEl, { parentEl: roomEl });
-  return roomEl;
+  return el as unknown as BuildingEl;
 };
+
+interface CapOptions { kind?: 'floor' | 'ceiling'; uvScale?: number }
+
+const makeCap = ({ kind = 'floor', uvScale = 1 }: CapOptions = {}) =>
+  makeBuildingEl({ localName: `a-${kind}`, data: { [kind]: { uvScale } } });
+
+interface WallOptions {
+  x?: number;
+  y?: number;
+  z?: number;
+  height?: number;
+  openings?: OpeningEl[];
+  // Other children, such as a portal or a nested room.
+  others?: BuildingEl[];
+}
+
+const makeWall = ({ x = 0, y = 0, z = 0, height = 3, openings = [], others = [] }: WallOptions = {}) => makeBuildingEl({
+  localName: 'a-wall', data: { wall: { height, uvScale: 1 } }, children: [...openings, ...others], at: { x, y, z }
+}) as WallEl;
+
+interface RoomOptions {
+  outside?: boolean;
+  width?: number | null;
+  length?: number | null;
+  height?: number;
+  caps?: ('floor' | 'ceiling')[];
+  material?: Material;
+}
+
+const makeRoom = (walls: WallEl[], {
+  outside = false, width = null, length = null, height = 2.4, caps = ['floor', 'ceiling'], material
+}: RoomOptions = {}) => makeBuildingEl({
+  localName: 'a-room',
+  data: { room: { outside, width, length, height } },
+  components: material ? { material: { material } } : {},
+  children: [...walls, ...caps.map(kind => makeCap({ kind }))]
+});
 
 const makeSquareRoom = (opts?: RoomOptions) => makeRoom([
   makeWall(),
@@ -131,23 +151,47 @@ const makeSquareRoom = (opts?: RoomOptions) => makeRoom([
   makeWall({ z: 5 })
 ], opts);
 
-// Convenience for building system tests: builds a room with one wall per portal.
-const makeRoomWithLinks = ({ portals = [] }: { portals?: (PortalEl | null)[] } = {}) =>
-  makeRoom(portals.map(portalEl => makeWall({ openings: [makeOpening({ portalEl })] })));
+const makeOpening = () => makeBuildingEl({ localName: 'a-opening' }) as OpeningEl;
 
-const makeOpening = ({ portalEl = null }: { portalEl?: PortalEl | null } = {}) => ({
-  object3D: makeObject3D(),
-  vertices: [],
-  mesh: null,
-  classList: new Set<string>(),
-  getPortal () { return portalEl; },
-  parentEl: null,
-  setObject3D () {}
-}) as unknown as OpeningEl;
+// A square room whose first wall holds an opening.
+const makeRoomWithOpening = () => {
+  const openingEl = makeOpening();
+  const roomEl = makeRoom([makeWall({ openings: [openingEl] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
+  return { roomEl, openingEl };
+};
 
-interface OpeningVertsOptions { x: number; width: number; height: number }
+interface PortalOptions {
+  from?: Entity | null;
+  to?: Entity | null;
+  at?: Object3DOptions;
+  width?: number;
+  height?: number;
+  floorHeight?: number;
+  children?: BuildingEl[];
+}
 
-const makeOpeningVerts = ({ x, width, height }: OpeningVertsOptions) => [
+const makePortal = ({
+  from = null, to = null, at, width = 1, height = 2, floorHeight = 0, children = []
+}: PortalOptions = {}) => makeBuildingEl({
+  localName: 'a-portal', data: { portal: { from, to, width, height, floorHeight } }, children, at
+});
+
+interface PortalChildOptions { type: string; uvScale?: number }
+
+const makePortalChild = ({ type, uvScale = 1 }: PortalChildOptions) =>
+  makeBuildingEl({ localName: `a-${type}`, data: { [type]: { uvScale } }, components: { [type]: {} } });
+
+const makePortalSurfaces = () => ['floor', 'ceiling', 'sides'].map(type => makePortalChild({ type }));
+
+// Build state as the system keeps it: links are the opening each portal uses.
+const makeBuildState = ({ links = [] }: { links?: [OpeningEl, PortalEl][] } = {}): BuildState => ({
+  portalOf: new WeakMap(links),
+  cornersOf: new WeakMap()
+});
+
+interface OpeningCornersOptions { x: number; width: number; height: number }
+
+const makeOpeningCorners = ({ x, width, height }: OpeningCornersOptions): OpeningCorners => [
   new THREE.Vector3(x - width / 2, 0, 0),
   new THREE.Vector3(x - width / 2, height, 0),
   new THREE.Vector3(x + width / 2, 0, 0),
@@ -166,146 +210,64 @@ interface TransformedRoomOptions {
 // A room moved, turned and scaled in the world. The first wall holds the opening, and the portal
 // sits at a world point.
 const makeTransformedRoom = ({
-  corners, position = [0, 0, 0], rotationY = 0, scale = [1, 1, 1], portalAt, portalWidth = 1
+  corners, position = [0, 0, 0], rotationY = 0, scale = [1, 1, 1], portalAt: [x, y, z], portalWidth = 1
 }: TransformedRoomOptions) => {
-  const [portalX, portalY, portalZ] = portalAt;
-  const portalEl = fake<PortalEl>({
-    object3D: makeObject3D({ x: portalX, y: portalY, z: portalZ }),
-    getAttribute: () => ({ width: portalWidth, height: 2, floorHeight: 0 })
-  });
-  const openingEl = makeOpening({ portalEl });
+  const portalEl = makePortal({ at: { x, y, z }, width: portalWidth });
+  const openingEl = makeOpening();
 
-  const walls = corners.map(([x, z], i) => makeWall({ x, z, openings: i === 0 ? [openingEl] : [] }));
+  const walls = corners.map(([cornerX, cornerZ], i) => makeWall({ x: cornerX, z: cornerZ, openings: i === 0 ? [openingEl] : [] }));
   const roomEl = makeRoom(walls);
   roomEl.object3D.position.set(...position);
   roomEl.object3D.rotation.y = rotationY;
   roomEl.object3D.scale.set(...scale);
-  return { roomEl, openingEl };
+  return { roomEl, openingEl, state: makeBuildState({ links: [[openingEl, portalEl]] }) };
 };
 
-interface PortalChildOptions { type: string; uvScale?: number }
+const descendantsOf = (el: BuildingEl): BuildingEl[] =>
+  [...el.children].flatMap(childEl => [childEl as BuildingEl, ...descendantsOf(childEl as BuildingEl)]);
 
-const makePortalChild = ({ type, uvScale = 1 }: PortalChildOptions) => {
-  const el = {
-    components: {
-      [type]: {},
-      material: { material: null }
-    },
-    parentEl: { components: {} },
-    object3D: makeObject3D(),
-    mesh: null as Mesh | null,
-    classList: new Set<string>(),
-    getAttribute () { return { uvScale }; }
-  };
-  return Object.assign(el, { setObject3D: holdMesh(el) }) as unknown as BuildingEl;
-};
-
-interface PortalOptions {
-  fromVerts?: Vector3[] | null;
-  toVerts?: Vector3[] | null;
-  children?: BuildingEl[];
-  roomA?: RoomEl;
-  roomB?: RoomEl;
-}
-
-// Unified portal mock. Supports geometry tests via fromVerts/toVerts/children
-// (getAttribute interface) and system tests via roomA/roomB (components.portal.data interface).
-const makePortal = ({ fromVerts, toVerts, children, roomA, roomB }: PortalOptions = {}) => ({
-  getAttribute (attr: string) {
-    if (attr === 'portal') return { from: { vertices: fromVerts }, to: { vertices: toVerts }, floorHeight: 0 };
-    return null;
-  },
-  components: {
-    portal: {
-      data: {
-        from: roomA ? { parentEl: { parentEl: roomA } } : null,
-        to: roomB ? { parentEl: { parentEl: roomB } } : null
-      }
-    }
-  },
-  children
-}) as unknown as PortalEl;
-
-interface LinkedPortalOptions { at: [number, number, number]; width: number; height: number; floorHeight: number }
-
-// A portal with floor, ceiling and sides children, whose from and to openings are set as its rooms
-// are made.
-const makeLinkedPortal = ({ at: [x, y, z], ...size }: LinkedPortalOptions) => {
-  const data: PortalData = { ...size, from: null, to: null };
-  const children = (['floor', 'ceiling', 'sides'] as const).map(type => makePortalChild({ type }));
-  const portalEl = {
-    object3D: makeObject3D({ x, y, z }),
-    components: {},
-    children,
-    getAttribute: (attr: string) => attr === 'portal' ? data : null
-  } as unknown as PortalEl;
-  for (const childEl of children) portalEl.object3D.add(childEl.object3D);
-  return { portalEl, data };
-};
-
-interface LinkedRoomOptions {
-  corners: [number, number][];
-  // The wall that holds an opening for each portal.
-  openingWall: number;
-  portals: ReturnType<typeof makeLinkedPortal>[];
-  end: 'from' | 'to';
-}
-
-const makeLinkedRoom = ({ corners, openingWall, portals, end }: LinkedRoomOptions) => {
-  const openings = portals.map(({ portalEl }) => makeOpening({ portalEl }));
-  const walls = corners.map(([x, z], i) => makeWall({ x, z, openings: i === openingWall ? openings : [] }));
-  const wallEl = assertDefined(walls[openingWall], 'opening wall');
-  for (const [i, openingEl] of openings.entries()) {
-    Object.assign(openingEl, { parentEl: wallEl });
-    wallEl.object3D.add(openingEl.object3D);
-    assertDefined(portals[i], 'portal').data[end] = openingEl;
-  }
-  return makeRoom(walls);
-};
+const SQUARE_CORNERS: [number, number][] = [[0, 0], [4, 0], [4, 4], [0, 4]];
 
 // Two 4 m square rooms with a 2 m gap between them, along z, joined by a door at x = 1 and a
 // window at x = 3. Everything is a real Object3D, parented as A-Frame would.
 const makeTwoRooms = () => {
-  const doorPortal = makeLinkedPortal({ at: [1, 0, 5], width: 1, height: 2, floorHeight: 0 });
-  const windowPortal = makeLinkedPortal({ at: [3, 0, 5], width: 1, height: 1, floorHeight: 0.8 });
-  const portals = [doorPortal, windowPortal];
-  const near = makeLinkedRoom({ corners: [[0, 0], [4, 0], [4, 4], [0, 4]], openingWall: 2, portals, end: 'from' });
-  const far = makeLinkedRoom({ corners: [[0, 6], [4, 6], [4, 10], [0, 10]], openingWall: 0, portals, end: 'to' });
+  const [doorFrom, doorTo, windowFrom, windowTo] = [makeOpening(), makeOpening(), makeOpening(), makeOpening()];
+  const roomAt = (z: number, openingWall: number, openings: OpeningEl[]) =>
+    makeRoom(SQUARE_CORNERS.map(([x, cornerZ], i) => makeWall({ x, z: cornerZ + z, openings: i === openingWall ? openings : [] })));
+  const near = roomAt(0, 2, [doorFrom, windowFrom]);
+  const far = roomAt(6, 0, [doorTo, windowTo]);
 
-  const elements: BuildingEl[] = [near, far].flatMap(roomEl => [
-    ...roomEl.walls,
-    ...roomEl.walls.flatMap(wallEl => wallEl.openings),
-    ...[roomEl.floor, roomEl.ceiling].flatMap(capEl => capEl ? [capEl] : [])
-  ]);
-  elements.push(...portals.flatMap(({ portalEl }) => [...portalEl.children]));
+  const door = makePortal({ from: doorFrom, to: doorTo, at: { x: 1, z: 5 }, children: makePortalSurfaces() });
+  const window = makePortal({
+    from: windowFrom, to: windowTo, at: { x: 3, z: 5 }, height: 1, floorHeight: 0.8, children: makePortalSurfaces()
+  });
+  const state = makeBuildState({ links: [[doorFrom, door], [doorTo, door], [windowFrom, window], [windowTo, window]] });
+
+  const elements = [near, far, door, window].flatMap(descendantsOf);
 
   // The elements the builds gave a class, as a querySelectorAll for it would find them.
   const withClass = (className: string) =>
     elements.filter(el => (el.classList as unknown as Set<string>).has(className));
 
-  return { near, far, door: doorPortal.portalEl, window: windowPortal.portalEl, withClass };
+  return { near, far, door, window, state, withClass };
 };
 
-const makeSystem = () => ({
-  ...registeredSystem('building'),
-  el: { emit: () => {}, object3D: { updateMatrixWorld: () => {} } },
-  dirtyRooms: new Set(),
-  dirtyPortals: new Set(),
-  buildPending: false
-}) as unknown as BuildingSystem;
+const makeSystem = () => {
+  const system = {
+    ...registeredSystem('building'),
+    el: { emit: () => {} }
+  } as unknown as BuildingSystem & { init(): void };
+  system.init();
+  return system;
+};
 
 // --- Component fixtures ---
 
 interface SceneOptions {
-  portals?: DeepPartial<PortalEl>[];
   systems?: DeepPartial<BuildingScene['systems']>;
 }
 
-const makeSceneEl = ({ portals = [], systems = {} }: SceneOptions = {}) => ({
-  systems,
-  querySelector: () => null,
-  querySelectorAll: (sel: string) => sel === 'a-portal' ? portals : []
-}) as unknown as BuildingScene;
+const makeSceneEl = ({ systems = {} }: SceneOptions = {}) => ({ systems }) as unknown as BuildingScene;
 
 // Listeners the element mock captured, keyed by event name.
 interface ListenerLog { _listeners: Record<string, EventListener | undefined> }
@@ -315,10 +277,7 @@ interface ElOptions {
   parentTag?: string | null;
   parentAttrs?: Record<string, object>;
   parentComponents?: DeepPartial<BuildingEl['components']>;
-  walls?: DeepPartial<WallEl>[];
-  openings?: DeepPartial<OpeningEl>[];
-  ceilingEl?: DeepPartial<BuildingEl> | null;
-  floorEl?: DeepPartial<BuildingEl> | null;
+  children?: DeepPartial<BuildingEl>[];
   sceneEl?: BuildingScene | null;
   attrs?: Record<string, object>;
 }
@@ -328,10 +287,7 @@ const makeEl = ({
   parentTag = null,
   parentAttrs = {},
   parentComponents = {},
-  walls = [],
-  openings = [],
-  ceilingEl = null,
-  floorEl = null,
+  children = [],
   sceneEl = null,
   attrs = {}
 }: ElOptions = {}) => {
@@ -342,19 +298,10 @@ const makeEl = ({
       : null,
     object3D: makeObject3D(),
     sceneEl: sceneEl ?? makeSceneEl(),
+    children,
     _listeners: {} as ListenerLog['_listeners'],
     addEventListener (event: string, cb: EventListener) { this._listeners[event] = cb; },
     removeEventListener () {},
-    querySelector (sel: string) {
-      if (sel === 'a-ceiling') return ceilingEl;
-      if (sel === 'a-floor') return floorEl;
-      return null;
-    },
-    querySelectorAll (sel: string) {
-      if (sel === 'a-wall') return walls;
-      if (sel === 'a-opening') return openings;
-      return [];
-    },
     getAttribute (a: string) { return attrs[a] ?? null; }
   };
   return el as unknown as BuildingEl & ListenerLog;
@@ -454,8 +401,10 @@ const makeComp = <El extends BuildingEl>({ name, tag, parentTag }: CompTarget, {
   data
 });
 
+const THREE_WALLS = [{ localName: 'a-wall' }, { localName: 'a-wall' }, { localName: 'a-wall' }];
+
 const makeRoomComp = (opts: CompOptions = {}) =>
-  makeComp<RoomEl>({ name: 'room', tag: 'a-room', parentTag: 'a-scene' }, { walls: [{}, {}, {}], ...opts });
+  makeComp<RoomEl>({ name: 'room', tag: 'a-room', parentTag: 'a-scene' }, { children: THREE_WALLS, ...opts });
 const makeWallComp = (opts?: CompOptions) => makeComp<WallEl>({ name: 'wall', tag: 'a-wall', parentTag: 'a-room' }, opts);
 const makeOpeningComp = (opts?: CompOptions) =>
   makeComp<OpeningEl>({ name: 'opening', tag: 'a-opening', parentTag: 'a-wall' }, opts);
@@ -468,6 +417,7 @@ export {
   immediateAnimationFrame,
   installAframeMock,
   loadScene,
+  makeBuildState,
   makeCap,
   makeCollisionComponent,
   makeCollisionEl,
@@ -475,14 +425,14 @@ export {
   makeObject3D,
   makeOpening,
   makeOpeningComp,
-  makeOpeningVerts,
+  makeOpeningCorners,
   makePlaneMesh,
   makePortal,
   makePortalChild,
   makePortalComp,
   makeRoom,
   makeRoomComp,
-  makeRoomWithLinks,
+  makeRoomWithOpening,
   makeSceneEl,
   makeSquareRoom,
   makeSystem,

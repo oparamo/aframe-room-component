@@ -1,9 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { BufferGeometry } from 'three';
-import type { SurfaceType } from '../../src/types/geometry';
-import { surfaceCorners, surfaceGeometry, toCorners } from '../../src/geometry/surfaces';
-import { assertDefined } from '../../src/utils/assert';
-import { makeOpeningVerts } from '../utils/mocks';
+import type { OpeningCorners, SurfaceType } from '../../src/types/geometry';
+import { surfaceCorners, surfaceGeometry } from '../../src/geometry/surfaces';
 
 // UVs as [u, v] pairs, rounded so float noise doesn't fail an exact comparison.
 const uvPairs = (geom: BufferGeometry) => {
@@ -21,8 +19,11 @@ const normals = (geom: BufferGeometry) => {
 // A doorway 1 m wide and 2 m tall through a wall 3 m thick. Each opening's left is on the left as
 // seen from inside its own room, so the near room lies toward +z and the far room toward -z, and
 // the far opening's left edge lines up with the near one's right.
-const near = assertDefined(toCorners(makeOpeningVerts({ x: 0, width: 1, height: 2 })), 'near corners');
-const far = assertDefined(toCorners(near.map(vertex => new THREE.Vector3(-vertex.x, vertex.y, -3))), 'far corners');
+const openingAt = (left: number, right: number, z: number): OpeningCorners => [
+  new THREE.Vector3(left, 0, z), new THREE.Vector3(left, 2, z), new THREE.Vector3(right, 0, z), new THREE.Vector3(right, 2, z)
+];
+const near = openingAt(-0.5, 0.5, 0);
+const far = openingAt(0.5, -0.5, -3);
 
 const buildSurface = (type: SurfaceType, uvScale = 1) => {
   const corners = surfaceCorners(type, near, far);

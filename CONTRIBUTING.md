@@ -37,7 +37,7 @@ A release merges `develop` into `main`. Changesets then opens a Version Packages
 The tests run in Node with Vitest, without a browser or A-Frame. `tests/setup.ts` puts the `three` package on the global `THREE` and installs a small A-Frame mock that records registered components, so a test can pull a component's definition and call its methods.
 
 - `tests/geometry/` tests the pure geometry functions with plain values and no mocks.
-- `tests/builders/` checks what a build leaves on elements: meshes, classes, positions and opening vertices.
+- `tests/builders/` checks what a build leaves on elements (meshes, classes, positions) and in the build state (opening corners), and `tests/builders/helpers/` how the structure is found.
 - `tests/components/`, `tests/primitives/` and `tests/systems/` cover the A-Frame layer.
 - `tests/integration/rooms.test.ts` builds two rooms joined by a door and a window, then checks which way every surface faces, that the openings line up, and that `room-collision` walks through the door and stops at the window and the walls. Refactors must leave it passing unchanged; a behavior change edits it only where the change is intended.
 

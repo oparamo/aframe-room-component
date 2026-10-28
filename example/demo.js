@@ -13,7 +13,7 @@ const SMALL = 0.4;
 // Wall meshes the labels must stay in front of; refreshed after every build.
 let walls = [];
 scene.addEventListener('room-building-complete', () => {
-  walls = [...document.querySelectorAll('.collidable')].flatMap(el => el.mesh ? [el.mesh] : []);
+  walls = [...document.querySelectorAll('.collidable')].flatMap(el => Object.values(el.object3DMap).filter(o => o.isMesh));
 });
 
 // Faces the camera and keeps its label on whichever side of the sphere has room before the nearest wall,

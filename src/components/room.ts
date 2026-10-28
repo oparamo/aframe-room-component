@@ -1,11 +1,10 @@
-import type { Matrix4 } from 'three';
 import type { Component } from '../types/aframe';
-import type { BuildingEl, RoomData, RoomEl, WallEl } from '../types/elements';
-import { hasMovedSince, isTransformChange, snapshotWorldMatrix } from './helpers/transforms';
+import type { RoomData, RoomEl } from '../types/elements';
+import { wallsOf } from '../builders/helpers/structure';
+import { isTransformChange } from './helpers/transforms';
 
 interface RoomComponent extends Component<RoomData, RoomEl> {
   _onTransformChanged: (event: Event) => void;
-  _builtMatrix: Matrix4;
   rebuild(): void;
 }
 
@@ -26,23 +25,15 @@ AFRAME.registerComponent<RoomComponent>('room', {
     length: { type: 'number' }
   },
   init: function () {
-    const roomEl = this.el;
-    const walls = Array.from(roomEl.querySelectorAll<WallEl>('a-wall'));
-
-    const error = roomShapeError(this.data, walls.length);
+    const error = roomShapeError(this.data, wallsOf(this.el).length);
     if (error) throw new Error(error);
 
-    roomEl.ceiling = roomEl.querySelector<BuildingEl>('a-ceiling');
-    roomEl.floor = roomEl.querySelector<BuildingEl>('a-floor');
-    roomEl.walls = walls;
-    roomEl.object3D.visible = false;
-
-    this._builtMatrix = new THREE.Matrix4();
+    this.el.object3D.visible = false;
 
     this._onTransformChanged = (event) => {
       if (isTransformChange(event)) this.rebuild();
     };
-    roomEl.addEventListener('componentchanged', this._onTransformChanged);
+    this.el.addEventListener('componentchanged', this._onTransformChanged);
   },
   update: function () {
     this.rebuild();
@@ -50,11 +41,10 @@ AFRAME.registerComponent<RoomComponent>('room', {
   // Catches movement that bypasses setAttribute, such as the animation component since A-Frame 1.7.
   // The componentchanged listener stays for the inspector, which pauses the scene and with it tick.
   tick: function () {
-    if (hasMovedSince(this.el, this._builtMatrix)) this.rebuild();
+    if (this.el.sceneEl.systems.building?.hasMoved(this.el)) this.rebuild();
   },
   // Public: queues this room, and the portals connected to it, for the next build pass.
   rebuild: function () {
-    snapshotWorldMatrix(this.el, this._builtMatrix);
     this.el.sceneEl.systems.building?.buildRoom(this.el);
   },
   remove: function () {
