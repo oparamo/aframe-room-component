@@ -1,6 +1,6 @@
 import type { Component } from '../types/aframe';
 import type { OpeningEl, PortalEl } from '../types/elements';
-import { requireParent } from './shared';
+import { requireParent } from './hierarchy';
 
 AFRAME.registerComponent<Component<unknown, OpeningEl>>('opening', {
   init: function () {

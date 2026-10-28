@@ -1,5 +1,6 @@
 import type { BuildingSystem, PortalEl } from '../types/elements';
-import { buildPortal, buildRoom } from './buildingService';
+import { buildPortal } from '../builders/portal';
+import { buildRoom } from '../builders/room';
 
 // The rooms whose walls hold the portal's openings.
 const roomsOf = (portalEl: PortalEl) => {

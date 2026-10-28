@@ -1,6 +1,7 @@
 import type { Matrix3, Object3D, Raycaster, Vector3 } from 'three';
 import type { Component, Entity } from '../types/aframe';
 import type { BuildingEl } from '../types/elements';
+import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
 
 interface CollisionComponent extends Component<{ radius: number }> {
   wallMeshes: Object3D[];
@@ -76,9 +77,9 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
   },
 
   _refreshMeshes: function () {
-    this.wallMeshes = [...this.el.sceneEl.querySelectorAll<BuildingEl>('.collidable')]
+    this.wallMeshes = [...this.el.sceneEl.querySelectorAll<BuildingEl>(`.${COLLIDABLE}`)]
       .flatMap(el => el.mesh ? [el.mesh] : []);
-    this.floorMeshes = [...this.el.sceneEl.querySelectorAll<BuildingEl>('.walkable')]
+    this.floorMeshes = [...this.el.sceneEl.querySelectorAll<BuildingEl>(`.${WALKABLE}`)]
       .flatMap(el => el.mesh ? [el.mesh] : []);
   },
 

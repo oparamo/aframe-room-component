@@ -1,6 +1,6 @@
 import type { Component } from '../types/aframe';
 import type { BuildingEl, SurfaceData } from '../types/elements';
-import { rebuildParent, requireParent } from './shared';
+import { rebuildParent, requireParent } from './hierarchy';
 
 AFRAME.registerComponent<Component<SurfaceData, BuildingEl>>('floor', {
   schema: {
