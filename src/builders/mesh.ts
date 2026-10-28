@@ -9,20 +9,20 @@ interface WindowBlocker { wallEl: WallEl; openingEl: OpeningEl; geom: BufferGeom
 
 const getMaterial = (el: Entity | null | undefined) => el?.components.material?.material;
 
-// Reuses the element's mesh across rebuilds. The old geometry is freed, since three.js only
-// releases GPU buffers on dispose(). The material comes from the element, then its parent, then the
-// fallback; with none found, the mesh keeps the one it has, which on a first build without one is the
-// default new THREE.Mesh() applies.
+// The first build creates the element's mesh. Rebuilds keep that mesh and swap in the new geometry,
+// freeing the old one, since three.js only releases GPU buffers on dispose(). The material comes from
+// the element, then its parent, then the fallback; with none found, a rebuilt mesh keeps the material
+// it has and a new mesh gets three.js's default.
 const applyMesh = ({ el, objectName, geom, fallbackMaterial }: MeshOptions) => {
   const material = getMaterial(el) ?? getMaterial(el.parentEl) ?? fallbackMaterial;
   if (el.mesh) {
     el.mesh.geometry.dispose();
     el.mesh.geometry = geom;
     if (material) el.mesh.material = material;
-    return;
+  } else {
+    el.mesh = new THREE.Mesh(geom, material);
+    el.setObject3D(objectName, el.mesh);
   }
-  el.mesh = new THREE.Mesh(geom, material);
-  el.setObject3D(objectName, el.mesh);
 };
 
 // An invisible collidable quad across a window, so the player cannot walk through it at torso height.
