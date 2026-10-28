@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fireComponentChanged, makeWallComp, registeredComponent } from '../utils/mocks';
+import { fireComponentChanged, makeSceneEl, makeWallComp, registeredComponent } from '../utils/mocks';
 import '../../src/components/wall';
 
 describe('wall', () => {
@@ -10,44 +10,6 @@ describe('wall', () => {
 
       // Act / Assert
       expect(() => registeredComponent('wall').init.call(comp)).toThrow();
-    });
-
-    it('collects openings in document order', () => {
-      // Arrange
-      const a = { object3D: { position: { x: 2 } } };
-      const b = { object3D: { position: { x: 1 } } };
-      const comp = makeWallComp({ openings: [a, b] });
-
-      // Act
-      registeredComponent('wall').init.call(comp);
-
-      // Assert
-      expect(comp.el.openings).toEqual([a, b]);
-    });
-
-    it('getHeight returns the wall-specific height when set', () => {
-      // Arrange
-      const comp = makeWallComp({ attrs: { wall: { height: 3.5 } } });
-
-      // Act
-      registeredComponent('wall').init.call(comp);
-
-      // Assert
-      expect(comp.el.getHeight()).toBe(3.5);
-    });
-
-    it('getHeight falls back to room height when wall height is falsy', () => {
-      // Arrange
-      const comp = makeWallComp({
-        attrs: { wall: { height: 0 } },
-        parentAttrs: { room: { height: 2.4 } }
-      });
-
-      // Act
-      registeredComponent('wall').init.call(comp);
-
-      // Assert
-      expect(comp.el.getHeight()).toBe(2.4);
     });
   });
 
@@ -102,45 +64,22 @@ describe('wall', () => {
   });
 
   describe('tick', () => {
-    it('rebuilds its room once when the wall has moved since it was built', () => {
+    it.each([
+      { moved: true, rebuilds: 1 },
+      { moved: false, rebuilds: 0 }
+    ])('rebuilds its room $rebuilds times when the system says moved=$moved', ({ moved, rebuilds }) => {
       // Arrange
       const rebuild = vi.fn();
-      const comp = makeWallComp({ parentComponents: { room: { rebuild } } });
-      comp.el.builtPosition = new THREE.Vector3();
-      comp.el.object3D.position.set(1, 0, 0);
-
-      // Act
-      comp.tick();
-      comp.tick();
-
-      // Assert
-      expect(rebuild).toHaveBeenCalledOnce();
-    });
-
-    it('does nothing when the wall has not moved', () => {
-      // Arrange
-      const rebuild = vi.fn();
-      const comp = makeWallComp({ parentComponents: { room: { rebuild } } });
-      comp.el.builtPosition = new THREE.Vector3();
+      const hasWallMoved = vi.fn(() => moved);
+      const sceneEl = makeSceneEl({ systems: { building: { hasWallMoved } } });
+      const comp = makeWallComp({ parentComponents: { room: { rebuild } }, sceneEl });
 
       // Act
       comp.tick();
 
       // Assert
-      expect(rebuild).not.toHaveBeenCalled();
-    });
-
-    it('does nothing before the wall is first built', () => {
-      // Arrange
-      const rebuild = vi.fn();
-      const comp = makeWallComp({ parentComponents: { room: { rebuild } } });
-      comp.el.object3D.position.set(1, 0, 0);
-
-      // Act
-      comp.tick();
-
-      // Assert
-      expect(rebuild).not.toHaveBeenCalled();
+      expect(hasWallMoved).toHaveBeenCalledWith(comp.el);
+      expect(rebuild).toHaveBeenCalledTimes(rebuilds);
     });
   });
 

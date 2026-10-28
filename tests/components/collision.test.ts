@@ -6,10 +6,13 @@ import '../../src/components/collision';
 afterEach(() => vi.restoreAllMocks());
 
 // A wall standing at x, facing back toward the origin.
-const wallAt = (x: number) => ({ mesh: makePlaneMesh({ position: [x, 0, 0], rotationY: -Math.PI / 2 }) });
+const wallAt = (x: number) => ({ object3DMap: { mesh: makePlaneMesh({ position: [x, 0, 0], rotationY: -Math.PI / 2 }) } });
 
 // A level floor at height y, facing up.
-const floorAt = (y: number) => ({ mesh: makePlaneMesh({ position: [0, y, 0], rotationX: -Math.PI / 2 }) });
+const floorAt = (y: number) => ({ object3DMap: { mesh: makePlaneMesh({ position: [0, y, 0], rotationX: -Math.PI / 2 }) } });
+
+// Elements with the class but nothing collision can use: no objects, or an object that isn't a mesh.
+const meshless = () => [{ object3DMap: {} }, { object3DMap: { light: new THREE.Object3D() } }];
 
 describe('room-collision', () => {
   describe('init', () => {
@@ -48,27 +51,27 @@ describe('room-collision', () => {
     it('populates wallMeshes from .collidable elements that have a mesh, skipping those without', () => {
       // Arrange
       const wall = wallAt(1);
-      const el = makeCollisionEl({ wallCollidables: [wall, { mesh: null }, {}] });
+      const el = makeCollisionEl({ wallCollidables: [wall, ...meshless()] });
       const comp = makeCollisionComponent(el);
 
       // Act
       loadScene(el);
 
       // Assert
-      expect(comp.wallMeshes).toEqual([wall.mesh]);
+      expect(comp.wallMeshes).toEqual([wall.object3DMap.mesh]);
     });
 
     it('populates floorMeshes from .walkable elements that have a mesh, skipping those without', () => {
       // Arrange
       const floor = floorAt(0);
-      const el = makeCollisionEl({ floorCollidables: [floor, { mesh: null }, {}] });
+      const el = makeCollisionEl({ floorCollidables: [floor, ...meshless()] });
       const comp = makeCollisionComponent(el);
 
       // Act
       loadScene(el);
 
       // Assert
-      expect(comp.floorMeshes).toEqual([floor.mesh]);
+      expect(comp.floorMeshes).toEqual([floor.object3DMap.mesh]);
     });
   });
 
@@ -83,8 +86,8 @@ describe('room-collision', () => {
       const comp = makeCollisionComponent(el);
 
       // Assert
-      expect(comp.wallMeshes).toEqual([wall.mesh]);
-      expect(comp.floorMeshes).toEqual([floor.mesh]);
+      expect(comp.wallMeshes).toEqual([wall.object3DMap.mesh]);
+      expect(comp.floorMeshes).toEqual([floor.object3DMap.mesh]);
     });
 
     it('snaps to the floor at the camera height', () => {
@@ -280,7 +283,7 @@ describe('room-collision', () => {
 
     it('snaps y during tick as player moves across a sloped floor', () => {
       // Arrange: a 45 degree ramp rising toward -z, so its height is -z
-      const ramp = { mesh: makePlaneMesh({ rotationX: -Math.PI / 4 }) };
+      const ramp = { object3DMap: { mesh: makePlaneMesh({ rotationX: -Math.PI / 4 }) } };
       const el = makeCollisionEl({ childCamera: true, floorCollidables: [ramp] });
       const comp = makeCollisionComponent(el);
       loadScene(el);

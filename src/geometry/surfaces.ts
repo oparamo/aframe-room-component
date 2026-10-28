@@ -38,13 +38,6 @@ const SURFACE_LAYOUTS: Record<SurfaceType, SurfaceLayout> = {
   }
 };
 
-// An opening's four corners, or null until its room has built and recorded them.
-const toCorners = (vertices: Vector3[] | undefined): OpeningCorners | null => {
-  const [leftBottom, leftTop, rightBottom, rightTop] = vertices ?? [];
-  if (!leftBottom || !leftTop || !rightBottom || !rightTop) return null;
-  return [leftBottom, leftTop, rightBottom, rightTop];
-};
-
 // The world-space corners a surface spans between two openings, in vertex order.
 const surfaceCorners = (type: SurfaceType, from: OpeningCorners, to: OpeningCorners) =>
   SURFACE_LAYOUTS[type].corners(from, to);
@@ -71,4 +64,4 @@ const surfaceGeometry = ({ type, corners, positions, uvScale }: SurfaceOptions) 
   return geom;
 };
 
-export { surfaceCorners, surfaceGeometry, toCorners };
+export { surfaceCorners, surfaceGeometry };

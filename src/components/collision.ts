@@ -1,6 +1,6 @@
 import type { Matrix3, Object3D, Raycaster, Vector3 } from 'three';
 import type { Component, Entity } from '../types/aframe';
-import type { BuildingEl } from '../types/elements';
+import { isMesh } from '../builders/helpers/mesh';
 import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
 
 interface CollisionComponent extends Component<{ radius: number }> {
@@ -31,6 +31,10 @@ const FLOOR_SEARCH_HEIGHT = 1.5;
 const MIN_MOVE_SQ = 0.000001;
 const MIN_SLIDE_SQ = 0.0001;
 const TORSO_OFFSET = 0.6;
+
+// The meshes the builds set on the scene's elements with the class.
+const meshesWithClass = (el: Entity, className: string) =>
+  [...el.sceneEl.querySelectorAll<Entity>(`.${className}`)].flatMap(classedEl => Object.values(classedEl.object3DMap).filter(isMesh));
 
 AFRAME.registerComponent<CollisionComponent>('room-collision', {
   schema: {
@@ -77,10 +81,8 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
   },
 
   _refreshMeshes: function () {
-    this.wallMeshes = [...this.el.sceneEl.querySelectorAll<BuildingEl>(`.${COLLIDABLE}`)]
-      .flatMap(el => el.mesh ? [el.mesh] : []);
-    this.floorMeshes = [...this.el.sceneEl.querySelectorAll<BuildingEl>(`.${WALKABLE}`)]
-      .flatMap(el => el.mesh ? [el.mesh] : []);
+    this.wallMeshes = meshesWithClass(this.el, COLLIDABLE);
+    this.floorMeshes = meshesWithClass(this.el, WALKABLE);
   },
 
   tick: function () {

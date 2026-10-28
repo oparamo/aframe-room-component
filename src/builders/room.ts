@@ -1,6 +1,6 @@
-import type { Path } from 'three';
-import type { BuildingEl, OpeningEl, PortalEl, RoomEl, WallEl } from '../types/elements';
-import type { OpeningEdges, WallSpan } from '../types/geometry';
+import type { Path, Vector3 } from 'three';
+import type { BuildingEl, BuildState, OpeningEl, PortalEl, RoomEl, WallEl } from '../types/elements';
+import type { OpeningCorners, OpeningEdges, WallSpan } from '../types/geometry';
 import { capGeometry } from '../geometry/caps';
 import {
   blockerGeometry, holePath, isClockwise, openingEdges, openingPlacement, rectangleCorners, wallAngle, wallGeometry,
@@ -9,17 +9,18 @@ import {
 import { assertDefined } from '../utils/assert';
 import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
 import { addBlocker, applyMesh, removeBlocker } from './helpers/mesh';
+import { capOf, dataOf, openingsOf, wallHeight, wallsOf } from './helpers/structure';
 
 interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
 
 // A wall being built, with its span to the next wall.
-interface WallBuild { wallEl: WallEl; span: WallSpan }
+interface WallBuild { wallEl: WallEl; span: WallSpan; state: BuildState }
 
 // Walls form a closed loop, so the last wall's neighbor is the first.
 const nextWallOf = (walls: WallEl[], index: number) => assertDefined(walls[(index + 1) % walls.length], 'next wall');
 
-// Returns a copy of the walls in build order. roomEl.walls stays in authored order, which a
-// width/length room uses to place its corners on every build.
+// Returns the walls in build order, reversed from document order when needed. A width/length room
+// places its corners in document order, so the reversal never feeds back into the next build.
 const wallsInBuildOrder = (authored: WallEl[], isOutside: boolean) => {
   const walls = [...authored];
   if (isClockwise(walls.map(wallEl => wallEl.object3D.position)) !== isOutside) walls.reverse();
@@ -33,7 +34,7 @@ const placeRectangleWalls = (walls: WallEl[], width: number, length: number) => 
 };
 
 const capCorner = (wallEl: WallEl, isCeiling: boolean) => {
-  const lift = isCeiling ? wallEl.getHeight() : 0;
+  const lift = isCeiling ? wallHeight(wallEl) : 0;
   const { x, y, z } = wallEl.object3D.position;
   return new THREE.Vector3(x, y + lift, z);
 };
@@ -41,78 +42,73 @@ const capCorner = (wallEl: WallEl, isCeiling: boolean) => {
 const buildCap = ({ walls, capEl, kind, isOutside }: CapOptions) => {
   const isCeiling = kind === 'ceiling';
   const corners = walls.map(wallEl => capCorner(wallEl, isCeiling));
-  const { uvScale } = capEl.getAttribute(kind);
+  const { uvScale } = dataOf(capEl, kind);
   applyMesh({ el: capEl, objectName: kind, geom: capGeometry({ corners, isCeiling, isOutside, uvScale }) });
 };
 
 // Places the opening on the wall where the portal crosses it. The portal is measured in the room's
 // local space, the frame buildWall works in, so the room's own position, rotation and scale apply.
-const positionOpening = ({ wallEl, span }: WallBuild, openingEl: OpeningEl, portalEl: PortalEl | null) => {
-  if (!portalEl) return;
-
+const positionOpening = ({ wallEl, span }: WallBuild, openingEl: OpeningEl, portalEl: PortalEl) => {
   const portalAt = portalEl.object3D.getWorldPosition(new THREE.Vector3());
   wallEl.parentEl.object3D.worldToLocal(portalAt);
 
-  const halfWidth = portalEl.getAttribute('portal').width / 2;
+  const halfWidth = dataOf(portalEl, 'portal').width / 2;
   const { x, y } = openingPlacement({ span, wallStart: wallEl.object3D.position, portalAt, halfWidth });
   openingEl.object3D.position.set(x, y, 0);
 };
 
-// Records the opening's corners in world space, in the order OpeningCorners describes, for the
-// portal build to join.
-const recordOpeningVertices = (wallEl: WallEl, openingEl: OpeningEl, { left, right }: OpeningEdges) => {
-  for (const { ptX, bottomY, topY } of [left, right]) {
-    for (const y of [bottomY, topY]) {
-      openingEl.vertices.push(wallEl.object3D.localToWorld(new THREE.Vector3(ptX, y, 0)));
-    }
-  }
+// The opening's corners in world space, in the order OpeningCorners describes, for the portal build
+// to join.
+const openingCorners = (wallEl: WallEl, { left, right }: OpeningEdges): OpeningCorners => {
+  const corner = (ptX: number, y: number): Vector3 => wallEl.object3D.localToWorld(new THREE.Vector3(ptX, y, 0));
+  return [corner(left.ptX, left.bottomY), corner(left.ptX, left.topY), corner(right.ptX, right.bottomY), corner(right.ptX, right.topY)];
 };
 
-// Positions the opening and records its world vertices; returns the hole to cut, if it has a portal.
+// Positions the opening and records its world corners; returns the hole to cut, if it has a portal.
 const cutOpening = (wall: WallBuild, openingEl: OpeningEl): Path | null => {
-  const portalEl = openingEl.getPortal();
-  positionOpening(wall, openingEl, portalEl);
-  openingEl.vertices = [];
+  const { state } = wall;
+  const portalEl = state.portalOf.get(openingEl);
+  state.cornersOf.delete(openingEl);
   removeBlocker(openingEl);
   if (!portalEl) return null;
 
-  const portal = portalEl.getAttribute('portal');
+  positionOpening(wall, openingEl, portalEl);
+  const portal = dataOf(portalEl, 'portal');
   const edges = openingEdges({ span: wall.span, openingX: openingEl.object3D.position.x, portal });
-  recordOpeningVertices(wall.wallEl, openingEl, edges);
-  if (portal.floorHeight > 0) {
-    addBlocker({ wallEl: wall.wallEl, openingEl, geom: blockerGeometry(edges) });
-  }
+  state.cornersOf.set(openingEl, openingCorners(wall.wallEl, edges));
+  if (portal.floorHeight > 0) addBlocker(openingEl, blockerGeometry(edges));
   return holePath(edges);
 };
 
-const buildWall = (wallEl: WallEl, nextWallEl: WallEl) => {
-  const heights = { start: wallEl.getHeight(), end: nextWallEl.getHeight() };
+const buildWall = (wallEl: WallEl, nextWallEl: WallEl, state: BuildState) => {
+  const heights = { start: wallHeight(wallEl), end: wallHeight(nextWallEl) };
   const span = wallSpan(wallEl.object3D.position, nextWallEl.object3D.position, heights);
   wallEl.object3D.rotation.y = wallAngle(span);
 
-  const holes = wallEl.openings.flatMap(openingEl => cutOpening({ wallEl, span }, openingEl) ?? []);
-  const { uvScale } = wallEl.getAttribute('wall');
+  const holes = openingsOf(wallEl).flatMap(openingEl => cutOpening({ wallEl, span, state }, openingEl) ?? []);
+  const { uvScale } = dataOf(wallEl, 'wall');
   applyMesh({ el: wallEl, objectName: 'wallMesh', geom: wallGeometry({ span, holes, uvScale }) });
   wallEl.classList.add(COLLIDABLE);
-  (wallEl.builtPosition ??= new THREE.Vector3()).copy(wallEl.object3D.position);
 };
 
-const buildRoom = (roomEl: RoomEl) => {
-  const { outside, length, width } = roomEl.getAttribute('room');
-  if (width && length) placeRectangleWalls(roomEl.walls, width, length);
+const buildRoom = (roomEl: RoomEl, state: BuildState) => {
+  const { outside, length, width } = dataOf(roomEl, 'room');
+  const authored = wallsOf(roomEl);
+  if (width && length) placeRectangleWalls(authored, width, length);
 
-  const walls = wallsInBuildOrder(roomEl.walls, outside);
+  const walls = wallsInBuildOrder(authored, outside);
 
   for (const [i, wallEl] of walls.entries()) {
-    const nextWallEl = nextWallOf(walls, i);
-    buildWall(wallEl, nextWallEl);
+    buildWall(wallEl, nextWallOf(walls, i), state);
   }
 
-  if (roomEl.floor) {
-    buildCap({ walls, capEl: roomEl.floor, kind: 'floor', isOutside: outside });
-    roomEl.floor.classList.add(WALKABLE);
+  const floorEl = capOf(roomEl, 'floor');
+  if (floorEl) {
+    buildCap({ walls, capEl: floorEl, kind: 'floor', isOutside: outside });
+    floorEl.classList.add(WALKABLE);
   }
-  if (roomEl.ceiling) buildCap({ walls, capEl: roomEl.ceiling, kind: 'ceiling', isOutside: outside });
+  const ceilingEl = capOf(roomEl, 'ceiling');
+  if (ceilingEl) buildCap({ walls, capEl: ceilingEl, kind: 'ceiling', isOutside: outside });
 };
 
 export { buildRoom };

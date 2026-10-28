@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import type { BuildingEl, PortalEl } from '../../src/types/elements';
+import { capOf, isEntity, wallsOf } from '../../src/builders/helpers/structure';
 import { buildPortal } from '../../src/builders/portal';
 import { buildRoom } from '../../src/builders/room';
 import { assertDefined } from '../../src/utils/assert';
@@ -13,10 +14,10 @@ import '../../src/components/collision';
 const scene = makeTwoRooms();
 
 beforeAll(() => {
-  buildRoom(scene.near);
-  buildRoom(scene.far);
-  buildPortal(scene.door);
-  buildPortal(scene.window);
+  buildRoom(scene.near, scene.state);
+  buildRoom(scene.far, scene.state);
+  buildPortal(scene.door, scene.state);
+  buildPortal(scene.window, scene.state);
   // The renderer updates every world matrix each frame, before room-collision ticks.
   for (const el of [scene.near, scene.far, scene.door, scene.window]) el.object3D.updateMatrixWorld(true);
 });
@@ -25,7 +26,7 @@ const NEAR_CENTER = new THREE.Vector3(2, 0, 2);
 const FAR_CENTER = new THREE.Vector3(2, 0, 8);
 
 const portalChild = (portalEl: PortalEl, type: string) =>
-  assertDefined([...portalEl.children].find(childEl => type in childEl.components), `portal ${type}`);
+  assertDefined([...portalEl.children].filter(isEntity).find(childEl => type in childEl.components), `portal ${type}`);
 
 const sortedPositions = (el: BuildingEl) =>
   worldPositions(meshOf(el)).sort((a, b) => a.join().localeCompare(b.join()));
@@ -56,7 +57,7 @@ describe('two rooms joined by a door and a window', () => {
   ])('the $name room', ({ room, center }) => {
     it('faces every wall into the room', () => {
       // Act
-      const walls = room().walls.map((wallEl) => {
+      const walls = wallsOf(room()).map((wallEl) => {
         const mesh = meshOf(wallEl);
         const [normal = []] = worldNormals(mesh);
         return new THREE.Vector3(...normal).dot(center.clone().sub(worldCenter(mesh)).setY(0)) > 0;
@@ -68,7 +69,7 @@ describe('two rooms joined by a door and a window', () => {
 
     it('faces the floor up and the ceiling down', () => {
       // Arrange
-      const { floor, ceiling } = room();
+      const [floor, ceiling] = [capOf(room(), 'floor'), capOf(room(), 'ceiling')];
 
       // Act
       const floorNormals = worldNormals(meshOf(assertDefined(floor, 'floor')));

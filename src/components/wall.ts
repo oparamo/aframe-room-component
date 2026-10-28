@@ -1,5 +1,5 @@
 import type { Component } from '../types/aframe';
-import type { OpeningEl, WallData, WallEl } from '../types/elements';
+import type { WallData, WallEl } from '../types/elements';
 import { rebuildParent, requireParent } from './helpers/hierarchy';
 import { isTransformChange } from './helpers/transforms';
 
@@ -15,10 +15,6 @@ AFRAME.registerComponent<WallComponent>('wall', {
   init: function () {
     requireParent(this.el, 'a-room');
 
-    this.el.openings = Array.from(this.el.querySelectorAll<OpeningEl>('a-opening'));
-
-    this.el.getHeight = () => this.el.getAttribute('wall').height || this.el.parentEl.getAttribute('room').height;
-
     this._onTransformChanged = (event) => {
       if (isTransformChange(event)) rebuildParent(this.el);
     };
@@ -27,13 +23,9 @@ AFRAME.registerComponent<WallComponent>('wall', {
   update: function () {
     rebuildParent(this.el);
   },
-  // Catches moves that bypass setAttribute. The build sets each wall's rotation, so only position counts.
-  // Recording the new position right away keeps the frames before the build runs from queuing it again.
+  // Catches moves that bypass setAttribute.
   tick: function () {
-    const { builtPosition, object3D } = this.el;
-    if (!builtPosition || builtPosition.equals(object3D.position)) return;
-    builtPosition.copy(object3D.position);
-    rebuildParent(this.el);
+    if (this.el.sceneEl.systems.building?.hasWallMoved(this.el)) rebuildParent(this.el);
   },
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
