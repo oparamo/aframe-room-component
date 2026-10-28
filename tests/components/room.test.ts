@@ -1,50 +1,83 @@
-import { describe, it, expect, vi } from 'vitest';
-import { fireComponentChanged, makeRoomComp, makeSceneEl, registeredComponent } from '../utils/mocks';
+import { describe, it, expect, vi, afterEach } from 'vitest';
+import { fireComponentChanged, makeRoomComp, makeSceneEl, makeWallChild, registeredComponent } from '../utils/mocks';
 import '../../src/components/room';
+
+afterEach(() => vi.restoreAllMocks());
+
+const TWO_WALLS = [makeWallChild(), makeWallChild()];
 
 describe('room', () => {
   describe('init', () => {
-    it('throws when only width is provided', () => {
+    it.each([
+      { shape: 'only width', data: { width: 5 }, children: undefined, reason: 'WIDTH needs LENGTH, and LENGTH needs WIDTH' },
+      { shape: 'only length', data: { length: 5 }, children: undefined, reason: 'WIDTH needs LENGTH, and LENGTH needs WIDTH' },
+      { shape: 'two walls', data: {}, children: TWO_WALLS, reason: 'it needs at least 3 walls' },
+      { shape: 'width, length and two walls', data: { width: 4, length: 6 }, children: TWO_WALLS, reason: 'with WIDTH and LENGTH it must have four walls' }
+    ])('logs why a room with $shape is not built', ({ data, children, reason }) => {
       // Arrange
-      const comp = makeRoomComp({ data: { width: 5 } });
-
-      // Act / Assert
-      expect(() => registeredComponent('room').init.call(comp)).toThrow('<a-room> with WIDTH must also have LENGTH (and vice versa).');
-    });
-
-    it('throws when only length is provided', () => {
-      // Arrange
-      const comp = makeRoomComp({ data: { length: 5 } });
-
-      // Act / Assert
-      expect(() => registeredComponent('room').init.call(comp)).toThrow('<a-room> with WIDTH must also have LENGTH (and vice versa).');
-    });
-
-    it('throws when no width/length and fewer than 3 walls', () => {
-      // Arrange
-      const comp = makeRoomComp({ children: [{ localName: 'a-wall' }, { localName: 'a-wall' }] });
-
-      // Act / Assert
-      expect(() => registeredComponent('room').init.call(comp)).toThrow('<a-room> needs at least 3 walls.');
-    });
-
-    it('throws when width and length given but fewer than 4 walls', () => {
-      // Arrange
-      const comp = makeRoomComp({ data: { width: 4, length: 6 }, children: [{ localName: 'a-wall' }, { localName: 'a-wall' }] });
-
-      // Act / Assert
-      expect(() => registeredComponent('room').init.call(comp)).toThrow('<a-room> with WIDTH and LENGTH must have four walls.');
-    });
-
-    it('sets object3D.visible to false', () => {
-      // Arrange
-      const comp = makeRoomComp({ data: {} });
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const comp = makeRoomComp({ data, ...(children && { children }) });
 
       // Act
       registeredComponent('room').init.call(comp);
 
       // Assert
-      expect(comp.el.object3D.visible).toBe(false);
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith(`<a-room> was not built: ${reason}.`, comp.el);
+    });
+
+    it('never queues or hides a room whose shape is wrong', () => {
+      // Arrange
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const [buildRoom, hideUntilBuilt] = [vi.fn(), vi.fn()];
+      const sceneEl = makeSceneEl({ building: { buildRoom, hideUntilBuilt } });
+      const comp = makeRoomComp({ data: { width: 5 }, sceneEl });
+      registeredComponent('room').init.call(comp);
+
+      // Act
+      comp.rebuild();
+
+      // Assert
+      expect(buildRoom).not.toHaveBeenCalled();
+      expect(hideUntilBuilt).not.toHaveBeenCalled();
+    });
+
+    it('asks the building system to hide it until its first build', () => {
+      // Arrange
+      const hideUntilBuilt = vi.fn();
+      const comp = makeRoomComp({ data: {}, sceneEl: makeSceneEl({ building: { hideUntilBuilt } }) });
+
+      // Act
+      registeredComponent('room').init.call(comp);
+
+      // Assert
+      expect(hideUntilBuilt).toHaveBeenCalledExactlyOnceWith(comp.el);
+    });
+
+    it('leaves a room its markup hides to the markup', () => {
+      // Arrange: A-Frame applies visible="false" before the room initializes
+      const hideUntilBuilt = vi.fn();
+      const comp = makeRoomComp({ data: {}, sceneEl: makeSceneEl({ building: { hideUntilBuilt } }) });
+      comp.el.object3D.visible = false;
+
+      // Act
+      registeredComponent('room').init.call(comp);
+
+      // Assert
+      expect(hideUntilBuilt).not.toHaveBeenCalled();
+    });
+
+    it('warns about each wall position a width/length room ignores', () => {
+      // Arrange
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const positioned = makeWallChild({ positioned: true });
+      const children = [positioned, makeWallChild(), makeWallChild(), makeWallChild()];
+      const comp = makeRoomComp({ data: { width: 4, length: 6 }, children });
+
+      // Act
+      registeredComponent('room').init.call(comp);
+
+      // Assert
+      expect(warnSpy).toHaveBeenCalledExactlyOnceWith('<a-room> has WIDTH and LENGTH, so the position of this wall is ignored.', positioned);
     });
 
     it('registers componentchanged listener', () => {
@@ -63,7 +96,7 @@ describe('room', () => {
     it('calls buildRoom when a transform prop changes', () => {
       // Arrange
       const buildRoom = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
+      const sceneEl = makeSceneEl({ building: { buildRoom } });
       const comp = makeRoomComp({ data: {}, sceneEl });
       registeredComponent('room').init.call(comp);
 
@@ -77,7 +110,7 @@ describe('room', () => {
     it('does not call buildRoom when a non-transform prop changes', () => {
       // Arrange
       const buildRoom = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
+      const sceneEl = makeSceneEl({ building: { buildRoom } });
       const comp = makeRoomComp({ data: {}, sceneEl });
       registeredComponent('room').init.call(comp);
 
@@ -93,7 +126,7 @@ describe('room', () => {
     it('calls building.buildRoom with el', () => {
       // Arrange
       const buildRoom = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
+      const sceneEl = makeSceneEl({ building: { buildRoom } });
       const comp = makeRoomComp({ data: {}, sceneEl });
       registeredComponent('room').init.call(comp);
 
@@ -109,7 +142,7 @@ describe('room', () => {
     it('queues the room with the building system', () => {
       // Arrange
       const buildRoom = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildRoom } } });
+      const sceneEl = makeSceneEl({ building: { buildRoom } });
       const comp = makeRoomComp({ data: {}, sceneEl });
       registeredComponent('room').init.call(comp);
 
@@ -129,7 +162,7 @@ describe('room', () => {
       // Arrange
       const buildRoom = vi.fn();
       const hasMoved = vi.fn(() => moved);
-      const sceneEl = makeSceneEl({ systems: { building: { buildRoom, hasMoved } } });
+      const sceneEl = makeSceneEl({ building: { buildRoom, hasMoved } });
       const comp = makeRoomComp({ data: {}, sceneEl });
 
       // Act
@@ -158,7 +191,7 @@ describe('room', () => {
     it('tells the building system the room is gone', () => {
       // Arrange
       const removeRoom = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { removeRoom } } });
+      const sceneEl = makeSceneEl({ building: { removeRoom } });
       const comp = makeRoomComp({ data: {}, sceneEl });
       registeredComponent('room').init.call(comp);
 

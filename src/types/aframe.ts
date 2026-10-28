@@ -50,6 +50,7 @@ interface ComponentLifecycle<Data = unknown> {
 
 interface SystemLifecycle {
   init?(): void;
+  tick?(time: number, delta: number): void;
 }
 
 // Methods and state the definition declares beyond the lifecycle get `this` typed as the instance.

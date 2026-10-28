@@ -1,23 +1,39 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { fireComponentChanged, makePortalComp, makeSceneEl, registeredComponent } from '../utils/mocks';
 import '../../src/components/portal';
 
+afterEach(() => vi.restoreAllMocks());
+
 describe('portal', () => {
   describe('init', () => {
-    it('throws when parent is not a-scene or a-wall', () => {
+    it.each(['a-scene', 'a-wall', 'a-entity', 'a-room'])('accepts a parent %s', (parentTag) => {
       // Arrange
-      const comp = makePortalComp({ parentTag: 'a-room' });
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const comp = makePortalComp({ parentTag });
 
-      // Act / Assert
-      expect(() => registeredComponent('portal').init.call(comp)).toThrow();
+      // Act
+      registeredComponent('portal').init.call(comp);
+
+      // Assert
+      expect(errorSpy).not.toHaveBeenCalled();
     });
 
-    it('does not throw when parent is a-wall', () => {
+    it('logs a markup error inside an a-opening and never links or queues', () => {
       // Arrange
-      const comp = makePortalComp({ parentTag: 'a-wall' });
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const [linkPortal, buildPortal] = [vi.fn(), vi.fn()];
+      const sceneEl = makeSceneEl({ building: { linkPortal, buildPortal } });
+      const comp = makePortalComp({ parentTag: 'a-opening', sceneEl });
+      registeredComponent('portal').init.call(comp);
 
-      // Act / Assert
-      expect(() => registeredComponent('portal').init.call(comp)).not.toThrow();
+      // Act
+      registeredComponent('portal').update.call(comp, {});
+      comp.rebuild();
+
+      // Assert
+      expect(errorSpy).toHaveBeenCalledExactlyOnceWith('<a-portal> can\'t be a child of an <a-opening>; it was skipped.', comp.el);
+      expect(linkPortal).not.toHaveBeenCalled();
+      expect(buildPortal).not.toHaveBeenCalled();
     });
 
     it('registers componentchanged listener', () => {
@@ -36,7 +52,7 @@ describe('portal', () => {
     it('calls buildPortal when a transform prop changes', () => {
       // Arrange
       const buildPortal = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
+      const sceneEl = makeSceneEl({ building: { buildPortal } });
       const comp = makePortalComp({ sceneEl });
       registeredComponent('portal').init.call(comp);
 
@@ -50,7 +66,7 @@ describe('portal', () => {
     it('does not call buildPortal when a non-transform prop changes', () => {
       // Arrange
       const buildPortal = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
+      const sceneEl = makeSceneEl({ building: { buildPortal } });
       const comp = makePortalComp({ sceneEl });
       registeredComponent('portal').init.call(comp);
 
@@ -68,7 +84,7 @@ describe('portal', () => {
       const calls: string[] = [];
       const linkPortal = vi.fn(() => calls.push('link'));
       const buildPortal = vi.fn(() => calls.push('build'));
-      const sceneEl = makeSceneEl({ systems: { building: { linkPortal, buildPortal } } });
+      const sceneEl = makeSceneEl({ building: { linkPortal, buildPortal } });
       const comp = makePortalComp({ sceneEl });
       const oldData = { from: null };
 
@@ -86,7 +102,7 @@ describe('portal', () => {
     it('queues the portal with the building system', () => {
       // Arrange
       const buildPortal = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { buildPortal } } });
+      const sceneEl = makeSceneEl({ building: { buildPortal } });
       const comp = makePortalComp({ data: {}, sceneEl });
       registeredComponent('portal').init.call(comp);
 
@@ -106,7 +122,7 @@ describe('portal', () => {
       // Arrange
       const buildPortal = vi.fn();
       const hasMoved = vi.fn(() => moved);
-      const sceneEl = makeSceneEl({ systems: { building: { buildPortal, hasMoved } } });
+      const sceneEl = makeSceneEl({ building: { buildPortal, hasMoved } });
       const comp = makePortalComp({ data: {}, sceneEl });
 
       // Act
@@ -135,7 +151,7 @@ describe('portal', () => {
     it('tells the building system the portal is gone', () => {
       // Arrange
       const removePortal = vi.fn();
-      const sceneEl = makeSceneEl({ systems: { building: { removePortal } } });
+      const sceneEl = makeSceneEl({ building: { removePortal } });
       const comp = makePortalComp({ sceneEl });
       registeredComponent('portal').init.call(comp);
 

@@ -83,9 +83,11 @@ Each `a-wall` marks a corner of the room, and its wall runs from that corner to 
 
 An `a-opening` must be a child of an `a-wall`. It marks where a portal connection cuts through the wall. It can have any A-Frame entity as a child (e.g. a door model or window frame). Do **not** set a `position` on an `a-opening`, because the `a-portal` it is connected to controls its position.
 
-An `a-portal` can be a child of an `a-scene` or of an `a-wall` (but **not** of an `a-opening`). Its world position is used to automatically place the two connected openings as close to it as possible on their respective walls. Whether to parent the portal to the scene or to one of the walls depends on your layout: it affects whether the doorway moves with a room or stays fixed. Set `floor-height` to raise the opening above the wall baseline to create a window.
+An `a-portal` can be a child of any entity except an `a-opening`. Its world position is used to automatically place the two connected openings as close to it as possible on their respective walls. Whether to parent the portal to the scene or to one of the walls depends on your layout: it affects whether the doorway moves with a room or stays fixed. Set `floor-height` to raise the opening above the wall baseline to create a window.
 
 An `a-floor` and `a-ceiling` must be a child of either an `a-room` or an `a-portal`. An `a-sides` is only used inside `a-portal`s. All three carry a `material` component for their surface and can be omitted if you prefer to handle surfaces manually.
+
+Markup that breaks these rules doesn't stop the scene. The element is skipped and a `console.error` names it and says why: a room with too few walls, an element under the wrong parent, or a portal whose `from` or `to` matches nothing or something other than an `a-opening`. An error while building one room or portal is logged the same way, and the rest of the scene still builds.
 
 ### Shorthands
 
@@ -93,7 +95,7 @@ If an `a-wall` has no `material` component, it inherits from its parent `a-room`
 
 If an `a-wall` has no `height` attribute, it inherits from its parent `a-room`'s `height`. The default room height is `2.4m`.
 
-If an `a-room` has both a `width` and a `length` attribute and contains exactly four `a-wall`s, wall `position`s can be omitted. They will be set automatically to form a rectangle from `(0,0)` to `(width, length)`.
+If an `a-room` has both a `width` and a `length` attribute, it must contain exactly four `a-wall`s, and it places them itself to form a rectangle from `(0,0)` to `(width, length)`. Wall `position`s are ignored, and a `console.warn` points out any that are set.
 
 `uv-scale` on `a-wall`, `a-floor`, `a-ceiling`, and `a-sides` controls how many times the texture tiles per world unit. The default is `1` (one repeat per meter). Use `uv-scale="0.5"` to tile once every two meters, or `uv-scale="2"` to tile twice per meter. A-Frame only repeats a texture when the material's `repeat` is something other than `1 1`; otherwise the texture's edge pixels stretch past the first tile. To tile, set `repeat` on the material, for example `material="src: #bricks; repeat: 0.5 0.5"`, which multiplies with `uv-scale`.
 
@@ -141,11 +143,18 @@ Rooms and portals rebuild their geometry when they change, with nothing to wire 
 
 - Attributes of a room, wall, portal, floor, ceiling or sides, and `position`, `rotation` or `scale` set through `setAttribute` (as the A-Frame inspector does), rebuild right away, even while the scene is paused.
 - Movement that bypasses `setAttribute`, such as the `animation` component or code that sets `object3D` directly, is picked up on the next frame. This covers a room or portal moving, including when its parent entity moves, and a single wall moving within its room.
-- A portal added to the scene cuts its openings on the next build, and removing a portal fills them back in.
+- A portal added to the scene cuts its openings on the next build, and removing a portal fills them back in. Changing a portal's `from` or `to` moves its tunnel and fills in the openings it left.
+- Adding or removing an `a-wall`, `a-opening`, `a-floor`, `a-ceiling` or `a-sides` rebuilds its room or portal. Removed elements free their geometry.
 
-Rebuilding a room also rebuilds the portals connected to it, and rebuilds in the same frame are batched into one pass.
+Rebuilding a room also rebuilds the portals connected to it, and rebuilds in the same frame are batched into one pass. The pass runs in the scene's render loop, which in WebXR is the headset's frame loop, so rooms keep rebuilding in VR. This hasn't been checked on a headset yet.
 
-A room's walls, and each wall's openings, are the ones it had when it was created. To change them, replace the `a-room` element.
+A room hides itself until its first build, so it never shows with missing walls. Builds never change its visibility after that, and a room with `visible="false"` stays hidden.
+
+A portal holds on to the openings its `from` and `to` selected. If you replace an `a-room`, set the `from` or `to` of each portal that joined it again, even to the same selector, so it finds the new openings:
+
+```js
+portalEl.setAttribute('from', '#kitchenDoor');
+```
 
 To queue a rebuild by hand, call `rebuild()`:
 

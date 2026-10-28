@@ -1,38 +1,63 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { Entity } from '../../../src/types/aframe';
-import { requireParent } from '../../../src/components/helpers/hierarchy';
-import { fake } from '../../utils/mocks';
+import { checkParent, rebuildParent } from '../../../src/components/helpers/hierarchy';
+import { fake, makeEl } from '../../utils/mocks';
 
-describe('requireParent', () => {
-  it('does not throw when parent tag matches an allowed tag', () => {
+afterEach(() => vi.restoreAllMocks());
+
+describe('checkParent', () => {
+  it('stays quiet when the parent is one of the allowed tags', () => {
     // Arrange
-    const el = fake<Entity>({ localName: 'a-wall', parentEl: { localName: 'a-room' } });
-
-    // Act / Assert
-    expect(() => requireParent(el, 'a-room')).not.toThrow();
-  });
-
-  it('passes when parent matches any of multiple allowed tags', () => {
-    // Arrange
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const el = fake<Entity>({ localName: 'a-portal', parentEl: { localName: 'a-wall' } });
 
-    // Act / Assert
-    expect(() => requireParent(el, 'a-scene', 'a-wall')).not.toThrow();
+    // Act
+    checkParent(el, 'a-scene', 'a-wall');
+
+    // Assert
+    expect(errorSpy).not.toHaveBeenCalled();
   });
 
-  it('throws when parent tag does not match any allowed tag', () => {
+  it('logs the element and the parents it accepts, naming it by id', () => {
     // Arrange
-    const el = fake<Entity>({ localName: 'a-wall', parentEl: { localName: 'a-scene' } });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const el = fake<Entity>({ localName: 'a-wall', id: 'north', parentEl: { localName: 'a-scene' } });
 
-    // Act / Assert
-    expect(() => requireParent(el, 'a-room')).toThrow();
+    // Act
+    checkParent(el, 'a-room');
+
+    // Assert
+    expect(errorSpy).toHaveBeenCalledExactlyOnceWith('#north must be a child of a <a-room>; it was skipped.', el);
   });
 
-  it('throws when parentEl is null', () => {
+  it('logs when the element has no parent', () => {
     // Arrange
-    const el = fake<Entity>({ localName: 'a-wall', parentEl: null });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const el = fake<Entity>({ localName: 'a-wall', id: '', parentEl: null });
 
+    // Act
+    checkParent(el, 'a-room');
+
+    // Assert
+    expect(errorSpy).toHaveBeenCalledOnce();
+  });
+});
+
+describe('rebuildParent', () => {
+  it('does nothing without an element', () => {
     // Act / Assert
-    expect(() => requireParent(el, 'a-room')).toThrow();
+    expect(() => rebuildParent(null)).not.toThrow();
+  });
+
+  it('rebuilds a parent portal', () => {
+    // Arrange
+    const rebuild = vi.fn();
+    const el = makeEl({ tag: 'a-sides', parentTag: 'a-portal', parentComponents: { portal: { rebuild } } });
+
+    // Act
+    rebuildParent(el);
+
+    // Assert
+    expect(rebuild).toHaveBeenCalledOnce();
   });
 });

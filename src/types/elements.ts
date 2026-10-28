@@ -49,16 +49,23 @@ interface BuildingSystem extends System<BuildingScene> {
   // Rooms' and portals' world matrices, and walls' positions, as of their last build.
   builtMatrixOf: WeakMap<Entity, Matrix4>;
   builtPositionOf: WeakMap<WallEl, Vector3>;
+  // Rooms the system hid until their first build.
+  hiddenRooms: WeakSet<RoomEl>;
+  tick(): void;
+  hideUntilBuilt(roomEl: RoomEl): void;
   buildRoom(roomEl: RoomEl): void;
   buildPortal(portalEl: PortalEl): void;
   linkPortal(portalEl: PortalEl, previous: Partial<PortalData>): void;
   removeRoom(roomEl: RoomEl): void;
   removePortal(portalEl: PortalEl): void;
+  removeOpening(openingEl: OpeningEl): void;
   requestBuild(): void;
   // el is a room or a portal.
   hasMoved(el: BuildingEl): boolean;
   hasWallMoved(wallEl: WallEl): boolean;
-  _recordBuilt(): void;
+  _runPass(): void;
+  _show(roomEl: RoomEl): void;
+  _recordBuilt(rooms: RoomEl[], portals: PortalEl[]): void;
 }
 
 interface BuildingScene extends Scene {

@@ -1,6 +1,7 @@
 import type { Component } from '../types/aframe';
 import type { WallData, WallEl } from '../types/elements';
-import { rebuildParent, requireParent } from './helpers/hierarchy';
+import { removeMesh, WALL_MESH } from '../builders/helpers/mesh';
+import { checkParent, rebuildParent } from './helpers/hierarchy';
 import { isTransformChange } from './helpers/transforms';
 
 interface WallComponent extends Component<WallData, WallEl> {
@@ -13,7 +14,7 @@ AFRAME.registerComponent<WallComponent>('wall', {
     uvScale: { type: 'number', default: 1 }
   },
   init: function () {
-    requireParent(this.el, 'a-room');
+    checkParent(this.el, 'a-room');
 
     this._onTransformChanged = (event) => {
       if (isTransformChange(event)) rebuildParent(this.el);
@@ -27,7 +28,10 @@ AFRAME.registerComponent<WallComponent>('wall', {
   tick: function () {
     if (this.el.sceneEl.systems.building?.hasWallMoved(this.el)) rebuildParent(this.el);
   },
+  // A-Frame calls this when the wall leaves the document, so the room rebuilds without it.
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
+    removeMesh(this.el, WALL_MESH);
+    rebuildParent(this.el);
   }
 });

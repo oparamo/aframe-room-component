@@ -82,12 +82,15 @@ const makeBuildingEl = ({ localName, data = {}, components = {}, children = [], 
   const object3DMap: Record<string, Object3D | undefined> = {};
   const el = {
     localName,
+    id: '',
+    isConnected: true,
     object3D,
     object3DMap,
     components,
     children,
     parentEl: null,
     classList: new Set<string>(),
+    hasAttribute: () => false,
     getAttribute: (name: string) => data[name] ?? null,
     getObject3D: (type: string) => object3DMap[type],
     setObject3D (type: string, object: Object3D) {
@@ -140,7 +143,7 @@ const makeRoom = (walls: WallEl[], {
 }: RoomOptions = {}) => makeBuildingEl({
   localName: 'a-room',
   data: { room: { outside, width, length, height } },
-  components: material ? { material: { material } } : {},
+  components: { room: { rebuild: vi.fn() }, ...(material && { material: { material } }) },
   children: [...walls, ...caps.map(kind => makeCap({ kind }))]
 });
 
@@ -173,7 +176,11 @@ interface PortalOptions {
 const makePortal = ({
   from = null, to = null, at, width = 1, height = 2, floorHeight = 0, children = []
 }: PortalOptions = {}) => makeBuildingEl({
-  localName: 'a-portal', data: { portal: { from, to, width, height, floorHeight } }, children, at
+  localName: 'a-portal',
+  data: { portal: { from, to, width, height, floorHeight } },
+  components: { portal: { rebuild: vi.fn() } },
+  children,
+  at
 });
 
 interface PortalChildOptions { type: string; uvScale?: number }
@@ -264,10 +271,20 @@ const makeSystem = () => {
 // --- Component fixtures ---
 
 interface SceneOptions {
-  systems?: DeepPartial<BuildingScene['systems']>;
+  // Methods of the building system a test wants to see called or to answer for.
+  building?: DeepPartial<BuildingSystem>;
 }
 
-const makeSceneEl = ({ systems = {} }: SceneOptions = {}) => ({ systems }) as unknown as BuildingScene;
+const BUILDING_METHODS = [
+  'hideUntilBuilt', 'buildRoom', 'buildPortal', 'linkPortal', 'removeRoom', 'removePortal', 'removeOpening',
+  'hasMoved', 'hasWallMoved'
+] as const;
+
+// A scene whose building system is all stubs, apart from those the test passes.
+const makeSceneEl = ({ building = {} }: SceneOptions = {}) => {
+  const stubs = Object.fromEntries(BUILDING_METHODS.map(name => [name, vi.fn()]));
+  return { systems: { building: { ...stubs, ...building } } } as unknown as BuildingScene;
+};
 
 // Listeners the element mock captured, keyed by event name.
 interface ListenerLog { _listeners: Record<string, EventListener | undefined> }
@@ -291,19 +308,17 @@ const makeEl = ({
   sceneEl = null,
   attrs = {}
 }: ElOptions = {}) => {
-  const el = {
-    localName: tag,
+  const listeners: ListenerLog['_listeners'] = {};
+  const el = Object.assign(makeBuildingEl({ localName: tag, data: attrs }), {
     parentEl: parentTag
       ? { localName: parentTag, components: parentComponents, getAttribute: (a: string) => parentAttrs[a] ?? null }
       : null,
-    object3D: makeObject3D(),
     sceneEl: sceneEl ?? makeSceneEl(),
     children,
-    _listeners: {} as ListenerLog['_listeners'],
-    addEventListener (event: string, cb: EventListener) { this._listeners[event] = cb; },
-    removeEventListener () {},
-    getAttribute (a: string) { return attrs[a] ?? null; }
-  };
+    _listeners: listeners,
+    addEventListener (event: string, cb: EventListener) { listeners[event] = cb; },
+    removeEventListener: vi.fn()
+  });
   return el as unknown as BuildingEl & ListenerLog;
 };
 
@@ -401,7 +416,13 @@ const makeComp = <El extends BuildingEl>({ name, tag, parentTag }: CompTarget, {
   data
 });
 
-const THREE_WALLS = [{ localName: 'a-wall' }, { localName: 'a-wall' }, { localName: 'a-wall' }];
+interface WallChildOptions { positioned?: boolean }
+
+// A wall as its room's init sees it: the tag, and whether its markup sets a position.
+const makeWallChild = ({ positioned = false }: WallChildOptions = {}) =>
+  ({ localName: 'a-wall', hasAttribute: (name: string) => positioned && name === 'position' });
+
+const THREE_WALLS = [makeWallChild(), makeWallChild(), makeWallChild()];
 
 const makeRoomComp = (opts: CompOptions = {}) =>
   makeComp<RoomEl>({ name: 'room', tag: 'a-room', parentTag: 'a-scene' }, { children: THREE_WALLS, ...opts });
@@ -439,6 +460,7 @@ export {
   makeTransformedRoom,
   makeTwoRooms,
   makeWall,
+  makeWallChild,
   makeWallComp,
   registeredComponent,
   registeredPrimitive,

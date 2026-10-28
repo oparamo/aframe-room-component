@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { BuildingEl, BuildState } from '../../src/types/elements';
 import { buildPortal } from '../../src/builders/portal';
+import { assertDefined } from '../../src/utils/assert';
 import { meshOf } from '../utils/meshes';
 import {
   makeBuildState, makeOpening, makeOpeningCorners, makePortal, makePortalChild, makeRoom, makeWall
@@ -82,19 +83,23 @@ describe('buildPortal', () => {
     expect(floorChild.object3DMap).toEqual({});
   });
 
-  it('logs an error when from is not an opening', () => {
+  it.each([
+    { problem: 'from matches no element', from: null },
+    { problem: 'from is <a-wall>, not an <a-opening>', from: makeWall() }
+  ])('logs "$problem"', ({ problem, from }) => {
     // Arrange
-    const portal = makePortal({ from: makeWall(), to: makeOpening() });
+    const { portal, state } = makeBuiltPortal();
+    Object.assign(assertDefined(portal.getAttribute('portal'), 'portal data'), { from });
     const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
     // Act
-    buildPortal(portal, makeBuildState());
+    buildPortal(portal, state);
 
     // Assert
-    expect(errorSpy).toHaveBeenCalledOnce();
+    expect(errorSpy).toHaveBeenCalledExactlyOnceWith(`<a-portal> was not built: ${problem}.`, portal);
   });
 
-  it('includes portal id in error message when id is set', () => {
+  it('logs each end it cannot join, naming the portal by id', () => {
     // Arrange
     const { portal, state } = makeBuiltPortal({ recorded: { from: false, to: false } });
     portal.id = 'my-portal';
@@ -104,7 +109,23 @@ describe('buildPortal', () => {
     buildPortal(portal, state);
 
     // Assert
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining('#my-portal'));
+    expect(errorSpy).toHaveBeenNthCalledWith(1, '#my-portal was not built: the from opening\'s room hasn\'t been built.', portal);
+    expect(errorSpy).toHaveBeenNthCalledWith(2, '#my-portal was not built: the to opening\'s room hasn\'t been built.', portal);
+  });
+
+  it('takes down its surfaces when a rebuild cannot join the openings', () => {
+    // Arrange
+    const floorChild = makePortalChild({ type: 'floor' });
+    const { portal, state } = makeBuiltPortal({ children: [floorChild] });
+    buildPortal(portal, state);
+    state.cornersOf = new WeakMap();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Act
+    buildPortal(portal, state);
+
+    // Assert
+    expect(floorChild.getObject3D('floor')).toBeUndefined();
   });
 
   it('skips children with no matching type component', () => {
