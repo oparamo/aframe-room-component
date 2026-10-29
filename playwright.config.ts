@@ -8,9 +8,7 @@ export default defineConfig({
   retries: 0,
   use: {
     baseURL: `http://localhost:${PORT}`,
-    // Google Chrome rather than Playwright's own Chromium build, which doesn't install on older macOS.
-    // SwiftShader gives headless Chrome a software WebGL context.
-    channel: 'chrome',
+    // SwiftShader gives headless Chromium a software WebGL context.
     launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
     // The tests read scene state, not pixels. Software rendering is fill-bound, and a small canvas keeps
     // frames fast enough that waiting on them stays well inside the timeout.

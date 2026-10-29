@@ -3,9 +3,9 @@ import type { Page } from '@playwright/test';
 import type { Mesh, PlaneGeometry } from 'three';
 import type { Entity } from '../../src/types/aframe';
 import { COLLIDABLE } from '../../src/utils/surfaceClasses';
-import { serveCdnFromCache } from './cdn';
+import { serveCdnLocally } from './cdn';
 
-// Loads example/index.html in headless Chrome and checks the demo the way a person walking it would,
+// Loads example/index.html in headless Chromium and checks the demo the way a person walking it would,
 // by reading scene state instead of pixels: headless WebGL and fonts render differently.
 // Functions passed to page.evaluate run in the page, so they can only use what they are given.
 
@@ -18,7 +18,7 @@ declare global {
 const DEMO = '/example/index.html';
 
 const openDemo = async (page: Page) => {
-  await serveCdnFromCache(page);
+  await serveCdnLocally(page);
   await page.addInitScript(() => {
     window.buildCount = 0;
     document.addEventListener('room-building-complete', () => {

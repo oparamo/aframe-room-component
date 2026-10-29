@@ -19,7 +19,7 @@ pnpm lint:fix
 pnpm test            # Vitest, once
 pnpm test:watch
 pnpm coverage        # tests with coverage
-pnpm test:browser    # the demo in headless Chrome
+pnpm test:browser    # the demo in headless Chromium
 pnpm changeset       # record a consumer-visible change for the next release
 ```
 
@@ -46,9 +46,9 @@ All mocks live in `tests/utils/mocks.ts`, and every mock factory takes an option
 
 ### In the browser
 
-`tests/browser/demo.test.ts` runs with Playwright instead of Vitest. It starts Vite, opens the demo in headless Google Chrome and checks it the way a person walking it would: the console holds only the demo's intentional errors, every room and portal builds, and the toggles do what their labels say (each one confirmed with a ray against the walls or a vertex count). It also moves the player into a wall and through a door to check `room-collision`. It reads scene state, not screenshots, because headless WebGL and fonts render differently.
+`tests/browser/demo.test.ts` runs with Playwright instead of Vitest. It starts Vite, opens the demo in headless Chromium and checks it the way a person walking it would: the console holds only the demo's intentional errors, every room and portal builds, and the toggles do what their labels say (each one confirmed with a ray against the walls or a vertex count). It also moves the player into a wall and through a door to check `room-collision`. It reads scene state, not screenshots, because headless WebGL and fonts render differently.
 
-It drives the installed Google Chrome, not Playwright's own Chromium build, which doesn't install on older macOS. Without Chrome, run `pnpm exec playwright install chrome` once. The files the demo loads from A-Frame's CDNs are downloaded once into `node_modules/.cache/demoCdn` and served from there (`tests/browser/cdn.ts`), so a stalled CDN can't hang a run. Chrome renders in software here, so a run takes a minute or two.
+Run `pnpm exec playwright install chromium` once before the first run. Nothing the demo loads comes from a CDN during a test (`tests/browser/cdn.ts`), so a stalled request can't hang a run: A-Frame is served from the `aframe` dev dependency, whose version must match the demo's script tag, and the textures and label font are downloaded once into `node_modules/.cache/demoCdn`. Chromium renders in software here, so a run takes a minute or two.
 
 ## The demo is the test bench
 

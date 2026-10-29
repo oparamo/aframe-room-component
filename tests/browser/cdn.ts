@@ -2,11 +2,13 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page, Route } from '@playwright/test';
 
-// The demo loads A-Frame, its textures and A-Frame's label font from A-Frame's CDNs. One stalled
-// request would hang the page, so each file is downloaded once, with a timeout and retries, and
-// served from disk after that.
+// The demo loads A-Frame from its CDN, and A-Frame loads textures and the label font from another.
+// One stalled request would hang the page. A-Frame is served from the aframe dev dependency, so the
+// demo's script tag and package.json must name the same version. The rest is downloaded once, with
+// a timeout and retries, and served from disk after that.
 
-const CDN = /^https:\/\/(?:cdn\.)?aframe\.io\//u;
+const AFRAME_SCRIPT = /^https:\/\/aframe\.io\/releases\/([^/]+)\/aframe\.min\.js$/u;
+const CDN_FILE = /^https:\/\/cdn\.aframe\.io\//u;
 const CACHE_DIR = 'node_modules/.cache/demoCdn';
 const FETCH_TIMEOUT_MS = 20_000;
 const FETCH_ATTEMPTS = 3;
@@ -32,12 +34,24 @@ const fetchToCache = async (route: Route, path: string) => {
   writeFileSync(path, body);
 };
 
+const serveAframeFromPackage = (page: Page) => page.route(AFRAME_SCRIPT, async (route) => {
+  const [, version] = AFRAME_SCRIPT.exec(route.request().url()) ?? [];
+  const path = `node_modules/aframe/dist/aframe-v${String(version)}.min.js`;
+  if (!existsSync(path)) throw new Error(`The demo loads A-Frame ${String(version)}; install the same aframe version.`);
+  await route.fulfill({ path });
+});
+
 // The file name keeps the URL's extension, which is what fulfill reads the content type from. The
 // textures load with crossorigin="anonymous", so the response has to allow it.
-const serveCdnFromCache = (page: Page) => page.route(CDN, async (route) => {
+const serveCdnFilesFromCache = (page: Page) => page.route(CDN_FILE, async (route) => {
   const path = join(CACHE_DIR, route.request().url().replace(/[^\w.-]+/gu, '_'));
   if (!existsSync(path)) await fetchToCache(route, path);
   await route.fulfill({ path, headers: { 'access-control-allow-origin': '*' } });
 });
 
-export { serveCdnFromCache };
+const serveCdnLocally = async (page: Page) => {
+  await serveAframeFromPackage(page);
+  await serveCdnFilesFromCache(page);
+};
+
+export { serveCdnLocally };
