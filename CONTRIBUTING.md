@@ -19,10 +19,11 @@ pnpm lint:fix
 pnpm test            # Vitest, once
 pnpm test:watch
 pnpm coverage        # tests with coverage
+pnpm test:browser    # the demo in headless Chromium
 pnpm changeset       # record a consumer-visible change for the next release
 ```
 
-CI runs `pnpm build`, `pnpm lint` and `pnpm coverage` on every pull request. Coverage fails below 95% of statements, branches, functions or lines. Those are floors, not targets: a test should check behavior that could break, not reach a number.
+CI runs `pnpm build`, `pnpm lint` and `pnpm coverage` on every pull request, and `pnpm test:browser` in a second job. Coverage fails below 95% of statements, branches, functions or lines. Those are floors, not targets: a test should check behavior that could break, not reach a number.
 
 ## Branches and releases
 
@@ -34,7 +35,7 @@ A release merges `develop` into `main`. Changesets then opens a Version Packages
 
 ## Tests
 
-The tests run in Node with Vitest, without a browser or A-Frame. `tests/setup.ts` puts the `three` package on the global `THREE` and installs a small A-Frame mock that records registered components, so a test can pull a component's definition and call its methods.
+The unit tests run in Node with Vitest, without a browser or A-Frame. `tests/setup.ts` puts the `three` package on the global `THREE` and installs a small A-Frame mock that records registered components, so a test can pull a component's definition and call its methods.
 
 - `tests/geometry/` tests the pure geometry functions with plain values and no mocks.
 - `tests/builders/` checks what a build leaves on elements (meshes, classes, positions) and in the build state (opening corners), and `tests/builders/helpers/` how the structure is found.
@@ -43,15 +44,21 @@ The tests run in Node with Vitest, without a browser or A-Frame. `tests/setup.ts
 
 All mocks live in `tests/utils/mocks.ts`, and every mock factory takes an options object. Element mocks hold real `THREE.Object3D`s, parented the way A-Frame parents them, so transforms, raycasts and world normals are real. Collision tests raycast against real meshes and fire the scene's `loaded` event themselves (`loadScene`). `tests/utils/meshes.ts` reads built meshes in world space. Tests follow arrange, act, assert.
 
+### In the browser
+
+`tests/browser/demo.test.ts` runs with Playwright instead of Vitest. It starts Vite, opens the demo in headless Chromium and checks it the way a person walking it would: the console holds only the demo's intentional errors, every room and portal builds, and the toggles do what their labels say (each one confirmed with a ray against the walls or a vertex count). It also moves the player into a wall and through a door to check `room-collision`. It reads scene state, not screenshots, because headless WebGL and fonts render differently.
+
+Run `pnpm exec playwright install chromium` once before the first run. Nothing the demo loads comes from a CDN during a test (`tests/browser/cdn.ts`), so a stalled request can't hang a run: A-Frame is served from the `aframe` dev dependency, whose version must match the demo's script tag, and the textures and label font are downloaded once into `node_modules/.cache/demoCdn`. Chromium renders in software here, so a run takes a minute or two.
+
 ## The demo is the test bench
 
-There is no browser test runner, so `example/index.html` and `example/demo.js` do that job. The page is the published demo and the manual test bench at once: `pnpm start` opens it, and every check is reachable on foot.
+`example/index.html` and `example/demo.js` are the published demo and the manual test bench at once: `pnpm start` opens it, every check is reachable on foot, and `pnpm test:browser` runs the same checks headless.
 
 - **Grey spheres** toggle a change, such as opening a doorway, growing a room or pushing a wall. A sphere turns green while its change is on, and its label grows when you hover over it.
 - **White spheres** are fixed labels that name what to look at.
 - **The signpost** by the path introduces the page, explains how to move, and lists the checks that need the A-Frame inspector (Ctrl+Alt+I).
 
-A pull request that changes behavior adds its checks to this page, so the next person can see the change working. Throwaway test pages don't get committed.
+A pull request that changes behavior adds its checks to this page, so the next person can see the change working, and adds a matching test to `tests/browser/demo.test.ts`. Throwaway test pages don't get committed.
 
 ## The performance page
 

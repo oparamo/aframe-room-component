@@ -123,6 +123,7 @@ export default tseslint.config(
   },
   {
     files: ['tests/**'],
+    ignores: ['tests/browser/**'],
     ...vitest.configs.recommended,
     rules: {
       ...vitest.configs.recommended.rules,
