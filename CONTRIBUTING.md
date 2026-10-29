@@ -48,7 +48,7 @@ All mocks live in `tests/utils/mocks.ts`, and every mock factory takes an option
 
 `tests/browser/demo.test.ts` runs with Playwright instead of Vitest. It starts Vite, opens the demo in headless Chromium and checks it the way a person walking it would: the console holds only the demo's intentional errors, every room and portal builds, and the toggles do what their labels say (each one confirmed with a ray against the walls or a vertex count). It also moves the player into a wall and through a door to check `room-collision`. It reads scene state, not screenshots, because headless WebGL and fonts render differently.
 
-Run `pnpm exec playwright install chromium` once before the first run. Nothing the demo loads comes from a CDN during a test (`tests/browser/cdn.ts`), so a stalled request can't hang a run: A-Frame is served from the `aframe` dev dependency, whose version must match the demo's script tag, and the textures and label font are downloaded once into `node_modules/.cache/demoCdn`. Chromium renders in software here, so a run takes a minute or two.
+Run `pnpm exec playwright install chromium` once before the first run. Where Playwright's Chromium isn't installed, or can't be (it doesn't support older macOS), the tests use the installed Google Chrome instead. Nothing the demo loads comes from a CDN during a test (`tests/browser/cdn.ts`), so a stalled request can't hang a run: A-Frame is served from the `aframe` dev dependency, whose version must match the demo's script tag, and the label font is downloaded once into `node_modules/.cache/demoCdn`. Chromium renders in software here, so a run takes a minute or two.
 
 ## The demo is the test bench
 

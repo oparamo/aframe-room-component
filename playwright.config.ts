@@ -1,6 +1,11 @@
-import { defineConfig } from '@playwright/test';
+import { existsSync } from 'node:fs';
+import { chromium, defineConfig } from '@playwright/test';
 
 const PORT = '8001';
+
+// Playwright's Chromium when it's installed, as in CI. Where it isn't, or can't be (it doesn't support
+// older macOS), the installed Google Chrome.
+const channel = existsSync(chromium.executablePath()) ? undefined : 'chrome';
 
 export default defineConfig({
   testDir: 'tests/browser',
@@ -8,6 +13,7 @@ export default defineConfig({
   retries: 0,
   use: {
     baseURL: `http://localhost:${PORT}`,
+    channel,
     // SwiftShader gives headless Chromium a software WebGL context.
     launchOptions: { args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader'] },
     // The tests read scene state, not pixels. Software rendering is fill-bound, and a small canvas keeps
