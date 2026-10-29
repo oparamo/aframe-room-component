@@ -151,18 +151,22 @@ const TILE_PIXELS = 64;
 
 // One tile per square meter; neighboring tiles' edges meet to draw each grid line. A-Frame caches
 // textures by their source's id, so the canvas needs one.
-const gridTexture = document.createElement('canvas');
-gridTexture.id = 'gridTexture';
-gridTexture.width = TILE_PIXELS;
-gridTexture.height = TILE_PIXELS;
-const grid = gridTexture.getContext('2d');
-grid.fillStyle = GRASS;
-grid.fillRect(0, 0, TILE_PIXELS, TILE_PIXELS);
-grid.strokeStyle = GRID_LINE;
-grid.lineWidth = 4;
-grid.strokeRect(0, 0, TILE_PIXELS, TILE_PIXELS);
+const paintGridTile = () => {
+  const canvas = document.createElement('canvas');
+  canvas.id = 'gridTexture';
+  canvas.width = TILE_PIXELS;
+  canvas.height = TILE_PIXELS;
+  const context = canvas.getContext('2d');
+  context.fillStyle = GRASS;
+  context.fillRect(0, 0, TILE_PIXELS, TILE_PIXELS);
+  context.strokeStyle = GRID_LINE;
+  context.lineWidth = 4;
+  context.strokeRect(0, 0, TILE_PIXELS, TILE_PIXELS);
+  return canvas;
+};
+
 // Unlit, so the grass keeps its painted color and doesn't catch a glare from the lights.
-byId('ground').setAttribute('material', { shader: 'flat', src: gridTexture, repeat: `${GROUND_SIZE} ${GROUND_SIZE}` });
+byId('ground').setAttribute('material', { shader: 'flat', src: paintGridTile(), repeat: `${GROUND_SIZE} ${GROUND_SIZE}` });
 
 const signText = value => ({ value, color: WHITE, width: 1.75, wrapCount: 42, align: 'left' });
 byId('signAbout').setAttribute('text', signText([
