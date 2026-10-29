@@ -3,8 +3,8 @@ import { join } from 'node:path';
 import type { Page, Route } from '@playwright/test';
 
 // Serves the demo's CDN files locally, so a slow CDN can't stall a test. The A-Frame script comes
-// from the aframe dev dependency, whose version must match the demo's script tag. Textures and the
-// label font are downloaded once and served from disk after that.
+// from the aframe dev dependency, whose version must match the demo's script tag. The label font is
+// downloaded once and served from disk after that.
 
 const AFRAME_SCRIPT = /^https:\/\/aframe\.io\/releases\/([^/]+)\/aframe\.min\.js$/u;
 const CDN_FILE = /^https:\/\/cdn\.aframe\.io\//u;
@@ -40,8 +40,8 @@ const serveAframeFromPackage = (page: Page) => page.route(AFRAME_SCRIPT, async (
   await route.fulfill({ path });
 });
 
-// The file name keeps the URL's extension, which is what fulfill reads the content type from. The
-// textures load with crossorigin="anonymous", so the response has to allow it.
+// The file name keeps the URL's extension, which is what fulfill reads the content type from. A-Frame
+// fetches the font from another origin, so the response has to allow it.
 const serveCdnFilesFromCache = (page: Page) => page.route(CDN_FILE, async (route) => {
   const path = join(CACHE_DIR, route.request().url().replace(/[^\w.-]+/gu, '_'));
   if (!existsSync(path)) await fetchToCache(route, path);

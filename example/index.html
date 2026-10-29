@@ -17,21 +17,21 @@
   <a-scene cursor="rayOrigin: mouse" raycaster="objects: .check">
 
     <a-assets>
-      <img id="groundTexture" src="https://cdn.aframe.io/a-painter/images/floor.jpg" crossorigin="anonymous">
-      <img id="skyTexture" src="https://cdn.aframe.io/a-painter/images/sky.jpg" crossorigin="anonymous">
       <img id="testTex" src="test.png">
 
-      <a-mixin id="floorMat" material="src:#testTex; repeat:0.5 0.5"></a-mixin>
+      <!-- The test texture marks the surfaces whose UVs are worth checking; everything else is paint. -->
+      <a-mixin id="testTexture" material="src:#testTex; repeat:0.5 0.5"></a-mixin>
+      <a-mixin id="floorPaint" material="color:#F3EEE3"></a-mixin>
+      <a-mixin id="ceilingPaint" material="color:#FFF"></a-mixin>
     </a-assets>
 
-    <a-sky height="2048" radius="30" src="#skyTexture" theta-length="90" width="2048" segments-height="5"
-      segments-width="8"></a-sky>
+    <!-- demo.js paints the sky and the ground grid, and adds the clouds. -->
+    <a-sky id="sky" radius="80"></a-sky>
+    <a-plane id="ground" rotation="-90 0 0" position="0 -0.01 0" height="100" width="100"></a-plane>
 
-    <a-plane src="#groundTexture" rotation="-90 0 0" position="0 -0.01 0" height="100" width="100"></a-plane>
-
-    <a-light type="directional" intensity="0.9" position="-1 -2 2"></a-light>
-    <a-light type="directional" intensity="1.0" position="2 1 -1"></a-light>
-    <a-light type="ambient" intensity="0.4"></a-light>
+    <a-light type="directional" intensity="0.6" position="-1 -2 2"></a-light>
+    <a-light type="directional" intensity="0.7" position="2 1 -1"></a-light>
+    <a-light type="ambient" intensity="1.6"></a-light>
 
     <a-entity id="player" camera="active: true" look-controls="reverseMouseDrag: true" wasd-controls room-collision
       position="0 1.6 14">
@@ -41,279 +41,283 @@
     <a-entity id="signpost" position="-3 0 10" rotation="0 20 0">
       <a-cylinder position="-1 0.6 -0.05" radius="0.05" height="1.2" color="#5a3d22"></a-cylinder>
       <a-cylinder position="1 0.6 -0.05" radius="0.05" height="1.2" color="#5a3d22"></a-cylinder>
-      <a-plane id="signAbout" position="-1 1.85 0" width="1.9" height="1.3" color="#222"></a-plane>
-      <a-plane id="signHelp" position="1 1.85 0" width="1.9" height="1.3" color="#222"></a-plane>
-      <a-plane position="-1 1.85 -0.01" rotation="0 180 0" width="1.9" height="1.3" color="#444"></a-plane>
-      <a-plane position="1 1.85 -0.01" rotation="0 180 0" width="1.9" height="1.3" color="#444"></a-plane>
+      <a-plane id="signAbout" position="-1 1.85 0" width="1.9" height="1.3" color="#1A237E"></a-plane>
+      <a-plane id="signHelp" position="1 1.85 0" width="1.9" height="1.3" color="#1A237E"></a-plane>
+      <a-plane position="-1 1.85 -0.01" rotation="0 180 0" width="1.9" height="1.3" color="#3949AB"></a-plane>
+      <a-plane position="1 1.85 -0.01" rotation="0 180 0" width="1.9" height="1.3" color="#3949AB"></a-plane>
     </a-entity>
 
-    <!-- Main building. Room A's corners are listed so each wall runs from its corner to the next. -->
-    <a-room id="roomA" height="3" material="color:#F88">
-      <a-wall id="a0" position="-6 0 -7"></a-wall>
-      <a-wall id="a1" position="0 0 -7">
-        <a-opening id="aRight"></a-opening>
+    <!-- Red building. The yellow room's corners are listed so each wall runs from its corner to the next. -->
+    <a-room id="yellowRoom" height="3" material="color:#FFE680">
+      <a-wall id="yellowBackWall" position="-6 0 -7"></a-wall>
+      <a-wall id="yellowRightWall" position="0 0 -7">
+        <a-opening id="yellowRight"></a-opening>
       </a-wall>
-      <a-wall id="a2" position="0 0 -2">
-        <a-opening id="aFront"></a-opening>
+      <a-wall id="yellowFrontWall" position="0 0 -2">
+        <a-opening id="yellowFront"></a-opening>
       </a-wall>
-      <a-wall id="a3" position="-6 0 -2"></a-wall>
-      <a-floor id="floorA" mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#AAA"></a-ceiling>
+      <a-wall id="yellowLeftWall" position="-6 0 -2"></a-wall>
+      <a-floor id="yellowFloor" mixin="testTexture"></a-floor>
+      <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>
 
     <!-- Width/length room: walls are back, right, near, left. -->
-    <a-room id="roomB" position="1 0 -7" width="4" length="5" height="3" material="color:#8AF">
+    <a-room id="blueRoom" position="1 0 -7" width="4" length="5" height="3" material="color:#A8D4FF">
       <a-wall>
-        <a-opening id="bBack"></a-opening>
+        <a-opening id="blueBack"></a-opening>
       </a-wall>
       <a-wall></a-wall>
       <a-wall>
-        <a-opening id="bWindow"></a-opening>
+        <a-opening id="blueWindow"></a-opening>
       </a-wall>
       <a-wall>
-        <a-opening id="bLeft"></a-opening>
+        <a-opening id="blueLeft"></a-opening>
       </a-wall>
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#99A"></a-ceiling>
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>
 
-    <!-- Room C's near wall lies in the same plane as room B's back wall. -->
-    <a-room id="roomC" height="3" material="color:#C9A">
-      <a-wall id="c0" position="1 0 -12">
-        <a-box position="1 1.4 0" scale="0.5 0.5 0.2" color="#446"></a-box>
-        <a-box position="2.5 1.7 0" scale="0.5 0.5 0.2" color="#446"></a-box>
-        <a-box position="4 1.4 0" scale="0.5 0.5 0.2" color="#446"></a-box>
+    <!-- The green room's near wall lies in the same plane as the blue room's back wall. -->
+    <a-room id="greenRoom" height="3" material="color:#B5EBA8">
+      <a-wall id="greenBackWall" position="1 0 -12">
+        <a-box position="1 1.4 0" scale="0.5 0.5 0.2" color="#2A9D3A"></a-box>
+        <a-box position="2.5 1.7 0" scale="0.5 0.5 0.2" color="#2A9D3A"></a-box>
+        <a-box position="4 1.4 0" scale="0.5 0.5 0.2" color="#2A9D3A"></a-box>
       </a-wall>
       <a-wall position="6 0 -12">
-        <a-opening id="cRight"></a-opening>
+        <a-opening id="greenRight"></a-opening>
       </a-wall>
       <a-wall position="6 0 -7">
-        <a-opening id="cNear"></a-opening>
+        <a-opening id="greenNear"></a-opening>
       </a-wall>
-      <a-wall position="1 0 -7" material="src:#testTex; repeat:0.5 0.5"></a-wall>
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#99A"></a-ceiling>
+      <a-wall id="greenTexturedWall" position="1 0 -7" mixin="testTexture"></a-wall>
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>
 
     <!-- Outside rooms list their walls the other way round: left, back, right, front. -->
-    <a-room id="shell" outside="true" height="4.4" material="color:#877">
+    <a-room id="redShell" outside="true" height="4.4" material="color:#D62828">
       <a-wall position="-8 0 -14"></a-wall>
       <a-wall position="8 0 -14"></a-wall>
       <a-wall position="8 0 0">
-        <a-opening id="shellRight"></a-opening>
+        <a-opening id="redRight"></a-opening>
       </a-wall>
       <a-wall position="-8 0 0">
-        <a-opening id="shellFront"></a-opening>
-        <a-opening id="shellWindow"></a-opening>
+        <a-opening id="redFront"></a-opening>
+        <a-opening id="redWindow"></a-opening>
       </a-wall>
     </a-room>
 
-    <a-portal from="#aFront" to="#shellFront" width="1.2" height="2.2" position="-3 0 -1">
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#778"></a-ceiling>
-      <a-sides material="color:#778"></a-sides>
+    <a-portal from="#yellowFront" to="#redFront" width="1.2" height="2.2" position="-3 0 -1">
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling material="color:#D62828"></a-ceiling>
+      <a-sides material="color:#D62828"></a-sides>
     </a-portal>
 
-    <a-portal from="#bWindow" to="#shellWindow" width="1.2" height="1" floor-height="0.9" position="3 0 -1">
+    <!-- No materials: the window's surfaces fall back to the rooms' own. -->
+    <a-portal from="#blueWindow" to="#redWindow" width="1.2" height="1" floor-height="0.9" position="3 0 -1">
       <a-floor></a-floor>
       <a-ceiling></a-ceiling>
       <a-sides></a-sides>
     </a-portal>
 
-    <a-portal from="#cRight" to="#shellRight" width="1.2" height="2.2" position="7 0 -9.5">
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#778"></a-ceiling>
-      <a-sides material="color:#778"></a-sides>
+    <a-portal from="#greenRight" to="#redRight" width="1.2" height="2.2" position="7 0 -9.5">
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling material="color:#D62828"></a-ceiling>
+      <a-sides material="color:#D62828"></a-sides>
     </a-portal>
 
     <!-- No surfaces: the rooms share a wall plane, so there is no gap to fill. -->
-    <a-portal from="#bBack" to="#cNear" width="1.2" height="2.2" position="3 0 -7"></a-portal>
+    <a-portal from="#blueBack" to="#greenNear" width="1.2" height="2.2" position="3 0 -7"></a-portal>
 
     <!-- Low outside room whose ceiling is a roof you look down on. -->
-    <a-room id="planter" position="-7 0 4" width="3" length="2" height="0.6" outside="true"
-      material="color:#6a4">
+    <a-room id="limeRoom" position="-7 0 4" width="3" length="2" height="0.6" outside="true"
+      material="color:#8BC34A">
       <a-wall></a-wall>
       <a-wall></a-wall>
       <a-wall></a-wall>
       <a-wall></a-wall>
-      <a-ceiling material="src:#testTex; repeat:0.5 0.5"></a-ceiling>
+      <a-ceiling material="color:#C5E1A5"></a-ceiling>
     </a-room>
 
-    <!-- Width/length lobby inside a width/length shell, door on both near walls. -->
-    <a-room id="lobbyShell" position="11 0 2" width="6" length="6" height="3.4" outside="true"
-      material="color:#7a8">
+    <!-- Brown building: a width/length room inside a width/length shell, door on both near walls. -->
+    <a-room id="brownShell" position="11 0 2" width="6" length="6" height="3.4" outside="true"
+      material="color:#8B5A2B">
       <a-wall></a-wall>
       <a-wall></a-wall>
       <a-wall></a-wall>
       <a-wall>
-        <a-opening id="lobbyShellDoor"></a-opening>
+        <a-opening id="brownShellDoor"></a-opening>
       </a-wall>
     </a-room>
 
-    <a-room id="lobby" position="12 0 3" width="4" length="4" height="2.8" material="color:#DDB">
+    <a-room id="brownRoom" position="12 0 3" width="4" length="4" height="2.8" material="color:#E3C49B">
+      <!-- A shade per wall, so a wall that moves or goes missing on a rebuild stands out. -->
       <a-wall></a-wall>
-      <a-wall material="color:#BBD"></a-wall>
-      <a-wall>
-        <a-opening id="lobbyDoor"></a-opening>
+      <a-wall material="color:#8D5524"></a-wall>
+      <a-wall material="color:#C68642">
+        <a-opening id="brownDoor"></a-opening>
       </a-wall>
-      <a-wall material="color:#DBB"></a-wall>
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#AAA"></a-ceiling>
+      <a-wall material="color:#FFF3E0"></a-wall>
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>
 
-    <a-portal from="#lobbyDoor" to="#lobbyShellDoor" width="1.2" height="2.2" position="14 0 7.5">
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#778"></a-ceiling>
-      <a-sides material="color:#778"></a-sides>
+    <a-portal from="#brownDoor" to="#brownShellDoor" width="1.2" height="2.2" position="14 0 7.5">
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling material="color:#8B5A2B"></a-ceiling>
+      <a-sides material="color:#8B5A2B"></a-sides>
     </a-portal>
 
-    <!-- Rotated pavilion; its door portal is a child of the shell wall, so it moves with the rooms. -->
-    <a-room id="pavilion" position="14 0 -8" rotation="0 -30 0" height="2.6" material="color:#EDB">
+    <!-- Rotated navy building; its door portal is a child of the shell wall, so it moves with the rooms. -->
+    <a-room id="navyRoom" position="14 0 -8" rotation="0 -30 0" height="2.6" material="color:#B8BEF0">
       <a-wall position="0 0 0"></a-wall>
       <a-wall position="3 0 0"></a-wall>
       <a-wall position="3 0 3">
-        <a-opening id="pavilionDoor"></a-opening>
+        <a-opening id="navyDoor"></a-opening>
       </a-wall>
       <a-wall position="0 0 3"></a-wall>
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#AAA"></a-ceiling>
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>
 
-    <a-room id="pavilionShell" position="14 0 -8" rotation="0 -30 0" height="3" outside="true"
-      material="color:#9a8">
+    <a-room id="navyShell" position="14 0 -8" rotation="0 -30 0" height="3" outside="true"
+      material="color:#1D3D8F">
       <a-wall position="-0.3 0 -0.3"></a-wall>
       <a-wall position="3.3 0 -0.3"></a-wall>
       <a-wall position="3.3 0 3.3"></a-wall>
       <a-wall position="-0.3 0 3.3">
-        <a-opening id="pavilionShellDoor"></a-opening>
-        <a-portal from="#pavilionDoor" to="#pavilionShellDoor" width="1.2" height="2.2" position="1.8 0 0">
-          <a-floor mixin="floorMat"></a-floor>
-          <a-ceiling material="color:#778"></a-ceiling>
-          <a-sides material="color:#778"></a-sides>
+        <a-opening id="navyShellDoor"></a-opening>
+        <a-portal from="#navyDoor" to="#navyShellDoor" width="1.2" height="2.2" position="1.8 0 0">
+          <a-floor mixin="floorPaint"></a-floor>
+          <a-ceiling material="color:#1D3D8F"></a-ceiling>
+          <a-sides material="color:#1D3D8F"></a-sides>
         </a-portal>
       </a-wall>
     </a-room>
 
-    <!-- U-shaped room inside a U-shaped shell; the notch opens toward the path as a courtyard. -->
-    <a-room id="uRoom" height="2.8" material="color:#ACE">
+    <!-- Magenta U-shaped room inside a U-shaped shell; the notch opens toward the path as a courtyard. -->
+    <a-room id="magentaRoom" height="2.8" material="color:#F7A8C6">
       <a-wall position="-22 0 -12"></a-wall>
       <a-wall position="-14 0 -12"></a-wall>
       <a-wall position="-14 0 -4"></a-wall>
       <a-wall position="-16 0 -4"></a-wall>
       <a-wall position="-16 0 -8">
-        <a-opening id="uDoor"></a-opening>
+        <a-opening id="magentaDoor"></a-opening>
       </a-wall>
       <a-wall position="-20 0 -8"></a-wall>
       <a-wall position="-20 0 -4"></a-wall>
       <a-wall position="-22 0 -4"></a-wall>
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#AAA"></a-ceiling>
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>
 
-    <a-room id="uShell" outside="true" height="3.2" material="color:#987">
+    <a-room id="magentaShell" outside="true" height="3.2" material="color:#C2185B">
       <a-wall position="-23 0 -13"></a-wall>
       <a-wall position="-13 0 -13"></a-wall>
       <a-wall position="-13 0 -3"></a-wall>
       <a-wall position="-17 0 -3"></a-wall>
       <a-wall position="-17 0 -7"></a-wall>
       <a-wall position="-19 0 -7">
-        <a-opening id="uShellDoor"></a-opening>
+        <a-opening id="magentaShellDoor"></a-opening>
       </a-wall>
       <a-wall position="-19 0 -3"></a-wall>
       <a-wall position="-23 0 -3"></a-wall>
     </a-room>
 
-    <a-portal from="#uDoor" to="#uShellDoor" width="1.2" height="2.2" position="-18 0 -7.5">
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="src:#testTex; repeat:0.5 0.5"></a-ceiling>
-      <a-sides material="src:#testTex; repeat:0.5 0.5"></a-sides>
+    <!-- Textured all round to show the portal's per-meter UVs. -->
+    <a-portal from="#magentaDoor" to="#magentaShellDoor" width="1.2" height="2.2" position="-18 0 -7.5">
+      <a-floor mixin="testTexture"></a-floor>
+      <a-ceiling mixin="testTexture"></a-ceiling>
+      <a-sides mixin="testTexture"></a-sides>
     </a-portal>
 
-    <!-- Yard west of the path: annex, kiosk and shed in a row, the hidden store behind the kiosk. Each
-    has a front door to the yard shell, so no kiosk door placement leaves a room without a way out. -->
-    <a-room id="annex" height="2.6" material="color:#CDB">
-      <a-wall id="annexCorner" position="-23 0 10"></a-wall>
+    <!-- Purple building west of the path: pink, orange and teal rooms in a row, the hidden white room
+    behind the orange one. Each has a front door to the purple shell, so no placement of the orange
+    room's side door leaves a room without a way out. -->
+    <a-room id="pinkRoom" height="2.6" material="color:#FFC2DF">
+      <a-wall id="pinkCorner" position="-23 0 10"></a-wall>
       <a-wall position="-20 0 10">
-        <a-opening id="annexEast"></a-opening>
+        <a-opening id="pinkEast"></a-opening>
       </a-wall>
       <a-wall position="-20 0 13">
-        <a-opening id="annexSouth"></a-opening>
+        <a-opening id="pinkSouth"></a-opening>
       </a-wall>
       <a-wall position="-23 0 13"></a-wall>
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#AAA"></a-ceiling>
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>
 
-    <a-room id="kiosk" height="2.6" material="color:#BCD">
+    <a-room id="orangeRoom" height="2.6" material="color:#FFC98A">
       <a-wall position="-18 0 10"></a-wall>
       <a-wall position="-15 0 10">
-        <a-opening id="kioskEast"></a-opening>
+        <a-opening id="orangeEast"></a-opening>
       </a-wall>
       <a-wall position="-15 0 13">
-        <a-opening id="kioskSouth"></a-opening>
+        <a-opening id="orangeSouth"></a-opening>
       </a-wall>
       <a-wall position="-18 0 13">
-        <a-opening id="kioskWest"></a-opening>
+        <a-opening id="orangeWest"></a-opening>
       </a-wall>
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#AAA"></a-ceiling>
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>
 
-    <a-room id="shed" height="2.6" material="color:#DCB">
+    <a-room id="tealRoom" height="2.6" material="color:#9DEBE4">
       <a-wall position="-13 0 10"></a-wall>
       <a-wall position="-10 0 10"></a-wall>
       <a-wall position="-10 0 13">
-        <a-opening id="shedSouth"></a-opening>
+        <a-opening id="tealSouth"></a-opening>
       </a-wall>
       <a-wall position="-13 0 13">
-        <a-opening id="shedWest"></a-opening>
+        <a-opening id="tealWest"></a-opening>
       </a-wall>
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#AAA"></a-ceiling>
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>
 
-    <a-room id="yardShell" outside="true" height="3.2" material="color:#987">
+    <a-room id="purpleShell" outside="true" height="3.2" material="color:#7B2CBF">
       <a-wall position="-23.5 0 9.5"></a-wall>
       <a-wall position="-9.5 0 9.5"></a-wall>
       <a-wall position="-9.5 0 13.5"></a-wall>
       <a-wall position="-23.5 0 13.5">
-        <a-opening id="yardShellAnnex"></a-opening>
-        <a-opening id="yardShellKiosk"></a-opening>
-        <a-opening id="yardShellShed"></a-opening>
+        <a-opening id="purpleShellPink"></a-opening>
+        <a-opening id="purpleShellOrange"></a-opening>
+        <a-opening id="purpleShellTeal"></a-opening>
       </a-wall>
     </a-room>
 
-    <a-portal from="#annexSouth" to="#yardShellAnnex" width="1" height="2.1" position="-22.2 0 13.25">
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#778"></a-ceiling>
-      <a-sides material="color:#778"></a-sides>
+    <a-portal from="#pinkSouth" to="#purpleShellPink" width="1" height="2.1" position="-22.2 0 13.25">
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling material="color:#7B2CBF"></a-ceiling>
+      <a-sides material="color:#7B2CBF"></a-sides>
     </a-portal>
 
-    <a-portal from="#kioskSouth" to="#yardShellKiosk" width="1" height="2.1" position="-17.2 0 13.25">
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#778"></a-ceiling>
-      <a-sides material="color:#778"></a-sides>
+    <a-portal from="#orangeSouth" to="#purpleShellOrange" width="1" height="2.1" position="-17.2 0 13.25">
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling material="color:#7B2CBF"></a-ceiling>
+      <a-sides material="color:#7B2CBF"></a-sides>
     </a-portal>
 
-    <a-portal from="#shedSouth" to="#yardShellShed" width="1" height="2.1" position="-11.5 0 13.25">
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#778"></a-ceiling>
-      <a-sides material="color:#778"></a-sides>
+    <a-portal from="#tealSouth" to="#purpleShellTeal" width="1" height="2.1" position="-11.5 0 13.25">
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling material="color:#7B2CBF"></a-ceiling>
+      <a-sides material="color:#7B2CBF"></a-sides>
     </a-portal>
 
-    <a-portal id="yardDoor" from="#kioskWest" to="#annexEast" width="1" height="2.1" position="-19 0 11.5">
-      <a-floor mixin="floorMat"></a-floor>
-      <a-ceiling material="color:#778"></a-ceiling>
-      <a-sides material="color:#778"></a-sides>
+    <a-portal id="orangeDoor" from="#orangeWest" to="#pinkEast" width="1" height="2.1" position="-19 0 11.5">
+      <a-floor mixin="floorPaint"></a-floor>
+      <a-ceiling material="color:#F77F00"></a-ceiling>
+      <a-sides material="color:#F77F00"></a-sides>
     </a-portal>
 
-    <!-- Stands apart from the yard shell, so showing and hiding it can be seen from outside. -->
-    <a-room id="store" outside="true" visible="false" height="2.6" material="color:#DBD">
+    <!-- Stands apart from the purple shell, so showing and hiding it can be seen from outside. -->
+    <a-room id="whiteRoom" outside="true" visible="false" height="2.6" material="color:#F5F5F5">
       <a-wall position="-18 0 6"></a-wall>
       <a-wall position="-15 0 6"></a-wall>
       <a-wall position="-15 0 8"></a-wall>
       <a-wall position="-18 0 8"></a-wall>
-      <a-ceiling material="color:#AAA"></a-ceiling>
+      <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>
 
     <!-- Broken on purpose: each logs to the console and the rest of the page still builds. -->
