@@ -2,10 +2,9 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Page, Route } from '@playwright/test';
 
-// The demo loads A-Frame from its CDN, and A-Frame loads textures and the label font from another.
-// One stalled request would hang the page. A-Frame is served from the aframe dev dependency, so the
-// demo's script tag and package.json must name the same version. The rest is downloaded once, with
-// a timeout and retries, and served from disk after that.
+// Serves the demo's CDN files locally, so a slow CDN can't stall a test. The A-Frame script comes
+// from the aframe dev dependency, whose version must match the demo's script tag. Textures and the
+// label font are downloaded once and served from disk after that.
 
 const AFRAME_SCRIPT = /^https:\/\/aframe\.io\/releases\/([^/]+)\/aframe\.min\.js$/u;
 const CDN_FILE = /^https:\/\/cdn\.aframe\.io\//u;
