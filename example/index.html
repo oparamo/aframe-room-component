@@ -152,12 +152,13 @@
     </a-room>
 
     <a-room id="brownRoom" position="12 0 3" width="4" length="4" height="2.8" material="color:#E3C49B">
+      <!-- A shade per wall, so a wall that moves or goes missing on a rebuild stands out. -->
       <a-wall></a-wall>
-      <a-wall material="color:#C9A27A"></a-wall>
-      <a-wall>
+      <a-wall material="color:#8D5524"></a-wall>
+      <a-wall material="color:#C68642">
         <a-opening id="brownDoor"></a-opening>
       </a-wall>
-      <a-wall material="color:#F5E6D3"></a-wall>
+      <a-wall material="color:#FFF3E0"></a-wall>
       <a-floor mixin="floorPaint"></a-floor>
       <a-ceiling mixin="ceilingPaint"></a-ceiling>
     </a-room>

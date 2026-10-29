@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
-import type { Mesh, PlaneGeometry } from 'three';
+import type { Mesh, MeshStandardMaterial, PlaneGeometry } from 'three';
 import type { Entity } from '../../src/types/aframe';
 import { COLLIDABLE } from '../../src/utils/surfaceClasses';
 import { serveCdnLocally } from './cdn';
@@ -97,6 +97,25 @@ const floorVertexCount = (page: Page, roomId: string) => page.evaluate((id) => {
   return floor?.geometry.attributes.position?.count;
 }, roomId);
 
+// Where each mesh under the matched elements sits in the world and its color, rounded so float noise
+// doesn't count as a change.
+const surfaces = (page: Page, selector: string) => page.evaluate((elSelector) => {
+  const round = (n: number) => Math.round(n * 1000) / 1000;
+  return [...document.querySelectorAll<Entity>(elSelector)].flatMap((el) => {
+    const meshes: Mesh[] = [];
+    el.object3D.traverse((object) => {
+      if (object instanceof THREE.Mesh) meshes.push(object as Mesh);
+    });
+    return meshes.map((mesh) => {
+      const box = new THREE.Box3().setFromObject(mesh);
+      return {
+        box: [...box.min.toArray(), ...box.max.toArray()].map(round),
+        color: (mesh.material as MeshStandardMaterial).color.getHexString()
+      };
+    });
+  });
+}, selector);
+
 const isVisible = (page: Page, id: string) => page.evaluate(
   elId => (document.getElementById(elId) as Entity).object3D.visible,
   id
@@ -147,6 +166,17 @@ test('builds every portal that has surfaces', async ({ page }) => {
 
   expect(portals.length).toBeGreaterThan(0);
   expect(portals.filter(portal => portal.count === 0)).toEqual([]);
+});
+
+test('rebuilding the brown room and its shell changes nothing', async ({ page }) => {
+  const brownBuilding = '#brownRoom, #brownShell, a-portal[from="#brownDoor"]';
+  await openDemo(page);
+
+  const before = await surfaces(page, brownBuilding);
+  await clickCheckAndRebuild(page, 'Rebuild the brown room and its shell. Nothing should change.');
+  const after = await surfaces(page, brownBuilding);
+
+  expect(after).toEqual(before);
 });
 
 test.describe('the hidden white room', () => {

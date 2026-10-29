@@ -348,7 +348,8 @@ addInfo({
 });
 addInfo({
   position: '15.6 2 8.6',
-  label: '<a-room width length>: four <a-wall>s with no positions; the room places them.'
+  label: '<a-room width length>: four <a-wall>s with no positions; the room places them. Each wall '
+    + 'inside has its own shade.'
 });
 addAction({
   position: '12.6 1.4 8.6',
