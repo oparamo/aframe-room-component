@@ -18,6 +18,9 @@
 
     <a-assets>
       <img id="testTex" src="test.png">
+      <!-- CC0 sky from Poly Haven (kloofendal_48d_partly_cloudy_puresky): the tonemapped JPG scaled to
+        4096x2048 and saved as AVIF. -->
+      <img id="skyTexture" src="sky.avif">
 
       <!-- The test texture marks the surfaces whose UVs are worth checking; everything else is paint. -->
       <a-mixin id="testTexture" material="src:#testTex; repeat:0.5 0.5"></a-mixin>
@@ -25,9 +28,22 @@
       <a-mixin id="ceilingPaint" material="color:#FFF"></a-mixin>
     </a-assets>
 
-    <!-- demo.js paints the sky and the ground grid, and adds the clouds. -->
-    <a-sky id="sky" radius="80"></a-sky>
-    <a-plane id="ground" rotation="-90 0 0" position="0 -0.01 0" height="100" width="100"></a-plane>
+    <!-- The sky fits inside the ground, so the grass reaches the horizon in every direction. demo.js paints
+      the grid. -->
+    <a-sky radius="80" src="#skyTexture"></a-sky>
+    <a-plane id="ground" rotation="-90 0 0" position="0 -0.01 0" height="160" width="160"></a-plane>
+
+    <!-- A hidden octagon 65m out keeps the player at least 10m inside the sky. -->
+    <a-room id="bounds" visible="false">
+      <a-wall position="65 0 -26.9"></a-wall>
+      <a-wall position="65 0 26.9"></a-wall>
+      <a-wall position="26.9 0 65"></a-wall>
+      <a-wall position="-26.9 0 65"></a-wall>
+      <a-wall position="-65 0 26.9"></a-wall>
+      <a-wall position="-65 0 -26.9"></a-wall>
+      <a-wall position="-26.9 0 -65"></a-wall>
+      <a-wall position="26.9 0 -65"></a-wall>
+    </a-room>
 
     <a-light type="directional" intensity="0.6" position="-1 -2 2"></a-light>
     <a-light type="directional" intensity="0.7" position="2 1 -1"></a-light>

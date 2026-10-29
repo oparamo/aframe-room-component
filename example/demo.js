@@ -143,89 +143,26 @@ const addAction = ({ position, label, action }) => {
 // A white sphere whose full-size label says what to look at.
 const addInfo = ({ position, label }) => addMarker({ position, label, color: WHITE, pinned: true });
 
-// Scenery: a sky that fades from deep blue overhead to near white at the horizon, grass with a line
-// every meter, and a few puffy clouds.
-const SKY_TOP = '#1E64C8';
-const SKY_HORIZON = '#EAF6FF';
+// The ground: grass with a line every meter, painted on a canvas.
 const GRASS = '#43A047';
 const GRID_LINE = '#81C784';
-const GROUND_SIZE = 100;
+const GROUND_SIZE = 160;
 const TILE_PIXELS = 64;
 
-// A-Frame caches textures by their source's id, so each canvas needs its own.
-const paint = ({ id, width, height, draw }) => {
-  const canvas = document.createElement('canvas');
-  canvas.id = id;
-  canvas.width = width;
-  canvas.height = height;
-  draw(canvas.getContext('2d'));
-  return canvas;
-};
-
-// The texture wraps the sky sphere top to bottom, so its upper half runs from the zenith to the horizon.
-const skyTexture = paint({
-  id: 'skyTexture',
-  width: 4,
-  height: 256,
-  draw: (context) => {
-    const gradient = context.createLinearGradient(0, 0, 0, 128);
-    gradient.addColorStop(0, SKY_TOP);
-    gradient.addColorStop(1, SKY_HORIZON);
-    context.fillStyle = gradient;
-    context.fillRect(0, 0, 4, 128);
-    context.fillStyle = SKY_HORIZON;
-    context.fillRect(0, 128, 4, 128);
-  }
-});
-byId('sky').setAttribute('material', { shader: 'flat', src: skyTexture });
-
-// One tile per square meter; neighboring tiles' edges meet to draw each grid line.
-const gridTexture = paint({
-  id: 'gridTexture',
-  width: TILE_PIXELS,
-  height: TILE_PIXELS,
-  draw: (context) => {
-    context.fillStyle = GRASS;
-    context.fillRect(0, 0, TILE_PIXELS, TILE_PIXELS);
-    context.strokeStyle = GRID_LINE;
-    context.lineWidth = 4;
-    context.strokeRect(0, 0, TILE_PIXELS, TILE_PIXELS);
-  }
-});
+// One tile per square meter; neighboring tiles' edges meet to draw each grid line. A-Frame caches
+// textures by their source's id, so the canvas needs one.
+const gridTexture = document.createElement('canvas');
+gridTexture.id = 'gridTexture';
+gridTexture.width = TILE_PIXELS;
+gridTexture.height = TILE_PIXELS;
+const grid = gridTexture.getContext('2d');
+grid.fillStyle = GRASS;
+grid.fillRect(0, 0, TILE_PIXELS, TILE_PIXELS);
+grid.strokeStyle = GRID_LINE;
+grid.lineWidth = 4;
+grid.strokeRect(0, 0, TILE_PIXELS, TILE_PIXELS);
 // Unlit, so the grass keeps its painted color and doesn't catch a glare from the lights.
 byId('ground').setAttribute('material', { shader: 'flat', src: gridTexture, repeat: `${GROUND_SIZE} ${GROUND_SIZE}` });
-
-// Each cloud is a few low-poly spheres squashed into a puff.
-const CLOUDS = [
-  { position: '-35 24 -45', scale: 4 },
-  { position: '10 28 -55', scale: 5 },
-  { position: '45 22 -20', scale: 3.5 },
-  { position: '40 26 35', scale: 4.5 },
-  { position: '-45 20 25', scale: 4 },
-  { position: '-10 30 50', scale: 3 }
-];
-const PUFFS = [
-  { offset: '0 0 0', radius: 1 },
-  { offset: '1.2 -0.2 0.3', radius: 0.8 },
-  { offset: '-1.1 -0.25 -0.2', radius: 0.75 },
-  { offset: '0.4 0.5 -0.3', radius: 0.7 }
-];
-for (const { position, scale } of CLOUDS) {
-  const cloud = document.createElement('a-entity');
-  cloud.setAttribute('position', position);
-  cloud.setAttribute('scale', `${scale} ${scale * 0.6} ${scale}`);
-  for (const { offset, radius } of PUFFS) {
-    const puff = document.createElement('a-sphere');
-    puff.setAttribute('position', offset);
-    puff.setAttribute('radius', radius);
-    puff.setAttribute('segments-width', 10);
-    puff.setAttribute('segments-height', 8);
-    // Mostly self-lit, so the undersides stay bright instead of turning grey.
-    puff.setAttribute('material', { color: WHITE, emissive: WHITE, emissiveIntensity: 0.7 });
-    cloud.appendChild(puff);
-  }
-  scene.appendChild(cloud);
-}
 
 const signText = value => ({ value, color: WHITE, width: 1.75, wrapCount: 42, align: 'left' });
 byId('signAbout').setAttribute('text', signText([
