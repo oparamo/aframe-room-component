@@ -20,6 +20,7 @@ pnpm changeset    # for consumer-visible changes only
 - Every module ends with one `export { }` (or `export type { }`) list. File names are camelCase.
 - Unit tests run in Node with an A-Frame mock (`tests/setup.ts`). All mocks live in `tests/utils/mocks.ts`, and every factory takes an options object. Geometry tests use plain values, not mocks.
 - `example/index.html` and `example/demo.js` are the demo and the manual test bench: a behavior change adds its checks there (grey spheres toggle, white spheres label) and a matching test to `tests/browser/demo.test.ts`, which loads the demo in headless Chromium and reads scene state, not pixels.
-- `room-collision` finds surfaces by the `collidable` and `walkable` classes from `src/utils/surfaceClasses.ts`.
+- `room-collision` finds surfaces by the `room-collidable` and `room-walkable` classes from `src/utils/surfaceClasses.ts`.
+- Every built surface keeps its mesh under A-Frame's `mesh` key. README's "Public API" lists what consumers may rely on; keep it current.
 - PRs target `develop`. Add a changeset only when a consumer would notice the change.
 - No em dashes anywhere, including comments and docs.

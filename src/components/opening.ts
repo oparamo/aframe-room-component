@@ -11,7 +11,7 @@ AFRAME.registerComponent<Component<unknown, OpeningEl>>('opening', {
   // hole, and its portal finds that end gone.
   remove: function () {
     removeBlocker(this.el);
-    this.el.sceneEl.systems.building?.removeOpening(this.el);
+    this.el.sceneEl.systems['room-building']?.removeOpening(this.el);
     rebuildParent(this.el.parentEl);
   }
 });

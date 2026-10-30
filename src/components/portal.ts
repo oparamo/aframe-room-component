@@ -1,10 +1,12 @@
 import type { Component } from '../types/aframe';
 import type { PortalData, PortalEl } from '../types/elements';
 import { nameOf } from '../builders/helpers/structure';
+import { isMaterialRemoval } from './helpers/material';
 import { isTransformChange } from './helpers/transforms';
 
 interface PortalComponent extends Component<PortalData, PortalEl> {
   _onTransformChanged: (event: Event) => void;
+  _onMaterialRemoved: (event: Event) => void;
   _misplaced: boolean;
   rebuild(): void;
 }
@@ -27,24 +29,30 @@ AFRAME.registerComponent<PortalComponent>('portal', {
       if (isTransformChange(event)) this.rebuild();
     };
     this.el.addEventListener('componentchanged', this._onTransformChanged);
+    // Surfaces without a material of their own still hold the removed one until the portal rebuilds.
+    this._onMaterialRemoved = (event) => {
+      if (isMaterialRemoval(event)) this.rebuild();
+    };
+    this.el.addEventListener('componentremoved', this._onMaterialRemoved);
   },
   update: function (oldData) {
     if (this._misplaced) return;
-    this.el.sceneEl.systems.building?.linkPortal(this.el, oldData);
+    this.el.sceneEl.systems['room-building']?.linkPortal(this.el, oldData);
     this.rebuild();
   },
   // Catches movement that bypasses setAttribute, such as the animation component since A-Frame 1.7.
   // The componentchanged listener stays for the inspector, which pauses the scene and with it tick.
   tick: function () {
-    if (this.el.sceneEl.systems.building?.hasMoved(this.el)) this.rebuild();
+    if (this.el.sceneEl.systems['room-building']?.hasMoved(this.el)) this.rebuild();
   },
   // Public: queues this portal, and the rooms it cuts into, for the next build pass.
   rebuild: function () {
     if (this._misplaced) return;
-    this.el.sceneEl.systems.building?.buildPortal(this.el);
+    this.el.sceneEl.systems['room-building']?.buildPortal(this.el);
   },
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
-    this.el.sceneEl.systems.building?.removePortal(this.el);
+    this.el.removeEventListener('componentremoved', this._onMaterialRemoved);
+    this.el.sceneEl.systems['room-building']?.removePortal(this.el);
   }
 });

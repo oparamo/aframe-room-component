@@ -13,7 +13,7 @@ const SMALL = 0.4;
 // Wall meshes the labels must stay in front of; refreshed after every build.
 let walls = [];
 scene.addEventListener('room-building-complete', () => {
-  walls = [...document.querySelectorAll('.collidable')].flatMap(el => Object.values(el.object3DMap).filter(o => o.isMesh));
+  walls = [...document.querySelectorAll('.room-collidable')].flatMap(el => Object.values(el.object3DMap).filter(o => o.isMesh));
 });
 
 // Faces the camera and keeps its label on whichever side of the sphere has room before the nearest wall,
@@ -241,6 +241,16 @@ addToggle({
   action: (on) => {
     const uvScale = on ? 2 : 1;
     byId('yellowFloor').setAttribute('floor', 'uvScale', uvScale);
+  }
+});
+// The wall starts without a material of its own and takes the room's. Painting gives it one; removing
+// that one should bring the room's back.
+addToggle({
+  position: '-5.4 1.6 -4.5',
+  label: 'Paint the left wall orange',
+  action: (on) => {
+    if (on) byId('yellowLeftWall').setAttribute('material', 'color', '#F77F00');
+    else byId('yellowLeftWall').removeAttribute('material');
   }
 });
 addToggle({

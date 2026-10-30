@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fireComponentChanged, makePortalComp, makeSceneEl, registeredComponent } from '../utils/mocks';
+import { fireComponentChanged, fireComponentRemoved, makePortalComp, makeSceneEl, registeredComponent } from '../utils/mocks';
 import '../../src/components/portal';
 
 afterEach(() => vi.restoreAllMocks());
@@ -78,6 +78,25 @@ describe('portal', () => {
     });
   });
 
+  describe('componentremoved listener', () => {
+    it.each([
+      { removed: 'material', builds: 1 },
+      { removed: 'shadow', builds: 0 }
+    ])('queues the portal $builds times when $removed is removed', ({ removed, builds }) => {
+      // Arrange
+      const buildPortal = vi.fn();
+      const sceneEl = makeSceneEl({ building: { buildPortal } });
+      const comp = makePortalComp({ sceneEl });
+      registeredComponent('portal').init.call(comp);
+
+      // Act
+      fireComponentRemoved(comp.el, removed);
+
+      // Assert
+      expect(buildPortal).toHaveBeenCalledTimes(builds);
+    });
+  });
+
   describe('update', () => {
     it('links the portal to its openings, then queues it', () => {
       // Arrange
@@ -135,7 +154,7 @@ describe('portal', () => {
   });
 
   describe('remove', () => {
-    it('removes componentchanged listener', () => {
+    it('removes its listeners', () => {
       // Arrange
       const comp = makePortalComp();
       registeredComponent('portal').init.call(comp);
@@ -146,6 +165,7 @@ describe('portal', () => {
 
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);
+      expect(removeSpy).toHaveBeenCalledWith('componentremoved', comp._onMaterialRemoved);
     });
 
     it('tells the building system the portal is gone', () => {

@@ -1,19 +1,18 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import type { Mesh } from 'three';
-import type { Component } from '../../../src/types/aframe';
-import type { BuildingEl, SurfaceData } from '../../../src/types/elements';
-import { surfaceComponent } from '../../../src/components/helpers/surface';
-import { makeEl } from '../../utils/mocks';
+import { surfaceComponent, type SurfaceComponent } from '../../../src/components/helpers/surface';
+import { fireComponentRemoved, makeEl } from '../../utils/mocks';
 
 afterEach(() => vi.restoreAllMocks());
 
-const definition = surfaceComponent('floor', 'a-room', 'a-portal');
+const definition = surfaceComponent('a-room', 'a-portal');
 
 // A floor in a room whose rebuild the test can watch.
 const makeFloor = ({ parentTag = 'a-room' } = {}) => {
   const rebuild = vi.fn();
   const el = makeEl({ tag: 'a-floor', parentTag, parentComponents: { room: { rebuild } } });
-  return { comp: { el, data: { uvScale: 1 } } as Component<SurfaceData, BuildingEl>, rebuild };
+  const comp = { el, data: { uvScale: 1 }, _onMaterialRemoved: () => {} } satisfies SurfaceComponent;
+  return { comp, rebuild };
 };
 
 describe('surfaceComponent', () => {
@@ -58,12 +57,42 @@ describe('surfaceComponent', () => {
     });
   });
 
+  describe('componentremoved listener', () => {
+    it.each([
+      { removed: 'material', rebuilds: 1 },
+      { removed: 'shadow', rebuilds: 0 }
+    ])('rebuilds its parent $rebuilds times when $removed is removed', ({ removed, rebuilds }) => {
+      // Arrange
+      const { comp, rebuild } = makeFloor();
+      definition.init?.call(comp);
+
+      // Act
+      fireComponentRemoved(comp.el, removed);
+
+      // Assert
+      expect(rebuild).toHaveBeenCalledTimes(rebuilds);
+    });
+  });
+
   describe('remove', () => {
+    it('removes its componentremoved listener', () => {
+      // Arrange
+      const { comp } = makeFloor();
+      definition.init?.call(comp);
+      const removeSpy = vi.spyOn(comp.el, 'removeEventListener');
+
+      // Act
+      definition.remove?.call(comp);
+
+      // Assert
+      expect(removeSpy).toHaveBeenCalledWith('componentremoved', comp._onMaterialRemoved);
+    });
+
     it('frees its mesh and rebuilds its parent', () => {
       // Arrange
       const { comp, rebuild } = makeFloor();
       const mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
-      comp.el.setObject3D('floor', mesh);
+      comp.el.setObject3D('mesh', mesh);
       const disposed = vi.fn();
       mesh.geometry.addEventListener('dispose', disposed);
 
@@ -71,7 +100,7 @@ describe('surfaceComponent', () => {
       definition.remove?.call(comp);
 
       // Assert
-      expect(comp.el.getObject3D('floor')).toBeUndefined();
+      expect(comp.el.getObject3D('mesh')).toBeUndefined();
       expect(disposed).toHaveBeenCalledOnce();
       expect(rebuild).toHaveBeenCalledOnce();
     });
@@ -80,7 +109,7 @@ describe('surfaceComponent', () => {
       // Arrange
       const { comp } = makeFloor();
       const mesh: Mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
-      comp.el.setObject3D('floor', mesh);
+      comp.el.setObject3D('mesh', mesh);
       const disposed = vi.fn();
       [mesh.material].flat()[0]?.addEventListener('dispose', disposed);
 

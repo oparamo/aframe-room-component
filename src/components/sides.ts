@@ -1,3 +1,3 @@
 import { surfaceComponent } from './helpers/surface';
 
-AFRAME.registerComponent('sides', surfaceComponent('sides', 'a-portal'));
+AFRAME.registerComponent('sides', surfaceComponent('a-portal'));

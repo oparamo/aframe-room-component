@@ -3,9 +3,10 @@ import type { Entity } from '../../types/aframe';
 import type { BuildingEl, OpeningEl } from '../../types/elements';
 import { COLLIDABLE } from '../../utils/surfaceClasses';
 
-interface MeshOptions { el: BuildingEl; objectName: string; geom: BufferGeometry; fallbackMaterial?: Material }
+interface MeshOptions { el: BuildingEl; geom: BufferGeometry; fallbackMaterial?: Material }
 
-const WALL_MESH = 'wallMesh';
+// A-Frame's own key for an entity's mesh, where its material component looks for it.
+const MESH = 'mesh';
 const BLOCKER = 'blocker';
 
 const getMaterial = (el: Entity | null | undefined) => el?.components.material?.material;
@@ -16,21 +17,21 @@ const isMesh = (object: Object3D | undefined): object is Mesh => object instance
 // releases GPU buffers on dispose(). The material comes from the element, then its parent, then the
 // fallback; with none found, the mesh keeps the one it has, which on a first build without one is the
 // default new THREE.Mesh() applies.
-const applyMesh = ({ el, objectName, geom, fallbackMaterial }: MeshOptions) => {
+const applyMesh = ({ el, geom, fallbackMaterial }: MeshOptions) => {
   const material = getMaterial(el) ?? getMaterial(el.parentEl) ?? fallbackMaterial;
-  const mesh = el.getObject3D(objectName);
+  const mesh = el.getObject3D(MESH);
   if (isMesh(mesh)) {
     mesh.geometry.dispose();
     mesh.geometry = geom;
     if (material) mesh.material = material;
   } else {
-    el.setObject3D(objectName, new THREE.Mesh(geom, material));
+    el.setObject3D(MESH, new THREE.Mesh(geom, material));
   }
 };
 
 // Takes the element's mesh off it and frees the geometry. The material is left alone, since it
 // belongs to the element's material component, or to whoever assigned it.
-const removeMesh = (el: Entity, objectName: string) => {
+const removeMesh = (el: Entity, objectName = MESH) => {
   const mesh = el.getObject3D(objectName);
   if (!isMesh(mesh)) return null;
   el.removeObject3D(objectName);
@@ -57,4 +58,4 @@ const removeBlocker = (openingEl: OpeningEl) => {
   for (const material of [blocker?.material ?? []].flat()) material.dispose();
 };
 
-export { addBlocker, applyMesh, getMaterial, isMesh, removeBlocker, removeMesh, WALL_MESH };
+export { addBlocker, applyMesh, getMaterial, isMesh, removeBlocker, removeMesh };

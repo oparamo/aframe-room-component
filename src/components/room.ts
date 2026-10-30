@@ -1,10 +1,12 @@
 import type { Component } from '../types/aframe';
 import type { RoomData, RoomEl } from '../types/elements';
 import { nameOf, wallsOf } from '../builders/helpers/structure';
+import { isMaterialRemoval } from './helpers/material';
 import { isTransformChange } from './helpers/transforms';
 
 interface RoomComponent extends Component<RoomData, RoomEl> {
   _onTransformChanged: (event: Event) => void;
+  _onMaterialRemoved: (event: Event) => void;
   // Why the room can't be built, from its markup when it initialized; null when it can.
   _shapeError: string | null;
   rebuild(): void;
@@ -39,7 +41,7 @@ AFRAME.registerComponent<RoomComponent>('room', {
       console.error(`${nameOf(this.el)} was not built: ${this._shapeError}.`, this.el);
     } else if (this.el.object3D.visible) {
       // Markup's visible="false" has already applied, since A-Frame initializes visible first.
-      this.el.sceneEl.systems.building?.hideUntilBuilt(this.el);
+      this.el.sceneEl.systems['room-building']?.hideUntilBuilt(this.el);
     }
     if (this.data.width && this.data.length) warnAuthoredPositions(this.el);
 
@@ -47,6 +49,11 @@ AFRAME.registerComponent<RoomComponent>('room', {
       if (isTransformChange(event)) this.rebuild();
     };
     this.el.addEventListener('componentchanged', this._onTransformChanged);
+    // Walls without a material of their own still hold the removed one until the room rebuilds.
+    this._onMaterialRemoved = (event) => {
+      if (isMaterialRemoval(event)) this.rebuild();
+    };
+    this.el.addEventListener('componentremoved', this._onMaterialRemoved);
   },
   update: function () {
     this.rebuild();
@@ -54,15 +61,16 @@ AFRAME.registerComponent<RoomComponent>('room', {
   // Catches movement that bypasses setAttribute, such as the animation component since A-Frame 1.7.
   // The componentchanged listener stays for the inspector, which pauses the scene and with it tick.
   tick: function () {
-    if (this.el.sceneEl.systems.building?.hasMoved(this.el)) this.rebuild();
+    if (this.el.sceneEl.systems['room-building']?.hasMoved(this.el)) this.rebuild();
   },
   // Public: queues this room, and the portals connected to it, for the next build pass.
   rebuild: function () {
     if (this._shapeError) return;
-    this.el.sceneEl.systems.building?.buildRoom(this.el);
+    this.el.sceneEl.systems['room-building']?.buildRoom(this.el);
   },
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
-    this.el.sceneEl.systems.building?.removeRoom(this.el);
+    this.el.removeEventListener('componentremoved', this._onMaterialRemoved);
+    this.el.sceneEl.systems['room-building']?.removeRoom(this.el);
   }
 });

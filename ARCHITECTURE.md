@@ -10,7 +10,7 @@ The code under `src/` is split into layers. Each one imports only from the layer
 | - | - | - |
 | Markup | `primitives/` | `a-room`, `a-wall`, `a-opening`, `a-portal`, `a-floor`, `a-ceiling`, `a-sides`, mapping HTML attributes to component properties |
 | Controllers | `components/` | the A-Frame components: lifecycle, parent checks, change detection, and `room-collision` |
-| Orchestration | `systems/building.ts` | the `building` system: dirty sets, build order, one pass per frame, the build state and the snapshots ticks compare against |
+| Orchestration | `systems/building.ts` | the `room-building` system: dirty sets, build order, one pass per frame, the build state and the snapshots ticks compare against |
 | Shell | `builders/` | `room.ts` and `portal.ts`: read the structure, element data and transforms, then write meshes, positions, classes and opening corners |
 | Core | `geometry/` | `walls.ts`, `caps.ts`, `surfaces.ts`: pure functions from numbers and three.js values to geometry |
 | Utils | `utils/` | `assertDefined` and the surface class names; imports nothing else from `src` |
@@ -26,19 +26,21 @@ The components keep no build state on the elements. The structure is read from t
 
 - **Structure.** `builders/helpers/structure.ts` finds a room's walls, floor and ceiling, and a wall's openings, among the element's own children, so a nested room's walls or a floor inside a portal on a wall never count. `wallHeight` falls back to the room's height.
 - **Build state.** The system holds a `BuildState` that it passes to the builders. `portalOf` maps each opening to the portal that uses it. The portal component's `update` keeps it current through the system's `linkPortal`, which gets A-Frame's `oldData`, so a retargeted portal releases its old openings. `cornersOf` holds each opening's four world-space corners as of its room's last build. Both are `WeakMap`s, so removed elements don't linger.
-- **Meshes** live in A-Frame's `object3DMap`, set with `setObject3D` and read back with `getObject3D`. A window blocker is the opening's `blocker` object.
+- **Meshes** live in A-Frame's `object3DMap`, set with `setObject3D` and read back with `getObject3D`. Every built surface uses A-Frame's own `mesh` key, so the `material` component swaps a new material onto it. A window blocker is the opening's `blocker` object.
 
 1. On `init`, `room` checks its shape. A room that can't be built logs why and never queues itself. Otherwise, if it is visible, it asks the system to hide it until its first build, so it never shows with missing walls; a room whose markup hides it is left alone, because A-Frame applies `visible` before other components initialize.
 2. On `update`, `room` and `portal` call the system's `buildRoom` or `buildPortal`; the portal links its openings first. Walls, floors, ceilings and sides call their parent's `rebuild()` instead.
 3. The system adds the element to a dirty set. A room also marks the portals in its openings, because rebuilding the room moves the openings. A portal also marks the rooms it cuts into, because its size and position shape their walls. Then `requestBuild` marks a pass pending.
 4. The system's `tick` runs a pending pass inside the scene's render loop, which in WebXR is the session's frame loop. `requestBuild` also schedules a `requestAnimationFrame` callback for when the scene is paused, as in the inspector, and whichever comes first takes the pass. Both run after A-Frame's synchronous initialization, so every component's data is ready, and the first build and every later rebuild take the same path.
-5. The pass copies and clears the dirty sets, then drops elements that have left the document or lost their component. It builds every room, then every portal, each inside its own `try` so a failure logs and the rest still build. Rooms go first because a room build records each opening's corners in `cornersOf`, and the portal build joins those corners. The pass shows the rooms it hid that built, records snapshots of what it built, and emits `room-building-complete` on the scene. The snapshots come after the whole pass, so a portal on a wall is measured after its room build turned the wall.
+5. The pass copies and clears the dirty sets, then drops elements that have left the document or lost their component. It builds every room, then every portal, each inside its own `try` so a failure logs and the rest still build. Rooms go first because a room build records each opening's corners in `cornersOf`, and the portal build joins those corners. The pass shows the rooms it hid that built, records snapshots of what it built, and emits `room-building-complete` on the scene, with the rooms and portals that built in its `detail`. The snapshots come after the whole pass, so a portal on a wall is measured after its room build turned the wall.
 
 ### Markup errors and removal
 
 Components never throw. An element under the wrong parent, a room with the wrong number of walls, and a portal whose ends aren't openings with built rooms each log a `console.error` naming the element, and are skipped. A portal that can't join its openings also takes down the surfaces of its last build.
 
 A-Frame calls a component's `remove` when its element leaves the document. Walls, floors, ceilings and sides free their mesh's geometry (materials belong to the material component) and rebuild their parent. An opening frees its blocker, tells the system to forget its corners and rebuild its portal, and rebuilds its room. A removed room asks for a pass, whose `room-building-complete` lets `room-collision` drop its meshes. A portal's update releases the openings it no longer joins and rebuilds their rooms, so the old holes fill in.
+
+Removing an element's `material` component swaps a plain default material onto its `mesh` and disposes the old one, which surfaces inheriting it still point at. So rooms, walls, portals and surfaces listen for `componentremoved` on themselves and queue a rebuild when it names `material`, and the build hands each mesh the material it inherits.
 
 ### What triggers a rebuild
 
@@ -61,7 +63,7 @@ A-Frame calls a component's `remove` when its element leaves the document. Walls
 
 ## Collision
 
-`room-collision` (`src/components/collision.ts`) uses raycasting instead of a physics engine. The builders put the `collidable` class on walls, portal sides and window blockers, and `walkable` on room and portal floors, using the names in `utils/surfaceClasses.ts`. Those classes are the only link between building and collision. The component collects the meshes in each classed element's `object3DMap` when the scene loads and again on every `room-building-complete`.
+`room-collision` (`src/components/collision.ts`) uses raycasting instead of a physics engine. The builders put the `room-collidable` class on walls, portal sides and window blockers, and `room-walkable` on room and portal floors, using the names in `utils/surfaceClasses.ts`. Those classes are the only link between building and collision. The component collects the meshes in each classed element's `object3DMap` when the scene loads and again on every `room-building-complete`.
 
 Each tick it reads how far the entity moved since the last frame, puts it back, and casts a ray along the move from the previous position at torso height (0.6 m below the camera). If a wall is closer than `radius` plus the move's length, the move is blocked and the component tries again along the wall, projecting the move onto the plane of the wall's horizontal normal. Then a ray cast straight down from 1.5 m above the new position snaps y to the nearest walkable surface, which handles slopes and floors at different heights.
 
