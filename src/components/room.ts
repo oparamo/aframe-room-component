@@ -39,7 +39,7 @@ AFRAME.registerComponent<RoomComponent>('room', {
       console.error(`${nameOf(this.el)} was not built: ${this._shapeError}.`, this.el);
     } else if (this.el.object3D.visible) {
       // Markup's visible="false" has already applied, since A-Frame initializes visible first.
-      this.el.sceneEl.systems.building?.hideUntilBuilt(this.el);
+      this.el.sceneEl.systems['room-building']?.hideUntilBuilt(this.el);
     }
     if (this.data.width && this.data.length) warnAuthoredPositions(this.el);
 
@@ -54,15 +54,15 @@ AFRAME.registerComponent<RoomComponent>('room', {
   // Catches movement that bypasses setAttribute, such as the animation component since A-Frame 1.7.
   // The componentchanged listener stays for the inspector, which pauses the scene and with it tick.
   tick: function () {
-    if (this.el.sceneEl.systems.building?.hasMoved(this.el)) this.rebuild();
+    if (this.el.sceneEl.systems['room-building']?.hasMoved(this.el)) this.rebuild();
   },
   // Public: queues this room, and the portals connected to it, for the next build pass.
   rebuild: function () {
     if (this._shapeError) return;
-    this.el.sceneEl.systems.building?.buildRoom(this.el);
+    this.el.sceneEl.systems['room-building']?.buildRoom(this.el);
   },
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
-    this.el.sceneEl.systems.building?.removeRoom(this.el);
+    this.el.sceneEl.systems['room-building']?.removeRoom(this.el);
   }
 });

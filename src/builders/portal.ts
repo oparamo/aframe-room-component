@@ -31,7 +31,7 @@ const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, { from, to, 
   const corners = surfaceCorners(type, from, to);
   const positions = corners.flatMap(vertex => toChildLocal(vertex, childEl));
   const { uvScale } = dataOf(childEl, type);
-  applyMesh({ el: childEl, objectName: type, geom: surfaceGeometry({ type, corners, positions, uvScale }), fallbackMaterial });
+  applyMesh({ el: childEl, geom: surfaceGeometry({ type, corners, positions, uvScale }), fallbackMaterial });
 
   const className = SURFACE_CLASSES[type];
   if (className) childEl.classList.add(className);
@@ -60,7 +60,7 @@ const buildPortal = (portalEl: PortalEl, state: BuildState) => {
   const from = endCorners(portalEl, { end: 'from', el: data.from }, state);
   const to = endCorners(portalEl, { end: 'to', el: data.to }, state);
   if (!from || !to || !isOpening(data.from)) {
-    for (const { childEl, type } of surfacesOf(portalEl)) removeMesh(childEl, type);
+    for (const { childEl } of surfacesOf(portalEl)) removeMesh(childEl);
     return;
   }
 

@@ -28,7 +28,7 @@ const makeLinkedPair = () => {
   return { system, near, far, portal };
 };
 
-describe('building system', () => {
+describe('room-building system', () => {
   describe('init', () => {
     it('starts with nothing pending or dirty', () => {
       // Act
@@ -276,7 +276,7 @@ describe('building system', () => {
       system.removeRoom(makeSquareRoom());
 
       // Assert
-      expect(emit).toHaveBeenCalledExactlyOnceWith('room-building-complete');
+      expect(emit).toHaveBeenCalledExactlyOnceWith('room-building-complete', { rooms: [], portals: [] });
     });
   });
 
@@ -437,6 +437,27 @@ describe('building system', () => {
       expect(errorSpy).toHaveBeenCalledExactlyOnceWith('<a-room> failed to build and was skipped.', broken, error);
       expect(mockBuildRoom).toHaveBeenLastCalledWith(fine, system.state);
       expect(mockBuildPortal).toHaveBeenCalledWith(portal, system.state);
+    });
+
+    it('lists the rooms and portals it built in room-building-complete', () => {
+      // Arrange
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      vi.mocked(mockBuildRoom).mockImplementationOnce(() => {
+        throw new Error('bad wall');
+      });
+      const system = makeSystem();
+      const emit = vi.spyOn(system.el, 'emit');
+      const [broken, fine] = [makeSquareRoom(), makeSquareRoom()];
+      const portal = makePortal();
+      system.buildRoom(broken);
+      system.buildRoom(fine);
+      system.buildPortal(portal);
+
+      // Act
+      system.tick();
+
+      // Assert
+      expect(emit).toHaveBeenCalledExactlyOnceWith('room-building-complete', { rooms: [fine], portals: [portal] });
     });
 
     it('starts the next pass clean after a build throws', () => {

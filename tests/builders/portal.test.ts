@@ -125,7 +125,7 @@ describe('buildPortal', () => {
     buildPortal(portal, state);
 
     // Assert
-    expect(floorChild.getObject3D('floor')).toBeUndefined();
+    expect(floorChild.getObject3D('mesh')).toBeUndefined();
   });
 
   it('skips children with no matching type component', () => {

@@ -4,6 +4,7 @@ import type { WallEl } from '../../src/types/elements';
 import { capOf, wallsOf } from '../../src/builders/helpers/structure';
 import { buildRoom } from '../../src/builders/room';
 import { assertDefined } from '../../src/utils/assert';
+import { COLLIDABLE } from '../../src/utils/surfaceClasses';
 import { meshOf, worldCenter, worldNormals } from '../utils/meshes';
 import {
   makeBuildState, makeOpening, makePortal, makeRoom, makeSquareRoom, makeTransformedRoom, makeWall
@@ -189,7 +190,7 @@ describe('buildRoom', () => {
 
       // Assert
       expect(blockerOf(openingEl)?.visible).toBe(false);
-      expect((openingEl.classList as unknown as Set<string>).has('collidable')).toBe(true);
+      expect((openingEl.classList as unknown as Set<string>).has(COLLIDABLE)).toBe(true);
     });
 
     it('spans the opening in world space', () => {

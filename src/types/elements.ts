@@ -33,7 +33,7 @@ interface ComponentDataMap extends Record<SurfaceType, SurfaceData> {
   portal: PortalData;
 }
 
-// What the builders read and write between passes. The building system owns it.
+// What the builders read and write between passes. The room-building system owns it.
 interface BuildState {
   // The portal using each opening, kept current by the portal component.
   portalOf: WeakMap<OpeningEl, PortalEl>;
@@ -69,7 +69,7 @@ interface BuildingSystem extends System<BuildingScene> {
 }
 
 interface BuildingScene extends Scene {
-  systems: { building?: BuildingSystem };
+  systems: { 'room-building'?: BuildingSystem };
 }
 
 // The public rebuild() of the room and portal components.

@@ -90,24 +90,22 @@ const firstHit = (page: Page, { from, toward, selector }: Ray & { selector: stri
 const wallDistance = async (page: Page, ray: Ray) =>
   (await firstHit(page, { ...ray, selector: `.${COLLIDABLE}` }))?.distance ?? null;
 
-interface MeshRef { selector: string; objectName: string }
-
-// How far a mesh's texture coordinates reach in U and V. With uv-scale 1 that's its size in meters.
-const uvSpan = (page: Page, { selector, objectName }: MeshRef) => page.evaluate(({ elSelector, name }) => {
-  const mesh = document.querySelector<Entity>(elSelector)?.getObject3D(name) as Mesh | undefined;
-  if (!mesh) throw new Error(`No ${name} mesh on ${elSelector}.`);
+// How far the element's mesh's texture coordinates reach in U and V. With uv-scale 1 that's its size in meters.
+const uvSpan = (page: Page, selector: string) => page.evaluate((elSelector) => {
+  const mesh = document.querySelector<Entity>(elSelector)?.getObject3D('mesh') as Mesh | undefined;
+  if (!mesh) throw new Error(`No mesh on ${elSelector}.`);
   const uv = mesh.geometry.getAttribute('uv');
   const us = Array.from({ length: uv.count }, (_, i) => uv.getX(i));
   const vs = Array.from({ length: uv.count }, (_, i) => uv.getY(i));
   // Rounded so float noise doesn't count.
   return [Math.max(...us) - Math.min(...us), Math.max(...vs) - Math.min(...vs)]
     .map(span => Math.round(span * 1000) / 1000);
-}, { elSelector: selector, name: objectName });
+}, selector);
 
-// The distinct directions a mesh's faces point in the world, rounded so float noise doesn't count.
-const worldNormals = (page: Page, { selector, objectName }: MeshRef) => page.evaluate(({ elSelector, name }) => {
-  const mesh = document.querySelector<Entity>(elSelector)?.getObject3D(name) as Mesh | undefined;
-  if (!mesh) throw new Error(`No ${name} mesh on ${elSelector}.`);
+// The distinct directions the element's mesh's faces point in the world, rounded so float noise doesn't count.
+const worldNormals = (page: Page, selector: string) => page.evaluate((elSelector) => {
+  const mesh = document.querySelector<Entity>(elSelector)?.getObject3D('mesh') as Mesh | undefined;
+  if (!mesh) throw new Error(`No mesh on ${elSelector}.`);
   const normals = mesh.geometry.getAttribute('normal');
   const normalMatrix = new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld);
   const rounded = Array.from({ length: normals.count }, (_, i) => new THREE.Vector3()
@@ -117,7 +115,7 @@ const worldNormals = (page: Page, { selector, objectName }: MeshRef) => page.eva
     .map(n => Math.round(n * 1000) / 1000 + 0)
     .join(' '));
   return [...new Set(rounded)];
-}, { elSelector: selector, name: objectName });
+}, selector);
 
 // The meshes under each element the selector matches, children's included.
 const meshCounts = (page: Page, selector: string) => page.evaluate(
@@ -132,7 +130,7 @@ const meshCounts = (page: Page, selector: string) => page.evaluate(
 );
 
 const floorVertexCount = (page: Page, roomId: string) => page.evaluate((id) => {
-  const floor = document.querySelector<Entity>(`#${id} a-floor`)?.getObject3D('floor') as Mesh | undefined;
+  const floor = document.querySelector<Entity>(`#${id} a-floor`)?.getObject3D('mesh') as Mesh | undefined;
   return floor?.geometry.attributes.position?.count;
 }, roomId);
 
@@ -335,7 +333,7 @@ test.describe('the yellow room', () => {
 
   test('halves its floor tiles and restores them', async ({ page }) => {
     const label = 'Halve floor tiles';
-    const floor = { selector: '#yellowFloor', objectName: 'floor' };
+    const floor = '#yellowFloor';
     await openDemo(page);
 
     const before = await uvSpan(page, floor);
@@ -347,6 +345,28 @@ test.describe('the yellow room', () => {
     // Twice the texture coordinates over the same floor draws each tile half the size.
     expect(halved).toEqual(before.map(span => 2 * span));
     expect(restored).toEqual(before);
+  });
+
+  test('paints its left wall orange and back, through the wall\'s material', async ({ page }) => {
+    const label = 'Paint the left wall orange';
+    const wallColor = () => page.evaluate(() => {
+      const wallEl = document.getElementById('yellowLeftWall') as Entity;
+      const mesh = wallEl.getObject3D('mesh') as Mesh;
+      const material = mesh.material as MeshStandardMaterial;
+      return { color: material.color.getHexString(), fromWall: material === wallEl.components.material?.material };
+    });
+    await openDemo(page);
+
+    const before = await wallColor();
+    await clickCheck(page, label);
+    const painted = await wallColor();
+    await clickCheck(page, label);
+    const restored = await wallColor();
+
+    // Until painted, the wall shows the room's material.
+    expect(before).toEqual({ color: 'ffe680', fromWall: false });
+    expect(painted).toEqual({ color: 'f77f00', fromWall: true });
+    expect(restored).toEqual({ color: 'ffe680', fromWall: true });
   });
 });
 
@@ -479,11 +499,9 @@ test.describe('the info spheres', () => {
   });
 
   test('uv-scale 1 tiles a texture per meter, and material repeat stretches it', async () => {
-    const wall = { selector: '#greenTexturedWall', objectName: 'wallMesh' };
-
-    const span = await uvSpan(page, wall);
+    const span = await uvSpan(page, '#greenTexturedWall');
     const repeat = await page.evaluate(() => {
-      const mesh = (document.getElementById('greenTexturedWall') as Entity).getObject3D('wallMesh') as Mesh;
+      const mesh = (document.getElementById('greenTexturedWall') as Entity).getObject3D('mesh') as Mesh;
       return (mesh.material as MeshStandardMaterial).map?.repeat.toArray();
     });
 
@@ -493,7 +511,7 @@ test.describe('the info spheres', () => {
   });
 
   test('an outside room\'s ceiling is a roof that faces up', async () => {
-    const normals = await worldNormals(page, { selector: '#limeRoom > a-ceiling', objectName: 'ceiling' });
+    const normals = await worldNormals(page, '#limeRoom > a-ceiling');
 
     expect(normals).toEqual(['0 1 0']);
   });
@@ -521,7 +539,7 @@ test.describe('the info spheres', () => {
   });
 
   test('a portal\'s surfaces tile their texture per meter', async () => {
-    const span = await uvSpan(page, { selector: 'a-portal[from="#magentaDoor"] > a-floor', objectName: 'floor' });
+    const span = await uvSpan(page, 'a-portal[from="#magentaDoor"] > a-floor');
 
     // The tunnel is 1.2m wide and 1m deep.
     expect(span.toSorted()).toEqual([1, 1.2]);

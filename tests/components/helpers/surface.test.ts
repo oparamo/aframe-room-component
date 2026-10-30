@@ -7,7 +7,7 @@ import { makeEl } from '../../utils/mocks';
 
 afterEach(() => vi.restoreAllMocks());
 
-const definition = surfaceComponent('floor', 'a-room', 'a-portal');
+const definition = surfaceComponent('a-room', 'a-portal');
 
 // A floor in a room whose rebuild the test can watch.
 const makeFloor = ({ parentTag = 'a-room' } = {}) => {
@@ -63,7 +63,7 @@ describe('surfaceComponent', () => {
       // Arrange
       const { comp, rebuild } = makeFloor();
       const mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
-      comp.el.setObject3D('floor', mesh);
+      comp.el.setObject3D('mesh', mesh);
       const disposed = vi.fn();
       mesh.geometry.addEventListener('dispose', disposed);
 
@@ -71,7 +71,7 @@ describe('surfaceComponent', () => {
       definition.remove?.call(comp);
 
       // Assert
-      expect(comp.el.getObject3D('floor')).toBeUndefined();
+      expect(comp.el.getObject3D('mesh')).toBeUndefined();
       expect(disposed).toHaveBeenCalledOnce();
       expect(rebuild).toHaveBeenCalledOnce();
     });
@@ -80,7 +80,7 @@ describe('surfaceComponent', () => {
       // Arrange
       const { comp } = makeFloor();
       const mesh: Mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
-      comp.el.setObject3D('floor', mesh);
+      comp.el.setObject3D('mesh', mesh);
       const disposed = vi.fn();
       [mesh.material].flat()[0]?.addEventListener('dispose', disposed);
 

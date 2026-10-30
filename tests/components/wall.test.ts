@@ -109,7 +109,7 @@ describe('wall', () => {
       const comp = makeWallComp({ parentComponents: { room: { rebuild } } });
       registeredComponent('wall').init.call(comp);
       const mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
-      comp.el.setObject3D('wallMesh', mesh);
+      comp.el.setObject3D('mesh', mesh);
       const disposed = vi.fn();
       mesh.geometry.addEventListener('dispose', disposed);
 
@@ -117,7 +117,7 @@ describe('wall', () => {
       registeredComponent('wall').remove.call(comp);
 
       // Assert
-      expect(comp.el.getObject3D('wallMesh')).toBeUndefined();
+      expect(comp.el.getObject3D('mesh')).toBeUndefined();
       expect(disposed).toHaveBeenCalledOnce();
       expect(rebuild).toHaveBeenCalledOnce();
     });

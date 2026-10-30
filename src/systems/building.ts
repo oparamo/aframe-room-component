@@ -36,7 +36,7 @@ const buildSafely = (el: Entity, build: () => void) => {
   }
 };
 
-AFRAME.registerSystem<BuildingSystem>('building', {
+AFRAME.registerSystem<BuildingSystem>('room-building', {
   init: function () {
     this.buildPending = false;
     this.dirtyPortals = new Set();
@@ -135,7 +135,7 @@ AFRAME.registerSystem<BuildingSystem>('building', {
     }));
     this._recordBuilt(builtRooms, builtPortals);
 
-    this.el.emit('room-building-complete');
+    this.el.emit('room-building-complete', { rooms: builtRooms, portals: builtPortals });
   },
   // Shows a room the system hid, once it has built. A room hidden by its own markup stays hidden.
   _show: function (roomEl) {

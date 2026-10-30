@@ -1,6 +1,6 @@
 import type { Component } from '../types/aframe';
 import type { WallData, WallEl } from '../types/elements';
-import { removeMesh, WALL_MESH } from '../builders/helpers/mesh';
+import { removeMesh } from '../builders/helpers/mesh';
 import { checkParent, rebuildParent } from './helpers/hierarchy';
 import { isTransformChange } from './helpers/transforms';
 
@@ -26,12 +26,12 @@ AFRAME.registerComponent<WallComponent>('wall', {
   },
   // Catches moves that bypass setAttribute.
   tick: function () {
-    if (this.el.sceneEl.systems.building?.hasWallMoved(this.el)) rebuildParent(this.el);
+    if (this.el.sceneEl.systems['room-building']?.hasWallMoved(this.el)) rebuildParent(this.el);
   },
   // A-Frame calls this when the wall leaves the document, so the room rebuilds without it.
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
-    removeMesh(this.el, WALL_MESH);
+    removeMesh(this.el);
     rebuildParent(this.el);
   }
 });

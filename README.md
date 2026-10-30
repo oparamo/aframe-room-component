@@ -63,15 +63,15 @@ import '@oparamo/aframe-room-component';
 
 ### Overview
 
-A set of primitives (also usable as components) for laying out rooms connected by doors in A-Frame. Attributes in *italics* are material/height shorthands inherited from the parent element.
+A set of primitives for laying out rooms connected by doors in A-Frame. Attributes in *italics* are material/height shorthands inherited from the parent element.
 
-| Primitive | Component | Purpose | Attributes |
-| - | - | - | - |
-| `a-room` | `room` | Contains a set of walls and other objects. | `position`, `outside`, `height`, `width`, `length`, *`material`* |
-| `a-wall` | `wall` | Marks one corner of the room; the wall runs from it to a neighboring corner. | `position`, `height`, `uv-scale`, *`material`* |
-| `a-opening` | `opening` | Marks a wall so a portal can connect to it. | (none) |
-| `a-portal` | `portal` | Connects two openings and positions them along their walls. | `from`, `to`, `position`, `width`, `height`, `floor-height` |
-| `a-floor`, `a-ceiling`, `a-sides` | `floor`, `ceiling`, `sides` | Attach materials to room/portal surfaces. | `uv-scale`, *`material`* |
+| Primitive | Purpose | Attributes |
+| - | - | - |
+| `a-room` | Contains a set of walls and other objects. | `position`, `outside`, `height`, `width`, `length`, *`material`* |
+| `a-wall` | Marks one corner of the room; the wall runs from it to a neighboring corner. | `position`, `height`, `uv-scale`, *`material`* |
+| `a-opening` | Marks a wall so a portal can connect to it. | (none) |
+| `a-portal` | Connects two openings and positions them along their walls. | `from`, `to`, `position`, `width`, `height`, `floor-height` |
+| `a-floor`, `a-ceiling`, `a-sides` | Attach materials to room/portal surfaces. | `uv-scale`, *`material`* |
 
 ### Hierarchy
 
@@ -91,7 +91,7 @@ Markup that breaks these rules doesn't stop the scene. The element is skipped an
 
 ### Shorthands
 
-If an `a-wall` has no `material` component, it inherits from its parent `a-room`. If an `a-floor`, `a-ceiling`, or `a-sides` has no `material`, it inherits in order from: its parent `a-portal`, then the `from` opening's wall, then the `from` opening's room.
+If an `a-wall` has no `material` component, it inherits from its parent `a-room`. If an `a-floor`, `a-ceiling`, or `a-sides` has no `material`, it inherits in order from: its parent `a-portal`, then the `from` opening's wall, then the `from` opening's room. A `material` set on an element at runtime, including one that inherited until then, applies to its mesh right away.
 
 If an `a-wall` has no `height` attribute, it inherits from its parent `a-room`'s `height`. The default room height is `2.4m`.
 
@@ -164,6 +164,14 @@ roomEl.components.room.rebuild();
 
 `portalEl.components.portal.rebuild()` does the same for a portal and the rooms it cuts into.
 
+After each pass the scene emits `room-building-complete`. Its `detail.rooms` and `detail.portals` list the `a-room` and `a-portal` elements the pass built:
+
+```js
+sceneEl.addEventListener('room-building-complete', ({ detail }) => {
+  console.log(`Built ${detail.rooms.length} rooms and ${detail.portals.length} portals.`);
+});
+```
+
 ## Walking collision
 
 Add `room-collision` to any entity that has a locomotion control to prevent the player from walking through walls. It stops the player at walls, slides them along a wall they walk into at an angle, and keeps them on the floor, including through doorways and between floors at different heights. Because it reads the entity's position change each tick rather than intercepting key events, it works alongside any control that moves the entity: `wasd-controls`, gamepad controls, mobile joystick controls, VR thumbstick locomotion, and others.
@@ -187,6 +195,19 @@ Add `room-collision` to any entity that has a locomotion control to prevent the 
 | Property | Default | Description |
 | - | - | - |
 | `radius` | `0.4` | Collision buffer distance in meters. Increase to stop farther from walls. |
+
+## Public API
+
+These are the parts a release only changes in a major version:
+
+- The primitives and attributes in the [overview](#overview).
+- `rebuild()` on `roomEl.components.room` and `portalEl.components.portal`.
+- The `room-building-complete` event and its `detail.rooms` and `detail.portals`.
+- `room-collision` and its properties.
+- The `room-collidable` and `room-walkable` classes. Builds put `room-collidable` on walls, portal sides and window openings, and `room-walkable` on the floors of rooms and portals. `room-collision` blocks on the meshes of every element with `room-collidable` and stands the player on those with `room-walkable`, so your own entities can take part too. It looks for them when the scene loads and after each build pass.
+- The `mesh` key: each wall, floor, ceiling and sides element keeps its mesh at `el.getObject3D('mesh')`, where A-Frame's `material` component and other components look for it.
+
+Anything else, such as the components' names, their internal state and the system that schedules builds, can change in any release.
 
 ## Performance
 

@@ -6,6 +6,7 @@ import type {
   BuildingEl, BuildingScene, BuildingSystem, BuildState, OpeningEl, PortalEl, RoomEl, WallEl
 } from '../../src/types/elements';
 import type { OpeningCorners } from '../../src/types/geometry';
+import { COLLIDABLE } from '../../src/utils/surfaceClasses';
 
 // Data shapes are checked a few levels down; deeper than that (and for functions) anything goes,
 // which keeps DOM-sized types such as HTMLElement from blowing the compiler's depth limit.
@@ -261,7 +262,7 @@ const makeTwoRooms = () => {
 
 const makeSystem = () => {
   const system = {
-    ...registeredSystem('building'),
+    ...registeredSystem('room-building'),
     el: { emit: () => {} }
   } as unknown as BuildingSystem & { init(): void };
   system.init();
@@ -283,7 +284,7 @@ const BUILDING_METHODS = [
 // A scene whose building system is all stubs, apart from those the test passes.
 const makeSceneEl = ({ building = {} }: SceneOptions = {}) => {
   const stubs = Object.fromEntries(BUILDING_METHODS.map(name => [name, vi.fn()]));
-  return { systems: { building: { ...stubs, ...building } } } as unknown as BuildingScene;
+  return { systems: { 'room-building': { ...stubs, ...building } } } as unknown as BuildingScene;
 };
 
 // Listeners the element mock captured, keyed by event name.
@@ -380,7 +381,7 @@ const makeCollisionEl = ({
       _listeners: {} as ListenerLog['_listeners'],
       addEventListener (event: string, cb: EventListener) { this._listeners[event] = cb; },
       removeEventListener () {},
-      querySelectorAll: (sel: string) => sel === '.collidable' ? wallCollidables : floorCollidables
+      querySelectorAll: (sel: string) => sel === `.${COLLIDABLE}` ? wallCollidables : floorCollidables
     }
   } as unknown as Entity & { sceneEl: ListenerLog };
 };
