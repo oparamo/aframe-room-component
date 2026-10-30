@@ -69,16 +69,55 @@ const clickCheckAndRebuild = async (page: Page, label: string) => {
   await page.waitForFunction(before => window.buildCount > before, builds);
 };
 
-// How far a level ray travels before it meets a wall, or null if it meets none.
-const wallDistance = (page: Page, { from, toward }: { from: Point; toward: Point }) => page.evaluate(
-  ({ origin, direction, className }) => {
-    const walls = [...document.querySelectorAll<Entity>(`.${className}`)]
+interface Ray { from: Point; toward: Point }
+
+// Where a ray first meets a mesh set directly on the matched elements: how far it went and the world
+// normal of the face it hit. Null if it meets none.
+const firstHit = (page: Page, { from, toward, selector }: Ray & { selector: string }) => page.evaluate(
+  ({ origin, direction, elSelector }) => {
+    const meshes = [...document.querySelectorAll<Entity>(elSelector)]
       .flatMap(el => Object.values(el.object3DMap).filter(object => object instanceof THREE.Mesh));
     const ray = new THREE.Raycaster(new THREE.Vector3(...origin), new THREE.Vector3(...direction).normalize());
-    return ray.intersectObjects(walls, false)[0]?.distance ?? null;
+    const [hit] = ray.intersectObjects(meshes, false);
+    if (!hit?.face) return null;
+    const normal = hit.face.normal.clone().applyNormalMatrix(new THREE.Matrix3().getNormalMatrix(hit.object.matrixWorld));
+    return { distance: hit.distance, normal: normal.toArray().map(n => Math.round(n * 1000) / 1000 + 0) };
   },
-  { origin: from, direction: toward, className: COLLIDABLE }
+  { origin: from, direction: toward, elSelector: selector }
 );
+
+// How far a ray travels before it meets a wall, or null if it meets none.
+const wallDistance = async (page: Page, ray: Ray) =>
+  (await firstHit(page, { ...ray, selector: `.${COLLIDABLE}` }))?.distance ?? null;
+
+interface MeshRef { selector: string; objectName: string }
+
+// How far a mesh's texture coordinates reach in U and V. With uv-scale 1 that's its size in meters.
+const uvSpan = (page: Page, { selector, objectName }: MeshRef) => page.evaluate(({ elSelector, name }) => {
+  const mesh = document.querySelector<Entity>(elSelector)?.getObject3D(name) as Mesh | undefined;
+  if (!mesh) throw new Error(`No ${name} mesh on ${elSelector}.`);
+  const uv = mesh.geometry.getAttribute('uv');
+  const us = Array.from({ length: uv.count }, (_, i) => uv.getX(i));
+  const vs = Array.from({ length: uv.count }, (_, i) => uv.getY(i));
+  // Rounded so float noise doesn't count.
+  return [Math.max(...us) - Math.min(...us), Math.max(...vs) - Math.min(...vs)]
+    .map(span => Math.round(span * 1000) / 1000);
+}, { elSelector: selector, name: objectName });
+
+// The distinct directions a mesh's faces point in the world, rounded so float noise doesn't count.
+const worldNormals = (page: Page, { selector, objectName }: MeshRef) => page.evaluate(({ elSelector, name }) => {
+  const mesh = document.querySelector<Entity>(elSelector)?.getObject3D(name) as Mesh | undefined;
+  if (!mesh) throw new Error(`No ${name} mesh on ${elSelector}.`);
+  const normals = mesh.geometry.getAttribute('normal');
+  const normalMatrix = new THREE.Matrix3().getNormalMatrix(mesh.matrixWorld);
+  const rounded = Array.from({ length: normals.count }, (_, i) => new THREE.Vector3()
+    .fromBufferAttribute(normals, i)
+    .applyNormalMatrix(normalMatrix)
+    .toArray()
+    .map(n => Math.round(n * 1000) / 1000 + 0)
+    .join(' '));
+  return [...new Set(rounded)];
+}, { elSelector: selector, name: objectName });
 
 // The meshes under each element the selector matches, children's included.
 const meshCounts = (page: Page, selector: string) => page.evaluate(
@@ -263,6 +302,87 @@ test('opens and closes the doorway from the yellow room to the blue room', async
   expect(closedAgain).toBeCloseTo(1);
 });
 
+test.describe('the yellow room', () => {
+  test('pushes its back wall 2m out and back', async ({ page }) => {
+    const label = 'Push back wall 2m';
+    const ray = { from: [-3, 1, -4], toward: [0, 0, -1] } satisfies Ray;
+    await openDemo(page);
+
+    const before = await wallDistance(page, ray);
+    await clickCheckAndRebuild(page, label);
+    const pushed = await wallDistance(page, ray);
+    await clickCheckAndRebuild(page, label);
+    const back = await wallDistance(page, ray);
+
+    expect(before).toBeCloseTo(3);
+    expect(pushed).toBeCloseTo(5);
+    expect(back).toBeCloseTo(3);
+  });
+
+  test('raises its back corner 1m above the room and lowers it again', async ({ page }) => {
+    const label = 'Raise corner 1m';
+    const wallTop = async () => (await surfaces(page, '#yellowBackWall'))[0]?.box[4];
+    await openDemo(page);
+
+    const before = await wallTop();
+    await clickCheckAndRebuild(page, label);
+    const raised = await wallTop();
+    await clickCheckAndRebuild(page, label);
+    const lowered = await wallTop();
+
+    expect([before, raised, lowered]).toEqual([3, 4, 3]);
+  });
+
+  test('halves its floor tiles and restores them', async ({ page }) => {
+    const label = 'Halve floor tiles';
+    const floor = { selector: '#yellowFloor', objectName: 'floor' };
+    await openDemo(page);
+
+    const before = await uvSpan(page, floor);
+    await clickCheckAndRebuild(page, label);
+    const halved = await uvSpan(page, floor);
+    await clickCheckAndRebuild(page, label);
+    const restored = await uvSpan(page, floor);
+
+    // Twice the texture coordinates over the same floor draws each tile half the size.
+    expect(halved).toEqual(before.map(span => 2 * span));
+    expect(restored).toEqual(before);
+  });
+});
+
+// A ray from the navy room's center through its door, and how far away the door is.
+const throughNavyDoor = async (page: Page) => {
+  const { ray, doorDistance } = await page.evaluate(() => {
+    const roomEl = document.getElementById('navyRoom') as Entity;
+    const doorEl = document.querySelector<Entity>('a-portal[from="#navyDoor"]');
+    if (!doorEl) throw new Error('No portal from #navyDoor.');
+    roomEl.object3D.updateMatrixWorld(true);
+    const center = roomEl.object3D.localToWorld(new THREE.Vector3(1.5, 1, 1.5));
+    const door = doorEl.object3D.getWorldPosition(new THREE.Vector3()).setY(1);
+    const distance = door.distanceTo(center);
+    return { ray: { from: center.toArray(), toward: door.sub(center).toArray() }, doorDistance: distance };
+  });
+  return { doorDistance, wallDistance: await wallDistance(page, ray) };
+};
+
+test('grows the navy building 1.5x with its door still open', async ({ page }) => {
+  const floor = '#navyRoom > a-floor';
+  const area = ({ box: [minX = 0, , minZ = 0, maxX = 0, , maxZ = 0] }: { box: number[] }) =>
+    (maxX - minX) * (maxZ - minZ);
+  await openDemo(page);
+
+  const [before] = await surfaces(page, floor);
+  const doorBefore = await throughNavyDoor(page);
+  await clickCheckAndRebuild(page, 'Grow the navy building 1.5x');
+  const [after] = await surfaces(page, floor);
+  const doorAfter = await throughNavyDoor(page);
+
+  expect(before && after && area(after) / area(before)).toBeCloseTo(2.25);
+  // Through an open door the ray leaves the building and only stops well past it.
+  expect(doorBefore.wallDistance).toBeGreaterThan(doorBefore.doorDistance + 1);
+  expect(doorAfter.wallDistance).toBeGreaterThan(doorAfter.doorDistance + 1);
+});
+
 test.describe('room-collision', () => {
   test('stops the player at a wall', async ({ page }) => {
     await openDemo(page);
@@ -280,5 +400,130 @@ test.describe('room-collision', () => {
     await movePlayer(page, [-3, 1.6, -3]);
 
     expect((await playerPosition(page))[2]).toBeCloseTo(-3);
+  });
+
+  test('turns off and on with its toggle', async ({ page }) => {
+    const intoWall = async () => {
+      await movePlayer(page, [0, 1.6, 2]);
+      await movePlayer(page, [0, 1.6, -1]);
+      return (await playerPosition(page))[2];
+    };
+    await openDemo(page);
+
+    await clickCheck(page, 'Disable wall collision');
+    const whileOff = await intoWall();
+    await clickCheck(page, 'Enable wall collision');
+    const whileOn = await intoWall();
+
+    expect([whileOff, whileOn]).toEqual([-1, 2]);
+  });
+
+  test('stops the player at a window', async ({ page }) => {
+    await openDemo(page);
+    await movePlayer(page, [3, 1.6, 2]);
+
+    await movePlayer(page, [3, 1.6, -1]);
+
+    expect((await playerPosition(page))[2]).toBeCloseTo(2);
+  });
+});
+
+// The white spheres' claims. Reading the scene changes nothing, so they share one page load.
+test.describe('the info spheres', () => {
+  test.describe.configure({ mode: 'serial' });
+  let page: Page;
+
+  test.beforeAll(async ({ browser }, testInfo) => {
+    const { baseURL, viewport } = testInfo.project.use;
+    page = await browser.newPage({ baseURL, viewport });
+    await openDemo(page);
+  });
+
+  test.afterAll(() => page.close());
+
+  test('an outside room\'s walls face out', async () => {
+    const hit = await firstHit(page, { from: [0, 1, 3], toward: [0, 0, -1], selector: '#redShell > a-wall' });
+
+    expect(hit?.distance).toBeCloseTo(3);
+    expect(hit?.normal).toEqual([0, 0, 1]);
+  });
+
+  test('a window keeps the wall under its sill solid', async () => {
+    const toward = [0, 0, -1] satisfies Point;
+    const walls = 'a-wall';
+
+    const belowSill = await firstHit(page, { from: [3, 0.5, 3], toward, selector: walls });
+    const throughWindow = await firstHit(page, { from: [3, 1.4, 3], toward, selector: walls });
+
+    expect(belowSill?.distance).toBeCloseTo(3);
+    expect(throughWindow?.distance).toBeGreaterThan(3);
+  });
+
+  test('rooms sharing a wall plane get a doorway with no depth', async () => {
+    const [portal] = await meshCounts(page, 'a-portal[from="#blueBack"]');
+
+    // From the blue room, through the doorway, to the green room's back wall.
+    const distance = await wallDistance(page, { from: [3, 1, -5], toward: [0, 0, -1] });
+
+    expect(portal?.count).toBe(0);
+    expect(distance).toBeCloseTo(7);
+  });
+
+  test('a wall\'s children sit in its own space', async () => {
+    const boxes = await page.evaluate(() => [...document.querySelectorAll<Entity>('#greenBackWall > a-box')]
+      .map(boxEl => boxEl.object3D.getWorldPosition(new THREE.Vector3()).toArray()
+        .map(n => Math.round(n * 1000) / 1000)));
+
+    // The wall starts at (1, 0, -12) and runs along x, so each box is offset from that corner.
+    expect(boxes).toEqual([[2, 1.4, -12], [3.5, 1.7, -12], [5, 1.4, -12]]);
+  });
+
+  test('uv-scale 1 tiles a texture per meter, and material repeat stretches it', async () => {
+    const wall = { selector: '#greenTexturedWall', objectName: 'wallMesh' };
+
+    const span = await uvSpan(page, wall);
+    const repeat = await page.evaluate(() => {
+      const mesh = (document.getElementById('greenTexturedWall') as Entity).getObject3D('wallMesh') as Mesh;
+      return (mesh.material as MeshStandardMaterial).map?.repeat.toArray();
+    });
+
+    // The wall is 5m long and 3m high.
+    expect(span).toEqual([5, 3]);
+    expect(repeat).toEqual([0.5, 0.5]);
+  });
+
+  test('an outside room\'s ceiling is a roof that faces up', async () => {
+    const normals = await worldNormals(page, { selector: '#limeRoom > a-ceiling', objectName: 'ceiling' });
+
+    expect(normals).toEqual(['0 1 0']);
+  });
+
+  test('a concave room\'s floor and ceiling cover only the U', async () => {
+    const arm = [-21, 1, -6] satisfies Point;
+    const notch = [-18, 1, -6] satisfies Point;
+    const down = [0, -1, 0] satisfies Point;
+    const up = [0, 1, 0] satisfies Point;
+    const floor = '#magentaRoom > a-floor';
+    const ceiling = '#magentaRoom > a-ceiling';
+
+    const hits = await Promise.all([
+      firstHit(page, { from: arm, toward: down, selector: floor }),
+      firstHit(page, { from: notch, toward: down, selector: floor }),
+      firstHit(page, { from: arm, toward: up, selector: ceiling }),
+      firstHit(page, { from: notch, toward: up, selector: ceiling })
+    ]);
+
+    const [armFloor, notchFloor, armCeiling, notchCeiling] = hits;
+    expect(armFloor?.distance).toBeCloseTo(1);
+    expect(notchFloor).toBeNull();
+    expect(armCeiling?.distance).toBeCloseTo(1.8);
+    expect(notchCeiling).toBeNull();
+  });
+
+  test('a portal\'s surfaces tile their texture per meter', async () => {
+    const span = await uvSpan(page, { selector: 'a-portal[from="#magentaDoor"] > a-floor', objectName: 'floor' });
+
+    // The tunnel is 1.2m wide and 1m deep.
+    expect(span.toSorted()).toEqual([1, 1.2]);
   });
 });
