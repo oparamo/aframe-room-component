@@ -267,6 +267,18 @@ describe('room-collision', () => {
       expect(rig.el.object3D.position.toArray()).toEqual([expect.closeTo(1), expect.closeTo(0.2), 0]);
     });
 
+    it('goes back to the height it started at when it steps off onto open ground', () => {
+      // Arrange
+      const rig = makeRig({ surfaces: [floorAt(0.2, { x: 1, size: 1 })] });
+      stepBy(rig, [1, 0]);
+
+      // Act
+      stepBy(rig, [2, 0]);
+
+      // Assert
+      expect(rig.el.object3D.position.toArray()).toEqual([expect.closeTo(3), expect.closeTo(0), 0]);
+    });
+
     it('does not climb a floor above the step-height', () => {
       // Arrange
       const rig = makeRig({ surfaces: [floorAt(0.5, { x: 1, size: 1 })] });

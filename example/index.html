@@ -29,9 +29,9 @@
     </a-assets>
 
     <!-- The sky fits inside the ground, so the grass reaches the horizon in every direction. demo.js paints
-      the grid. -->
+      the grid. The player stands on the grass, so a step down from a doorway lands on it. -->
     <a-sky radius="80" src="#skyTexture"></a-sky>
-    <a-plane id="ground" rotation="-90 0 0" position="0 -0.01 0" height="160" width="160"></a-plane>
+    <a-plane id="ground" rotation="-90 0 0" position="0 -0.01 0" height="160" width="160" room-collidable></a-plane>
 
     <!-- A hidden octagon 65m out keeps the player at least 10m inside the sky. -->
     <a-room id="bounds" visible="false">

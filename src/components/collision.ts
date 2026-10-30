@@ -10,6 +10,8 @@ interface CollisionComponent extends Component<CollisionData> {
   system: CollisionSystem;
   _cameraEl: Entity;
   _eyeHeight: number;
+  // The world height the feet started at, which they fall back to wherever there is no floor below.
+  _groundY: number;
   // The world heights the level rays run at this tick: the torso, and just above the step-height.
   _heights: [number, number];
   _raycaster: Raycaster;
@@ -77,6 +79,7 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
       // In rig mode the rig sits at floor level so no eye-height offset is needed.
       // In direct camera mode snapshot the camera's actual Y as eye height above floor.
       this._eyeHeight = this._cameraEl !== this.el ? 0 : this._cameraEl.object3D.position.y;
+      this._groundY = this.el.object3D.getWorldPosition(this._entityPosition).y - this._eyeHeight;
     };
 
     this.el.sceneEl.addEventListener('loaded', this._onLoaded);
@@ -162,14 +165,13 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
     position.addScaledVector(this._normal, Math.max(0, this.data.radius - gap));
   },
 
-  // How far the feet must rise or fall to stand on the nearest surface below the step-height, or 0 if
-  // there is none.
+  // How far the feet must rise or fall to stand on the nearest surface below the step-height. With none
+  // below, they go back to the height they started at, so a step up isn't kept on open ground.
   _floorLift: function (position, feetY) {
     this._origin.set(position.x, feetY + this.data.stepHeight, position.z);
     this._floorRaycaster.set(this._origin, DOWN);
     const [hit] = this.system.intersect(this._floorRaycaster);
-    if (!hit) return 0;
-    return hit.point.y - feetY;
+    return (hit?.point.y ?? this._groundY) - feetY;
   },
 
   // Moves the entity by a world-space correction, whatever its parent's transform.

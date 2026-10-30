@@ -606,6 +606,23 @@ test.describe('room-collision', () => {
     expect(z - backZ).toBeCloseTo(0.4, 2);
   });
 
+  test('steps the player back down onto the grass outside the stepped door, so the picture window still stops them', async ({ page }) => {
+    // The shell's south wall, where the picture window is, is at z = 3 in the lot.
+    const shellZ = inLot('goldLot', [0, 0, 3])[2];
+    await openDemo(page);
+    await placePlayer(page, inLot('goldLot', [-2, 1.6, 0]));
+
+    // Out through the door, then round to the picture window and into it.
+    const [, outsideY] = await walkSteps(page, { step: [-0.5, 0, 0], count: 8 });
+    await walkSteps(page, { step: [0, 0, 0.5], count: 10 });
+    await walkSteps(page, { step: [0.5, 0, 0], count: 9 });
+    const [, , z] = await walkSteps(page, { step: [0, 0, -0.2], count: 10 });
+
+    // The grass is 1cm below the floors. A blocked step can stop up to one step short of the radius.
+    expect(outsideY).toBeCloseTo(1.59);
+    expect(z - shellZ).toBeGreaterThan(0.39);
+  });
+
   test('stops the player at a window', async ({ page }) => {
     const outside = inLot('redLot', [3, 1.6, 9]);
     await openDemo(page);
