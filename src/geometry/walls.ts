@@ -1,7 +1,6 @@
 import type { Path, Vector3 } from 'three';
 import type { OpeningEdge, OpeningEdges, OpeningSize, WallSpan } from '../types/geometry';
 import { assertDefined } from '../utils/assert';
-import { QUAD } from './helpers/quads';
 import { makePlaneUvs } from './helpers/uvs';
 
 interface WallHeights { start: number; end: number }
@@ -89,19 +88,6 @@ const holePath = ({ left, right }: OpeningEdges) => {
   return hole;
 };
 
-// A quad filling an opening, in the wall's local space.
-const openingQuad = ({ left, right }: OpeningEdges) => {
-  const geom = new THREE.BufferGeometry();
-  geom.setIndex(QUAD);
-  geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
-    left.ptX, left.bottomY, 0,
-    left.ptX, left.topY, 0,
-    right.ptX, right.bottomY, 0,
-    right.ptX, right.topY, 0
-  ]), 3));
-  return geom;
-};
-
 // The wall's face in its local XY plane, from its base to its height at each end, with the
 // openings cut out.
 const wallGeometry = ({ span, holes, uvScale }: WallOptions) => {
@@ -122,7 +108,6 @@ export {
   holePath,
   isClockwise,
   openingEdges,
-  openingQuad,
   openingPlacement,
   rectangleCorners,
   wallAngle,

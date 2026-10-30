@@ -379,14 +379,21 @@ interface CollisionElOptions {
   childCamera?: boolean;
   // The scene finished loading before room-collision was added, so its loaded event never fires.
   sceneLoaded?: boolean;
+  // What the entity sits in; an untransformed object, like the scene, unless given.
+  parent?: Object3D;
 }
 
-interface PlaneMeshOptions { position?: [number, number, number]; rotationX?: number; rotationY?: number }
+interface PlaneMeshOptions {
+  position?: [number, number, number];
+  rotationX?: number;
+  rotationY?: number;
+  size?: [number, number];
+}
 
-// A 10 m square for collision to raycast against. Unrotated, it stands in the xy plane facing +z,
-// and its material draws only that face.
-const makePlaneMesh = ({ position = [0, 0, 0], rotationX = 0, rotationY = 0 }: PlaneMeshOptions = {}) => {
-  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshBasicMaterial());
+// A rectangle, 10 m square unless sized, for collision to raycast against. Unrotated, it stands in the
+// xy plane centered on its position, facing +z, and its material draws only that face.
+const makePlaneMesh = ({ position = [0, 0, 0], rotationX = 0, rotationY = 0, size = [10, 10] }: PlaneMeshOptions = {}) => {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(...size), new THREE.MeshBasicMaterial());
   mesh.position.set(...position);
   mesh.rotation.set(rotationX, rotationY, 0);
   mesh.updateMatrixWorld();
@@ -399,10 +406,12 @@ const makeCollisionEl = ({
   cameraY = 1.6,
   surfaces = [],
   childCamera = false,
-  sceneLoaded = false
+  sceneLoaded = false,
+  parent = new THREE.Object3D()
 }: CollisionElOptions = {}) => {
   const object3D = makeObject3D();
   object3D.position.copy(position);
+  parent.add(object3D);
   const cameraObjEl = childCamera ? { object3D: makeObject3D({ y: cameraY }) } : null;
   if (cameraObjEl) object3D.add(cameraObjEl.object3D);
 
@@ -428,7 +437,7 @@ const loadScene = (el: { sceneEl: ListenerLog }) => {
 };
 
 // A-Frame hands the component the system of the same name.
-const makeCollisionComponent = (el: ReturnType<typeof makeCollisionEl>, data = { radius: 0.4 }) => {
+const makeCollisionComponent = (el: ReturnType<typeof makeCollisionEl>, data = { radius: 0.4, stepHeight: 0.3 }) => {
   const system = el.sceneEl.systems['room-collision'];
   const comp = { ...registeredComponent('room-collision'), el, data, system } as unknown as CollisionComponent & Hooks;
   comp.init.call(comp);

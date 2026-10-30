@@ -235,7 +235,7 @@ addInfo({
 addInfo({
   lot: 'redLot',
   position: '3 2.3 7.6',
-  label: '<a-portal floor-height="0.9"> makes a window. room-collision stops you at torso height.'
+  label: '<a-portal floor-height="0.9"> makes a window. The wall under its sill stops you.'
 });
 
 // Yellow room.
@@ -330,6 +330,31 @@ addInfo({
   lot: 'limeLot',
   position: '0 1 0',
   label: '<a-ceiling> on an outside room is a roof: it faces up, so you see it from above.'
+});
+addInfo({
+  lot: 'limeLot',
+  position: '2.2 1 0',
+  label: 'These 0.6m walls stop you though your torso clears them: room-collision also looks just above '
+    + 'its stepHeight, 0.3m. The roof is out of step reach.'
+});
+
+// Gold building.
+addInfo({
+  lot: 'goldLot',
+  position: '-5.4 2.4 0',
+  label: '<a-portal floor-height="0.2">: a sill no higher than room-collision\'s stepHeight is a step, '
+    + 'so you walk in.'
+});
+addInfo({
+  lot: 'goldLot',
+  position: '0 2.2 3.8',
+  label: 'A window of any size stops you: the wall under a sill above stepHeight blocks the way.'
+});
+addInfo({
+  lot: 'goldLot',
+  position: '2 1.6 -1',
+  label: 'room-collision keeps you its radius, 0.4m, from every wall: walk into a corner, or along a wall '
+    + 'at a shallow angle.'
 });
 
 // Cyan room.
