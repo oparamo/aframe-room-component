@@ -40,16 +40,16 @@ describe('opening', () => {
       const comp = makeOpeningComp({ sceneEl });
       Object.assign(comp.el.parentEl, { parentEl: { components: { room: { rebuild } } } });
       const blocker = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
-      comp.el.setObject3D('blocker', blocker);
+      comp.el.setObject3D('collider', blocker);
       const disposed = vi.fn();
       blocker.geometry.addEventListener('dispose', disposed);
-      [blocker.material].flat()[0]?.addEventListener('dispose', disposed);
 
       // Act
       registeredComponent('opening').remove.call(comp);
 
       // Assert
-      expect(disposed).toHaveBeenCalledTimes(2);
+      expect(comp.el.getObject3D('collider')).toBeUndefined();
+      expect(disposed).toHaveBeenCalledOnce();
       expect(removeOpening).toHaveBeenCalledExactlyOnceWith(comp.el);
       expect(rebuild).toHaveBeenCalledOnce();
     });

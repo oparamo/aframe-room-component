@@ -7,7 +7,23 @@ interface MeshOptions { el: BuildingEl; geom: BufferGeometry; fallbackMaterial?:
 
 // A-Frame's own key for an entity's mesh, where its material component looks for it.
 const MESH = 'mesh';
-const BLOCKER = 'blocker';
+// The invisible, double-sided copy of a surface that room-collision raycasts.
+const COLLIDER = 'collider';
+
+let colliderMaterial: Material | undefined;
+
+// Shared by every collider and never disposed. Mesh.raycast skips a mesh without a material, and
+// DoubleSide makes the surface block from both of its faces, whatever the render material's side.
+const sharedColliderMaterial = () => {
+  colliderMaterial ??= new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
+  return colliderMaterial;
+};
+
+const makeCollider = (geom: BufferGeometry) => {
+  const collider = new THREE.Mesh(geom, sharedColliderMaterial());
+  collider.visible = false;
+  return collider;
+};
 
 const getMaterial = (el: Entity | null | undefined) => el?.components.material?.material;
 
@@ -29,33 +45,62 @@ const applyMesh = ({ el, geom, fallbackMaterial }: MeshOptions) => {
   }
 };
 
-// Takes the element's mesh off it and frees the geometry. The material is left alone, since it
-// belongs to the element's material component, or to whoever assigned it.
-const removeMesh = (el: Entity, objectName = MESH) => {
-  const mesh = el.getObject3D(objectName);
-  if (!isMesh(mesh)) return null;
-  el.removeObject3D(objectName);
+// Gives the element a collider on its mesh's geometry, so it blocks from both sides without another
+// buffer. A rebuild points the existing collider at the new geometry. The builds call it right after
+// applyMesh, so the mesh is there.
+const applyCollider = (el: Entity) => {
+  const mesh = el.getObject3D(MESH) as Mesh;
+  const collider = el.getObject3D(COLLIDER);
+  if (isMesh(collider)) collider.geometry = mesh.geometry;
+  else el.setObject3D(COLLIDER, makeCollider(mesh.geometry));
+};
+
+// Its geometry is the mesh's, so it's left for the mesh to free.
+const removeCollider = (el: Entity) => {
+  if (el.getObject3D(COLLIDER)) el.removeObject3D(COLLIDER);
+};
+
+// Classes the element's surface for room-collision and gives it a collider.
+const enableCollision = (el: Entity, className: string) => {
+  el.classList.add(className);
+  applyCollider(el);
+};
+
+const disableCollision = (el: Entity, className: string) => {
+  el.classList.remove(className);
+  removeCollider(el);
+};
+
+// Takes the element's mesh and collider off it and frees the geometry. The material is left alone,
+// since it belongs to the element's material component, or to whoever assigned it.
+const removeMesh = (el: Entity) => {
+  removeCollider(el);
+  const mesh = el.getObject3D(MESH);
+  if (!isMesh(mesh)) return;
+  el.removeObject3D(MESH);
   mesh.geometry.dispose();
-  return mesh;
 };
 
 // An invisible collidable quad across an opening, so the player cannot walk through it. The
 // geometry is in the wall's local space, and the opening sits on the wall unrotated, so moving the
-// mesh back by the opening's position puts it where the geometry says.
+// collider back by the opening's position puts it where the geometry says.
 const addBlocker = (openingEl: OpeningEl, geom: BufferGeometry) => {
-  // MeshBasicMaterial is required, because Mesh.raycast returns early when material is undefined.
-  // DoubleSide so raycasts from both the room interior and exterior are caught.
-  const blockMesh = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }));
-  blockMesh.visible = false;
-  blockMesh.position.copy(openingEl.object3D.position).negate();
-  openingEl.setObject3D(BLOCKER, blockMesh);
+  const blocker = makeCollider(geom);
+  blocker.position.copy(openingEl.object3D.position).negate();
+  openingEl.setObject3D(COLLIDER, blocker);
   openingEl.classList.add(COLLIDABLE);
 };
 
-// Removes the blocker left by a previous build, freeing its geometry and the material addBlocker made.
+// Removes the blocker left by a previous build. Its geometry is its own, so it's freed here.
 const removeBlocker = (openingEl: OpeningEl) => {
-  const blocker = removeMesh(openingEl, BLOCKER);
-  for (const material of [blocker?.material ?? []].flat()) material.dispose();
+  openingEl.classList.remove(COLLIDABLE);
+  const blocker = openingEl.getObject3D(COLLIDER);
+  if (!isMesh(blocker)) return;
+  openingEl.removeObject3D(COLLIDER);
+  blocker.geometry.dispose();
 };
 
-export { addBlocker, applyMesh, getMaterial, isMesh, removeBlocker, removeMesh };
+export {
+  addBlocker, applyMesh, COLLIDER, disableCollision, enableCollision, getMaterial, isMesh, MESH, removeBlocker,
+  removeMesh
+};

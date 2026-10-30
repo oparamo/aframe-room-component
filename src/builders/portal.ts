@@ -4,7 +4,7 @@ import type { BuildingEl, BuildState, PortalEl } from '../types/elements';
 import type { OpeningCorners, SurfaceType } from '../types/geometry';
 import { surfaceCorners, surfaceGeometry } from '../geometry/surfaces';
 import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
-import { applyMesh, getMaterial, removeMesh } from './helpers/mesh';
+import { applyMesh, enableCollision, getMaterial, removeMesh } from './helpers/mesh';
 import { dataOf, isEntity, isOpening, nameOf } from './helpers/structure';
 
 interface PortalSurfaceContext { from: OpeningCorners; to: OpeningCorners; fallbackMaterial: Material | undefined }
@@ -34,7 +34,7 @@ const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, { from, to, 
   applyMesh({ el: childEl, geom: surfaceGeometry({ type, corners, positions, uvScale }), fallbackMaterial });
 
   const className = SURFACE_CLASSES[type];
-  if (className) childEl.classList.add(className);
+  if (className) enableCollision(childEl, className);
 };
 
 interface PortalEnd { end: 'from' | 'to'; el: Entity | null }

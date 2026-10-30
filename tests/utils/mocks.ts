@@ -77,6 +77,16 @@ interface ElementOptions {
 }
 
 // An element as the builders see it. Its object3D is real, with its children's beneath it, and
+// The part of DOMTokenList the builds use.
+const makeClassList = () => {
+  const names = new Set<string>();
+  return {
+    add: (name: string) => names.add(name),
+    remove: (name: string) => names.delete(name),
+    contains: (name: string) => names.has(name)
+  } as unknown as DOMTokenList;
+};
+
 // setObject3D, getObject3D and removeObject3D keep object3DMap as A-Frame does.
 const makeBuildingEl = ({ localName, data = {}, components = {}, children = [], at = {} }: ElementOptions) => {
   const object3D = makeObject3D(at);
@@ -90,7 +100,7 @@ const makeBuildingEl = ({ localName, data = {}, components = {}, children = [], 
     components,
     children,
     parentEl: null,
-    classList: new Set<string>(),
+    classList: makeClassList(),
     hasAttribute: () => false,
     getAttribute: (name: string) => data[name] ?? null,
     getObject3D: (type: string) => object3DMap[type],
@@ -121,14 +131,16 @@ interface WallOptions {
   y?: number;
   z?: number;
   height?: number;
+  passable?: boolean;
   openings?: OpeningEl[];
   // Other children, such as a portal or a nested room.
   others?: BuildingEl[];
 }
 
-const makeWall = ({ x = 0, y = 0, z = 0, height = 3, openings = [], others = [] }: WallOptions = {}) => makeBuildingEl({
-  localName: 'a-wall', data: { wall: { height, uvScale: 1 } }, children: [...openings, ...others], at: { x, y, z }
-}) as WallEl;
+const makeWall = ({ x = 0, y = 0, z = 0, height = 3, passable = false, openings = [], others = [] }: WallOptions = {}) =>
+  makeBuildingEl({
+    localName: 'a-wall', data: { wall: { height, uvScale: 1, passable } }, children: [...openings, ...others], at: { x, y, z }
+  }) as WallEl;
 
 interface RoomOptions {
   outside?: boolean;
@@ -137,13 +149,14 @@ interface RoomOptions {
   height?: number;
   caps?: ('floor' | 'ceiling')[];
   material?: Material;
+  passable?: boolean;
 }
 
 const makeRoom = (walls: WallEl[], {
-  outside = false, width = null, length = null, height = 2.4, caps = ['floor', 'ceiling'], material
+  outside = false, width = null, length = null, height = 2.4, caps = ['floor', 'ceiling'], material, passable = false
 }: RoomOptions = {}) => makeBuildingEl({
   localName: 'a-room',
-  data: { room: { outside, width, length, height } },
+  data: { room: { outside, width, length, height, passable } },
   components: { room: { rebuild: vi.fn() }, ...(material && { material: { material } }) },
   children: [...walls, ...caps.map(kind => makeCap({ kind }))]
 });
@@ -255,7 +268,7 @@ const makeTwoRooms = () => {
 
   // The elements the builds gave a class, as a querySelectorAll for it would find them.
   const withClass = (className: string) =>
-    elements.filter(el => (el.classList as unknown as Set<string>).has(className));
+    elements.filter(el => el.classList.contains(className));
 
   return { near, far, door, window, state, withClass };
 };

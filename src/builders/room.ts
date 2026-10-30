@@ -8,8 +8,8 @@ import {
 } from '../geometry/walls';
 import { assertDefined } from '../utils/assert';
 import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
-import { addBlocker, applyMesh, removeBlocker } from './helpers/mesh';
-import { capOf, dataOf, openingsOf, wallHeight, wallsOf } from './helpers/structure';
+import { addBlocker, applyMesh, disableCollision, enableCollision, removeBlocker } from './helpers/mesh';
+import { capOf, dataOf, isPassable, openingsOf, wallHeight, wallsOf } from './helpers/structure';
 
 interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
 
@@ -76,7 +76,8 @@ const cutOpening = (wall: WallBuild, openingEl: OpeningEl): Path | null => {
   const portal = dataOf(portalEl, 'portal');
   const edges = openingEdges({ span: wall.span, openingX: openingEl.object3D.position.x, portal });
   state.cornersOf.set(openingEl, openingCorners(wall.wallEl, edges));
-  if (portal.floorHeight > 0) addBlocker(openingEl, blockerGeometry(edges));
+  // A window blocks like its wall, so a passable wall's windows let the player through too.
+  if (portal.floorHeight > 0 && !isPassable(wall.wallEl)) addBlocker(openingEl, blockerGeometry(edges));
   return holePath(edges);
 };
 
@@ -88,7 +89,9 @@ const buildWall = (wallEl: WallEl, nextWallEl: WallEl, state: BuildState) => {
   const holes = openingsOf(wallEl).flatMap(openingEl => cutOpening({ wallEl, span, state }, openingEl) ?? []);
   const { uvScale } = dataOf(wallEl, 'wall');
   applyMesh({ el: wallEl, geom: wallGeometry({ span, holes, uvScale }) });
-  wallEl.classList.add(COLLIDABLE);
+  // Toggled on every build, since passable can change at runtime.
+  if (isPassable(wallEl)) disableCollision(wallEl, COLLIDABLE);
+  else enableCollision(wallEl, COLLIDABLE);
 };
 
 const buildRoom = (roomEl: RoomEl, state: BuildState) => {
@@ -105,7 +108,7 @@ const buildRoom = (roomEl: RoomEl, state: BuildState) => {
   const floorEl = capOf(roomEl, 'floor');
   if (floorEl) {
     buildCap({ walls, capEl: floorEl, kind: 'floor', isOutside: outside });
-    floorEl.classList.add(WALKABLE);
+    enableCollision(floorEl, WALKABLE);
   }
   const ceilingEl = capOf(roomEl, 'ceiling');
   if (ceilingEl) buildCap({ walls, capEl: ceilingEl, kind: 'ceiling', isOutside: outside });

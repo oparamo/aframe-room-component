@@ -297,6 +297,31 @@ addInfo({
   position: '-5.5 1 5',
   label: '<a-ceiling> on an outside room is a roof: it faces up, so you see it from above.'
 });
+
+// Cyan room, beside the path.
+addInfo({
+  position: '6 2.7 7.6',
+  label: 'An inside room with no shell: its walls face in, yet stop you from outside too.'
+});
+addInfo({
+  position: '3.4 1.6 5.5',
+  label: '<a-wall visible="false"> is hidden but still stops you.'
+});
+addInfo({
+  position: '8.6 1.6 5.5',
+  label: '<a-wall visible="false" passable="true"> is hidden, and you walk through it.'
+});
+addInfo({
+  position: '6 1.6 3.4',
+  label: '<a-wall passable="true"> shows, and you walk through it.'
+});
+addToggle({
+  position: '6 1.2 8.2',
+  label: 'Make the cyan room passable',
+  action: (on) => {
+    byId('cyanRoom').setAttribute('passable', on);
+  }
+});
 addInfo({
   position: '15.6 2 8.6',
   label: '<a-room width length>: four <a-wall>s with no positions; the room places them. Each wall '
