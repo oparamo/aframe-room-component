@@ -89,7 +89,8 @@ AFRAME.registerComponent('check-marker', {
   }
 });
 
-const addMarker = ({ position, label, color, pinned = false }) => {
+// A sphere with a label, placed in the lot with this id; its position is measured from the lot's center.
+const addMarker = ({ lot, position, label, color, pinned = false }) => {
   const marker = document.createElement('a-entity');
   marker.setAttribute('position', position);
   marker.setAttribute('check-marker', { label, pinned });
@@ -97,13 +98,13 @@ const addMarker = ({ position, label, color, pinned = false }) => {
   sphere.setAttribute('radius', '0.12');
   sphere.setAttribute('color', color);
   marker.appendChild(sphere);
-  scene.appendChild(marker);
+  byId(lot).appendChild(marker);
   return { marker, sphere };
 };
 
 // A grey sphere the cursor can click; its label grows while hovered.
-const addClickable = ({ position, label, color }) => {
-  const { marker, sphere } = addMarker({ position, label, color });
+const addClickable = ({ lot, position, label, color }) => {
+  const { marker, sphere } = addMarker({ lot, position, label, color });
   sphere.classList.add('check');
   sphere.addEventListener('mouseenter', () => {
     marker.components['check-marker'].hovered = true;
@@ -116,10 +117,10 @@ const addClickable = ({ position, label, color }) => {
 
 // Runs its action on click and stays green while the change is on. onLabel, if given, replaces the label
 // while it is on.
-const addToggle = ({ position, label, onLabel = label, action, on = false }) => {
+const addToggle = ({ lot, position, label, onLabel = label, action, on = false }) => {
   const labelFor = state => state ? onLabel : label;
   const colorFor = state => state ? GREEN : GREY;
-  const { marker, sphere } = addClickable({ position, label: labelFor(on), color: colorFor(on) });
+  const { marker, sphere } = addClickable({ lot, position, label: labelFor(on), color: colorFor(on) });
   sphere.addEventListener('click', () => {
     on = !on;
     action(on);
@@ -129,8 +130,8 @@ const addToggle = ({ position, label, onLabel = label, action, on = false }) => 
 };
 
 // Runs a one-off action on click and flashes green.
-const addAction = ({ position, label, action }) => {
-  const { sphere } = addClickable({ position, label, color: GREY });
+const addAction = ({ lot, position, label, action }) => {
+  const { sphere } = addClickable({ lot, position, label, color: GREY });
   sphere.addEventListener('click', () => {
     action();
     sphere.setAttribute('color', GREEN);
@@ -141,23 +142,26 @@ const addAction = ({ position, label, action }) => {
 };
 
 // A white sphere whose full-size label says what to look at.
-const addInfo = ({ position, label }) => addMarker({ position, label, color: WHITE, pinned: true });
+const addInfo = ({ lot, position, label }) => addMarker({ lot, position, label, color: WHITE, pinned: true });
 
-// The ground: grass with a line every meter, painted on a canvas.
+// The ground: grass with a line every meter, painted on a canvas. Each lot is a lighter square of it,
+// leaving a strip of plain grass between neighbors.
 const GRASS = '#43A047';
+const LOT_GRASS = '#4CAF50';
 const GRID_LINE = '#81C784';
 const GROUND_SIZE = 160;
+const LOT_SIZE = 22;
 const TILE_PIXELS = 64;
 
 // One tile per square meter; neighboring tiles' edges meet to draw each grid line. A-Frame caches
-// textures by their source's id, so the canvas needs one.
-const paintGridTile = () => {
+// textures by their source's id, so each canvas needs its own.
+const paintGridTile = ({ id, color }) => {
   const canvas = document.createElement('canvas');
-  canvas.id = 'gridTexture';
+  canvas.id = id;
   canvas.width = TILE_PIXELS;
   canvas.height = TILE_PIXELS;
   const context = canvas.getContext('2d');
-  context.fillStyle = GRASS;
+  context.fillStyle = color;
   context.fillRect(0, 0, TILE_PIXELS, TILE_PIXELS);
   context.strokeStyle = GRID_LINE;
   context.lineWidth = 4;
@@ -166,7 +170,22 @@ const paintGridTile = () => {
 };
 
 // Unlit, so the grass keeps its painted color and doesn't catch a glare from the lights.
-byId('ground').setAttribute('material', { shader: 'flat', src: paintGridTile(), repeat: `${GROUND_SIZE} ${GROUND_SIZE}` });
+byId('ground').setAttribute('material', {
+  shader: 'flat', src: paintGridTile({ id: 'gridTexture', color: GRASS }), repeat: `${GROUND_SIZE} ${GROUND_SIZE}`
+});
+
+// Between the ground and the floors, so it fights neither. Lots sit on whole meters, so its grid lines
+// fall on the ground's.
+const lotTile = paintGridTile({ id: 'lotTexture', color: LOT_GRASS });
+for (const lotEl of document.querySelectorAll('.lot')) {
+  const square = document.createElement('a-plane');
+  square.setAttribute('rotation', '-90 0 0');
+  square.setAttribute('position', '0 -0.005 0');
+  square.setAttribute('width', LOT_SIZE);
+  square.setAttribute('height', LOT_SIZE);
+  square.setAttribute('material', { shader: 'flat', src: lotTile, repeat: `${LOT_SIZE} ${LOT_SIZE}` });
+  lotEl.appendChild(square);
+}
 
 const signText = value => ({ value, color: WHITE, width: 1.75, wrapCount: 42, align: 'left' });
 byId('signAbout').setAttribute('text', signText([
@@ -190,7 +209,8 @@ byId('signHelp').setAttribute('text', signText([
 ].join('\n')));
 
 addToggle({
-  position: '-0.4 1.2 10.4',
+  lot: 'centerLot',
+  position: '-0.4 1.2 0.4',
   label: 'Enable wall collision',
   onLabel: 'Disable wall collision',
   on: true,
@@ -202,33 +222,39 @@ addToggle({
 
 // Red building, outside.
 addInfo({
-  position: '6 2 0.8',
+  lot: 'redLot',
+  position: '6 2 7.8',
   label: '<a-room outside="true">: the walls face out, so the room is the outside of a building.'
 });
 addInfo({
-  position: '-3 2.6 0.6',
+  lot: 'redLot',
+  position: '-3 2.6 7.6',
   label: '<a-portal> joins two <a-opening>s. This one is a 2m deep door lined with <a-floor>, '
     + '<a-ceiling> and <a-sides>.'
 });
 addInfo({
-  position: '3 2.3 0.6',
+  lot: 'redLot',
+  position: '3 2.3 7.6',
   label: '<a-portal floor-height="0.9"> makes a window. room-collision stops you at torso height.'
 });
 
 // Yellow room.
 addInfo({
-  position: '-4.2 2.4 -2.6',
+  lot: 'redLot',
+  position: '-4.2 2.4 4.4',
   label: '<a-wall position>: each wall starts at its corner and runs to the next wall\'s corner.'
 });
 addToggle({
-  position: '-1.5 2.2 -6.4',
+  lot: 'redLot',
+  position: '-1.5 2.2 0.6',
   label: 'Push back wall 2m',
   action: (on) => {
-    for (const id of ['yellowBackWall', 'yellowRightWall']) byId(id).object3D.position.z = on ? -9 : -7;
+    for (const id of ['yellowBackWall', 'yellowRightWall']) byId(id).object3D.position.z = on ? -2 : 0;
   }
 });
 addToggle({
-  position: '-5.4 1.2 -6.4',
+  lot: 'redLot',
+  position: '-5.4 1.2 0.6',
   label: 'Raise corner 1m',
   action: (on) => {
     const height = on ? 4 : 0;
@@ -236,7 +262,8 @@ addToggle({
   }
 });
 addToggle({
-  position: '-3 0.35 -4.5',
+  lot: 'redLot',
+  position: '-3 0.35 2.5',
   label: 'Halve floor tiles',
   action: (on) => {
     const uvScale = on ? 2 : 1;
@@ -246,7 +273,8 @@ addToggle({
 // The wall starts without a material of its own and takes the room's. Painting gives it one; removing
 // that one should bring the room's back.
 addToggle({
-  position: '-5.4 1.6 -4.5',
+  lot: 'redLot',
+  position: '-5.4 1.6 2.5',
   label: 'Paint the left wall orange',
   action: (on) => {
     if (on) byId('yellowLeftWall').setAttribute('material', 'color', '#F77F00');
@@ -254,7 +282,8 @@ addToggle({
   }
 });
 addToggle({
-  position: '-0.6 1.4 -4.5',
+  lot: 'redLot',
+  position: '-0.6 1.4 2.5',
   label: 'Open doorway to the blue room',
   action: (on) => {
     if (!on) {
@@ -265,98 +294,121 @@ addToggle({
     portal.id = 'yellowBlueDoorway';
     portal.setAttribute('from', '#yellowRight');
     portal.setAttribute('to', '#blueLeft');
-    portal.setAttribute('position', '0.5 0 -4.5');
+    portal.setAttribute('position', '0.5 0 2.5');
     portal.setAttribute('width', '1.2');
     portal.setAttribute('height', '2.2');
     portal.innerHTML = '<a-floor mixin="floorPaint"></a-floor><a-ceiling material="color:#FCBF49"></a-ceiling>'
       + '<a-sides material="color:#FCBF49"></a-sides>';
-    scene.appendChild(portal);
+    byId('redLot').appendChild(portal);
   }
 });
 
 // Blue and green rooms.
 addInfo({
-  position: '4 1.6 -2.6',
+  lot: 'redLot',
+  position: '4 1.6 4.4',
   label: 'An <a-opening> with a floor-height keeps the wall under its sill solid.'
 });
 addInfo({
-  position: '1.8 1.6 -6.5',
+  lot: 'redLot',
+  position: '1.8 1.6 0.5',
   label: 'These rooms share one wall plane. An <a-portal> with no children makes a doorway with no depth.'
 });
 addInfo({
-  position: '3.5 0.9 -11.4',
+  lot: 'redLot',
+  position: '3.5 0.9 -4.4',
   label: 'Children of <a-wall> move with it: these boxes are placed in the wall\'s own space.'
 });
 addInfo({
-  position: '1.6 1.2 -9',
+  lot: 'redLot',
+  position: '1.6 1.2 -2',
   label: 'uv-scale="1" tiles a texture once per meter; material repeat 0.5 stretches it to 2m here.'
 });
 
-// Around the path.
+// Lime room.
 addInfo({
-  position: '-5.5 1 5',
+  lot: 'limeLot',
+  position: '0 1 0',
   label: '<a-ceiling> on an outside room is a roof: it faces up, so you see it from above.'
 });
 
-// Cyan room, beside the path.
+// Cyan room.
 addInfo({
-  position: '6 2.7 7.6',
+  lot: 'cyanLot',
+  position: '0 2.7 2.1',
   label: 'An inside room with no shell: its walls face in, yet stop you from outside too.'
 });
 addInfo({
-  position: '3.4 1.6 5.5',
+  lot: 'cyanLot',
+  position: '-2.6 1.6 0',
   label: '<a-wall visible="false"> is hidden but still stops you.'
 });
 addInfo({
-  position: '8.6 1.6 5.5',
+  lot: 'cyanLot',
+  position: '2.6 1.6 0',
   label: '<a-wall visible="false" collidable="false"> is hidden, and you walk through it.'
 });
 addInfo({
-  position: '6 1.6 3.4',
+  lot: 'cyanLot',
+  position: '0 1.6 -2.1',
   label: '<a-wall collidable="false"> shows, and you walk through it.'
 });
 addToggle({
-  position: '6 1.2 8.2',
+  lot: 'cyanLot',
+  position: '0 1.2 2.7',
   label: 'Turn off collision for the cyan room',
   action: (on) => {
     byId('cyanRoom').setAttribute('collidable', !on);
   }
 });
+
+// Brown building.
 addInfo({
-  position: '15.6 2 8.6',
+  lot: 'brownLot',
+  position: '1.6 2 3.6',
   label: '<a-room width length>: four <a-wall>s with no positions; the room places them. Each wall '
     + 'inside has its own shade.'
 });
 addAction({
-  position: '12.6 1.4 8.6',
+  lot: 'brownLot',
+  position: '-1.4 1.4 3.6',
   label: 'Rebuild the brown room and its shell. Nothing should change.',
   action: () => { for (const id of ['brownShell', 'brownRoom']) byId(id).components.room.rebuild(); }
 });
+
+// Navy building.
 addInfo({
-  position: '14.5 2.2 -0.6',
+  lot: 'navyLot',
+  position: '-0.05 2.2 5.35',
   label: 'Rooms move, rotate and scale like any entity. Each <a-opening> follows its <a-portal>, and a door '
     + 'scales with its rooms.'
 });
 addToggle({
-  position: '12.4 1.4 -1.2',
+  lot: 'navyLot',
+  position: '-2.15 1.4 4.75',
   label: 'Grow the navy building 1.5x',
   action: (on) => {
     const scale = on ? '1.5 1 1.5' : '1 1 1';
     for (const id of ['navyRoom', 'navyShell']) byId(id).setAttribute('scale', scale);
   }
 });
+
+// Magenta building.
 addInfo({
-  position: '-18 1.8 -4.5',
+  lot: 'magentaLot',
+  position: '0 1.8 3.5',
   label: 'A concave outside room leaves this courtyard open. Its door is a 1m deep textured <a-portal>.'
 });
 addInfo({
-  position: '-21 1.6 -10',
+  lot: 'magentaLot',
+  position: '-3 1.6 -2',
   label: 'Concave <a-room>: <a-floor> and <a-ceiling> cover only the U, with nothing across the notch.'
 });
 
 // Purple building.
 addToggle({
-  position: '-20.8 1.4 14',
+  lot: 'purpleLot',
+  position: '-4.3 1.4 2.5',
   label: 'Remove the pink room\'s back-left wall',
   action: (on) => {
     if (on) {
@@ -365,21 +417,23 @@ addToggle({
     }
     const wall = document.createElement('a-wall');
     wall.id = 'pinkCorner';
-    wall.setAttribute('position', '-23 0 10');
+    wall.setAttribute('position', '-6.5 0 -1.5');
     byId('pinkRoom').prepend(wall);
   }
 });
 addInfo({
-  position: '-20.8 2.4 14',
+  lot: 'purpleLot',
+  position: '-4.3 2.4 2.5',
   label: 'Removing an <a-wall> rebuilds its room without it: the pink room becomes a triangle, and comes '
     + 'back square when the wall returns.'
 });
 const ORANGE_DOOR = {
-  pink: { from: '#orangeWest', to: '#pinkEast', position: '-19 0 11.5' },
-  teal: { from: '#orangeEast', to: '#tealWest', position: '-14 0 11.5' }
+  pink: { from: '#orangeWest', to: '#pinkEast', position: '-2.5 0 0' },
+  teal: { from: '#orangeEast', to: '#tealWest', position: '2.5 0 0' }
 };
 addToggle({
-  position: '-15.8 1.4 14',
+  lot: 'purpleLot',
+  position: '0.7 1.4 2.5',
   label: 'Move the orange room\'s door to the teal room',
   action: (on) => {
     const placement = on ? ORANGE_DOOR.teal : ORANGE_DOOR.pink;
@@ -387,26 +441,35 @@ addToggle({
   }
 });
 addInfo({
-  position: '-15.8 2.4 14',
+  lot: 'purpleLot',
+  position: '0.7 2.4 2.5',
   label: 'Changing an <a-portal>\'s from and to moves the tunnel, and the walls it left fill back in.'
 });
+
+// White room.
 addInfo({
-  position: '-12.5 2.2 8',
-  label: '#whiteRoom, the empty lot behind the purple building, has visible="false". Rebuilds leave it '
-    + 'hidden; the show toggle puts a building there.'
+  lot: 'whiteLot',
+  position: '4 2.2 1',
+  label: '#whiteRoom, the empty lot here, has visible="false". Rebuilds leave it hidden; the show toggle '
+    + 'puts a building there.'
 });
 addAction({
-  position: '-13.2 1.4 8',
+  lot: 'whiteLot',
+  position: '3.3 1.4 1',
   label: 'Rebuild the hidden white room. It should stay hidden.',
   action: () => byId('whiteRoom').components.room.rebuild()
 });
 addToggle({
-  position: '-11.8 1.4 8',
+  lot: 'whiteLot',
+  position: '4.7 1.4 1',
   label: 'Show the hidden white room',
   action: on => byId('whiteRoom').setAttribute('visible', on)
 });
+
+// The broken room, by the spawn.
 addInfo({
-  position: '-7 1.6 12',
+  lot: 'centerLot',
+  position: '5 1.6 0',
   label: '#brokenRoom has two walls and #typoPortal selects nothing. Both log a console error and are '
     + 'skipped; everything else builds.'
 });

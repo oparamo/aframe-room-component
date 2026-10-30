@@ -17,6 +17,25 @@ declare global {
 
 const DEMO = '/example/index.html';
 
+// The center of each lot in the demo's grid, by its entity's id.
+const LOTS = {
+  centerLot: [0, 0, 0],
+  redLot: [0, 0, -24],
+  navyLot: [24, 0, -24],
+  brownLot: [24, 0, 0],
+  cyanLot: [24, 0, 24],
+  limeLot: [0, 0, 24],
+  whiteLot: [-24, 0, 24],
+  purpleLot: [-24, 0, 0],
+  magentaLot: [-24, 0, -24]
+} satisfies Record<string, Point>;
+
+// The world point for a point measured from the lot's center, the way the demo's markup places things.
+const inLot = (lot: keyof typeof LOTS, [x, y, z]: Point): Point => {
+  const [centerX, centerY, centerZ] = LOTS[lot];
+  return [centerX + x, centerY + y, centerZ + z];
+};
+
 const openDemo = async (page: Page) => {
   await serveCdnLocally(page);
   await page.addInitScript(() => {
@@ -176,10 +195,10 @@ const playerPosition = (page: Page) => page.evaluate(
 // From 1m outside each cyan wall to 1m inside it: the collidable front, the hidden west, the hidden
 // east that isn't collidable, and the back that isn't either.
 const CYAN_WALKS: { from: Point; to: Point }[] = [
-  { from: [6, 1.6, 8], to: [6, 1.6, 6] },
-  { from: [3, 1.6, 5.5], to: [5, 1.6, 5.5] },
-  { from: [9, 1.6, 5.5], to: [7, 1.6, 5.5] },
-  { from: [6, 1.6, 3], to: [6, 1.6, 5] }
+  { from: inLot('cyanLot', [0, 1.6, 2.5]), to: inLot('cyanLot', [0, 1.6, 0.5]) },
+  { from: inLot('cyanLot', [-3, 1.6, 0]), to: inLot('cyanLot', [-1, 1.6, 0]) },
+  { from: inLot('cyanLot', [3, 1.6, 0]), to: inLot('cyanLot', [1, 1.6, 0]) },
+  { from: inLot('cyanLot', [0, 1.6, -2.5]), to: inLot('cyanLot', [0, 1.6, -0.5]) }
 ];
 
 // Puts the player at the point without room-collision judging the jump: re-adding the component
@@ -239,6 +258,15 @@ test('builds every portal that has surfaces', async ({ page }) => {
   expect(portals.filter(portal => portal.count === 0)).toEqual([]);
 });
 
+test('puts each lot where the tests measure from', async ({ page }) => {
+  await openDemo(page);
+
+  const lots = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll<Entity>('.lot')]
+    .map(lotEl => [lotEl.id, lotEl.object3D.position.toArray()])));
+
+  expect(lots).toEqual(LOTS);
+});
+
 test('rebuilding the brown room and its shell changes nothing', async ({ page }) => {
   const brownBuilding = '#brownRoom, #brownShell, a-portal[from="#brownDoor"]';
   await openDemo(page);
@@ -293,8 +321,8 @@ test('rebuilds the pink room as a triangle without its corner wall, and square w
 });
 
 test.describe('the orange room\'s door', () => {
-  const ORANGE_ROOM = [-17, 1, 11.5] satisfies Point;
-  const PINK_ROOM = [-21.5, 1, 11.5] satisfies Point;
+  const ORANGE_ROOM = inLot('purpleLot', [-0.5, 1, 0]);
+  const PINK_ROOM = inLot('purpleLot', [-5, 1, 0]);
   const EAST = [1, 0, 0] satisfies Point;
   const WEST = [-1, 0, 0] satisfies Point;
 
@@ -319,7 +347,7 @@ test.describe('the orange room\'s door', () => {
 
 test('opens and closes the doorway from the yellow room to the blue room', async ({ page }) => {
   const label = 'Open doorway to the blue room';
-  const ray = { from: [-1, 1, -4.5], toward: [1, 0, 0] } satisfies { from: Point; toward: Point };
+  const ray = { from: inLot('redLot', [-1, 1, 2.5]), toward: [1, 0, 0] } satisfies Ray;
   await openDemo(page);
 
   const closed = await wallDistance(page, ray);
@@ -337,7 +365,7 @@ test('opens and closes the doorway from the yellow room to the blue room', async
 test.describe('the yellow room', () => {
   test('pushes its back wall 2m out and back', async ({ page }) => {
     const label = 'Push back wall 2m';
-    const ray = { from: [-3, 1, -4], toward: [0, 0, -1] } satisfies Ray;
+    const ray = { from: inLot('redLot', [-3, 1, 3]), toward: [0, 0, -1] } satisfies Ray;
     await openDemo(page);
 
     const before = await wallDistance(page, ray);
@@ -442,6 +470,10 @@ test('grows the navy building 1.5x with its door still open', async ({ page }) =
 });
 
 test.describe('room-collision', () => {
+  // Outside the red building's front, and inside it, past the front wall at z = 7.
+  const OUTSIDE = inLot('redLot', [0, 1.6, 9]);
+  const INSIDE = inLot('redLot', [0, 1.6, 6]);
+
   test('stops the player at the cyan room\'s collidable walls from outside, hidden or not, and lets them through the others', async ({ page }) => {
     await openDemo(page);
 
@@ -472,47 +504,49 @@ test.describe('room-collision', () => {
 
   test('stops the player at a wall', async ({ page }) => {
     await openDemo(page);
-    await movePlayer(page, [0, 1.6, 2]);
+    await movePlayer(page, OUTSIDE);
 
-    await movePlayer(page, [0, 1.6, -1]);
+    await movePlayer(page, INSIDE);
 
-    expect((await playerPosition(page))[2]).toBeCloseTo(2);
+    expect((await playerPosition(page))[2]).toBeCloseTo(OUTSIDE[2]);
   });
 
   test('lets the player through a door', async ({ page }) => {
+    const inside = inLot('redLot', [-3, 1.6, 4]);
     await openDemo(page);
-    await movePlayer(page, [-3, 1.6, 2]);
+    await movePlayer(page, inLot('redLot', [-3, 1.6, 9]));
 
-    await movePlayer(page, [-3, 1.6, -3]);
+    await movePlayer(page, inside);
 
-    expect((await playerPosition(page))[2]).toBeCloseTo(-3);
+    expect((await playerPosition(page))[2]).toBeCloseTo(inside[2]);
   });
 
   test('turns off and on with its toggle', async ({ page }) => {
     const intoWall = async () => {
-      await movePlayer(page, [0, 1.6, -1]);
+      await movePlayer(page, INSIDE);
       return (await playerPosition(page))[2];
     };
     await openDemo(page);
 
     await clickCheck(page, 'Disable wall collision');
-    await movePlayer(page, [0, 1.6, 2]);
+    await movePlayer(page, OUTSIDE);
     const whileOff = await intoWall();
     await clickCheck(page, 'Enable wall collision');
     // Back out through the wall, which walls now block from inside too.
-    await placePlayer(page, [0, 1.6, 2]);
+    await placePlayer(page, OUTSIDE);
     const whileOn = await intoWall();
 
-    expect([whileOff, whileOn]).toEqual([-1, 2]);
+    expect([whileOff, whileOn]).toEqual([INSIDE[2], OUTSIDE[2]]);
   });
 
   test('stops the player at a window', async ({ page }) => {
+    const outside = inLot('redLot', [3, 1.6, 9]);
     await openDemo(page);
-    await movePlayer(page, [3, 1.6, 2]);
+    await movePlayer(page, outside);
 
-    await movePlayer(page, [3, 1.6, -1]);
+    await movePlayer(page, inLot('redLot', [3, 1.6, 6]));
 
-    expect((await playerPosition(page))[2]).toBeCloseTo(2);
+    expect((await playerPosition(page))[2]).toBeCloseTo(outside[2]);
   });
 });
 
@@ -530,7 +564,7 @@ test.describe('the info spheres', () => {
   test.afterAll(() => page.close());
 
   test('an outside room\'s walls face out', async () => {
-    const hit = await firstHit(page, { from: [0, 1, 3], toward: [0, 0, -1], selector: '#redShell > a-wall' });
+    const hit = await firstHit(page, { from: inLot('redLot', [0, 1, 10]), toward: [0, 0, -1], selector: '#redShell > a-wall' });
 
     expect(hit?.distance).toBeCloseTo(3);
     expect(hit?.normal).toEqual([0, 0, 1]);
@@ -540,8 +574,8 @@ test.describe('the info spheres', () => {
     const toward = [0, 0, -1] satisfies Point;
     const walls = 'a-wall';
 
-    const belowSill = await firstHit(page, { from: [3, 0.5, 3], toward, selector: walls });
-    const throughWindow = await firstHit(page, { from: [3, 1.4, 3], toward, selector: walls });
+    const belowSill = await firstHit(page, { from: inLot('redLot', [3, 0.5, 10]), toward, selector: walls });
+    const throughWindow = await firstHit(page, { from: inLot('redLot', [3, 1.4, 10]), toward, selector: walls });
 
     expect(belowSill?.distance).toBeCloseTo(3);
     expect(throughWindow?.distance).toBeGreaterThan(3);
@@ -551,7 +585,7 @@ test.describe('the info spheres', () => {
     const [portal] = await meshCounts(page, 'a-portal[from="#blueBack"]');
 
     // From the blue room, through the doorway, to the green room's back wall.
-    const distance = await wallDistance(page, { from: [3, 1, -5], toward: [0, 0, -1] });
+    const distance = await wallDistance(page, { from: inLot('redLot', [3, 1, 2]), toward: [0, 0, -1] });
 
     expect(portal?.count).toBe(0);
     expect(distance).toBeCloseTo(7);
@@ -562,8 +596,9 @@ test.describe('the info spheres', () => {
       .map(boxEl => boxEl.object3D.getWorldPosition(new THREE.Vector3()).toArray()
         .map(n => Math.round(n * 1000) / 1000)));
 
-    // The wall starts at (1, 0, -12) and runs along x, so each box is offset from that corner.
-    expect(boxes).toEqual([[2, 1.4, -12], [3.5, 1.7, -12], [5, 1.4, -12]]);
+    // The wall starts at (1, 0, -5) in its lot and runs along x, so each box is offset from that corner.
+    expect(boxes).toEqual(([[2, 1.4, -5], [3.5, 1.7, -5], [5, 1.4, -5]] satisfies Point[])
+      .map(box => inLot('redLot', box)));
   });
 
   test('uv-scale 1 tiles a texture per meter, and material repeat stretches it', async () => {
@@ -585,8 +620,8 @@ test.describe('the info spheres', () => {
   });
 
   test('a concave room\'s floor and ceiling cover only the U', async () => {
-    const arm = [-21, 1, -6] satisfies Point;
-    const notch = [-18, 1, -6] satisfies Point;
+    const arm = inLot('magentaLot', [-3, 1, 2]);
+    const notch = inLot('magentaLot', [0, 1, 2]);
     const down = [0, -1, 0] satisfies Point;
     const up = [0, 1, 0] satisfies Point;
     const floor = '#magentaRoom > a-floor';

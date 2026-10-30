@@ -11,7 +11,7 @@ aframe-room-component is built with the help of AI coding tools; [AI_DISCLOSURE.
 
 ## Demo
 
-The [demo](https://oparamo.github.io/aframe-room-component/) shows every feature in one walkable scene. Move with WASD and drag to look. The signpost by the path explains the rest.
+The [demo](https://oparamo.github.io/aframe-room-component/) shows every feature in one walkable scene. Move with WASD and drag to look. The signpost in front of you explains the rest.
 
 The [performance page](https://oparamo.github.io/aframe-room-component/perf.html) builds a grid of rooms joined by doorways and reports frame rate, draw calls and what this library costs per frame. Add `?rooms=N` to change the room count (100 by default).
 

@@ -56,7 +56,7 @@ Run `pnpm exec playwright install chromium` once before the first run. Where Pla
 
 - **Grey spheres** toggle a change, such as opening a doorway, growing a room or pushing a wall. A sphere turns green while its change is on, and its label grows when you hover over it.
 - **White spheres** are fixed labels that name what to look at.
-- **The signpost** by the path introduces the page, explains how to move, and lists the checks that need the A-Frame inspector (Ctrl+Alt+I).
+- **The signpost** by the spawn introduces the page, explains how to move, and lists the checks that need the A-Frame inspector (Ctrl+Alt+I).
 
 A pull request that changes behavior adds its checks to this page, so the next person can see the change working, and adds a matching test to `tests/browser/demo.test.ts`. Throwaway test pages don't get committed.
 
