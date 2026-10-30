@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import type { Mesh } from 'three';
 import type { WallEl } from '../../src/types/elements';
 import { capOf, wallsOf } from '../../src/builders/helpers/structure';
 import { buildRoom } from '../../src/builders/room';
@@ -19,10 +18,8 @@ const makeWindowRoom = () => {
   const openingEl = makeOpening();
   const portalEl = makePortal({ at: { x: 2.5 }, height: 1, floorHeight: 0.5 });
   const room = makeRoom([makeWall({ openings: [openingEl] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
-  return { room, openingEl, portalEl, state: makeBuildState({ links: [[openingEl, portalEl]] }) };
+  return { room, openingEl, state: makeBuildState({ links: [[openingEl, portalEl]] }) };
 };
-
-const paneOf = (openingEl: ReturnType<typeof makeOpening>) => openingEl.getObject3D('mesh') as Mesh | undefined;
 
 describe('buildRoom', () => {
   describe('with implicit wall positions', () => {
@@ -176,64 +173,6 @@ describe('buildRoom', () => {
 
       // Assert
       expect(state.cornersOf.has(openingEl)).toBe(false);
-    });
-  });
-
-  describe('window pane', () => {
-    it('gives a window\'s opening an invisible mesh', () => {
-      // Arrange
-      const { room, openingEl, state } = makeWindowRoom();
-
-      // Act
-      buildRoom(room, state);
-
-      // Assert
-      expect(paneOf(openingEl)?.visible).toBe(false);
-    });
-
-    it('spans the opening in world space', () => {
-      // Arrange
-      const { room, openingEl, state } = makeWindowRoom();
-
-      // Act
-      buildRoom(room, state);
-
-      // Assert
-      const pane = assertDefined(paneOf(openingEl), 'window pane');
-      pane.updateWorldMatrix(true, false);
-      const box = new THREE.Box3().setFromObject(pane);
-      expect([box.min.toArray(), box.max.toArray()]).toEqual([[2, 0.5, 0], [3, 1.5, 0]]);
-    });
-
-    it('keeps the pane on rebuild, freeing the old geometry', () => {
-      // Arrange
-      const { room, openingEl, state } = makeWindowRoom();
-      buildRoom(room, state);
-      const pane = assertDefined(paneOf(openingEl), 'window pane');
-      const oldGeometry = pane.geometry;
-      const disposed = vi.fn();
-      oldGeometry.addEventListener('dispose', disposed);
-
-      // Act
-      buildRoom(room, state);
-
-      // Assert
-      expect(paneOf(openingEl)).toBe(pane);
-      expect(pane.geometry).not.toBe(oldGeometry);
-      expect(disposed).toHaveBeenCalledOnce();
-    });
-
-    it('takes the pane away when the window becomes a door', () => {
-      // Arrange
-      const { room, openingEl, portalEl, state } = makeWindowRoom();
-      buildRoom(room, state);
-      assertDefined(portalEl.getAttribute('portal'), 'portal data').floorHeight = 0;
-
-      // Act
-      buildRoom(room, state);
-
-      // Assert
-      expect(paneOf(openingEl)).toBeUndefined();
     });
   });
 

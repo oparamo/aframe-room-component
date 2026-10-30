@@ -27,12 +27,6 @@ const applyMesh = ({ el, geom, fallbackMaterial }: MeshOptions) => {
   }
 };
 
-// A mesh nothing renders, for collision alone, such as the pane across a window.
-const applyHiddenMesh = (el: BuildingEl, geom: BufferGeometry) => {
-  applyMesh({ el, geom });
-  (el.getObject3D(MESH) as Mesh).visible = false;
-};
-
 // Takes the element's mesh off it and frees the geometry. The material is left alone, since it
 // belongs to the element's material component, or to whoever assigned it.
 const removeMesh = (el: Entity) => {
@@ -42,4 +36,4 @@ const removeMesh = (el: Entity) => {
   mesh.geometry.dispose();
 };
 
-export { applyHiddenMesh, applyMesh, getMaterial, isMesh, MESH, removeMesh };
+export { applyMesh, getMaterial, isMesh, MESH, removeMesh };

@@ -23,6 +23,7 @@ const LOTS = {
   redLot: [0, 0, -24],
   navyLot: [24, 0, -24],
   brownLot: [24, 0, 0],
+  goldLot: [48, 0, 0],
   cyanLot: [24, 0, 24],
   limeLot: [0, 0, 24],
   whiteLot: [-24, 0, 24],
@@ -211,6 +212,18 @@ const placePlayer = async (page: Page, at: Point) => {
     playerEl.setAttribute('room-collision', '');
   }, at);
   await nextFrames(page, 2);
+};
+
+// Moves the player by the step, the way a control would, the given number of times, letting room-collision
+// judge each one. Returns where they end up.
+const walkSteps = async (page: Page, { step, count }: { step: Point; count: number }) => {
+  for (let i = 0; i < count; i++) {
+    await page.evaluate((offset) => {
+      (document.getElementById('player') as Entity).object3D.position.add(new THREE.Vector3(...offset));
+    }, step);
+    await nextFrames(page, 2);
+  }
+  return playerPosition(page);
 };
 
 // Places the player at `from`, then tries to step to `to`, and says whether a wall stopped them.
@@ -537,6 +550,77 @@ test.describe('room-collision', () => {
     const whileOn = await intoWall();
 
     expect([whileOff, whileOn]).toEqual([INSIDE[2], OUTSIDE[2]]);
+  });
+
+  test('stops the player at the lime room\'s walls, which are lower than the torso', async ({ page }) => {
+    await openDemo(page);
+
+    const end = await walkInto(page, inLot('limeLot', [0, 1.6, 2]), inLot('limeLot', [0, 1.6, 0.5]));
+
+    expect(end).toBe('stopped');
+  });
+
+  test('lets the player up the gold building\'s stepped door and inside', async ({ page }) => {
+    await openDemo(page);
+    await placePlayer(page, inLot('goldLot', [-6, 1.6, 0]));
+
+    const onStep = await walkSteps(page, { step: [0.25, 0, 0], count: 9 });
+    const inside = await walkSteps(page, { step: [0.25, 0, 0], count: 7 });
+
+    // On the 0.2m sill the camera stands its eye height above it.
+    expect(onStep[0]).toBeCloseTo(inLot('goldLot', [-3.75, 0, 0])[0]);
+    expect(onStep[1]).toBeCloseTo(1.8);
+    expect(inside[0]).toBeCloseTo(inLot('goldLot', [-2, 0, 0])[0]);
+    expect(inside[1]).toBeCloseTo(1.6);
+  });
+
+  test('stops the player at the gold building\'s windows, low sill and high', async ({ page }) => {
+    await openDemo(page);
+
+    const ends = [];
+    for (const x of [-1.5, 1.5]) ends.push(await walkInto(page, inLot('goldLot', [x, 1.6, 4]), inLot('goldLot', [x, 1.6, 2])));
+
+    expect(ends).toEqual(['stopped', 'stopped']);
+  });
+
+  test('keeps the player its radius from both walls of a corner', async ({ page }) => {
+    // The gold room's back right corner is at (3.5, -2.5) in its lot.
+    const corner = inLot('goldLot', [3.5, 0, -2.5]);
+    await openDemo(page);
+    await placePlayer(page, inLot('goldLot', [2, 1.6, -1]));
+
+    const [x, , z] = await walkSteps(page, { step: [0.1, 0, -0.1], count: 20 });
+
+    expect(corner[0] - x).toBeCloseTo(0.4, 2);
+    expect(z - corner[2]).toBeCloseTo(0.4, 2);
+  });
+
+  test('keeps the player its radius from a wall walked toward at a shallow angle', async ({ page }) => {
+    // The gold room's back wall is at z = -2.5 in its lot.
+    const backZ = inLot('goldLot', [0, 0, -2.5])[2];
+    await openDemo(page);
+    await placePlayer(page, inLot('goldLot', [-2.5, 1.6, -1.5]));
+
+    const [, , z] = await walkSteps(page, { step: [0.1, 0, -0.02], count: 50 });
+
+    expect(z - backZ).toBeCloseTo(0.4, 2);
+  });
+
+  test('steps the player back down onto the grass outside the stepped door, so the picture window still stops them', async ({ page }) => {
+    // The shell's south wall, where the picture window is, is at z = 3 in the lot.
+    const shellZ = inLot('goldLot', [0, 0, 3])[2];
+    await openDemo(page);
+    await placePlayer(page, inLot('goldLot', [-2, 1.6, 0]));
+
+    // Out through the door, then round to the picture window and into it.
+    const [, outsideY] = await walkSteps(page, { step: [-0.5, 0, 0], count: 8 });
+    await walkSteps(page, { step: [0, 0, 0.5], count: 10 });
+    await walkSteps(page, { step: [0.5, 0, 0], count: 9 });
+    const [, , z] = await walkSteps(page, { step: [0, 0, -0.2], count: 10 });
+
+    // The grass is 1cm below the floors. A blocked step can stop up to one step short of the radius.
+    expect(outsideY).toBeCloseTo(1.59);
+    expect(z - shellZ).toBeGreaterThan(0.39);
   });
 
   test('stops the player at a window', async ({ page }) => {

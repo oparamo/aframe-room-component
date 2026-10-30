@@ -3,11 +3,10 @@ import type { BuildingEl, BuildState, OpeningEl, PortalEl, RoomEl, WallEl } from
 import type { OpeningCorners, OpeningEdges, WallSpan } from '../types/geometry';
 import { capGeometry } from '../geometry/caps';
 import {
-  holePath, isClockwise, openingEdges, openingPlacement, openingQuad, rectangleCorners, wallAngle, wallGeometry,
-  wallSpan
+  holePath, isClockwise, openingEdges, openingPlacement, rectangleCorners, wallAngle, wallGeometry, wallSpan
 } from '../geometry/walls';
 import { assertDefined } from '../utils/assert';
-import { applyHiddenMesh, applyMesh, removeMesh } from './helpers/mesh';
+import { applyMesh } from './helpers/mesh';
 import { capOf, dataOf, openingsOf, wallHeight, wallsOf } from './helpers/structure';
 
 interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
@@ -63,30 +62,17 @@ const openingCorners = (wallEl: WallEl, { left, right }: OpeningEdges): OpeningC
   return [corner(left.ptX, left.bottomY), corner(left.ptX, left.topY), corner(right.ptX, right.bottomY), corner(right.ptX, right.topY)];
 };
 
-// The quad is in the wall's local space, and the opening sits on the wall unrotated, so moving it back
-// by the opening's position puts it in the opening's space.
-const windowPaneGeometry = (openingEl: OpeningEl, edges: OpeningEdges) => {
-  const { x, y, z } = openingEl.object3D.position;
-  return openingQuad(edges).translate(-x, -y, -z);
-};
-
 // Positions the opening and records its world corners; returns the hole to cut, if it has a portal.
 const cutOpening = (wall: WallBuild, openingEl: OpeningEl): Path | null => {
   const { state } = wall;
   const portalEl = state.portalOf.get(openingEl);
   state.cornersOf.delete(openingEl);
-  if (!portalEl) {
-    removeMesh(openingEl);
-    return null;
-  }
+  if (!portalEl) return null;
 
   positionOpening(wall, openingEl, portalEl);
   const portal = dataOf(portalEl, 'portal');
   const edges = openingEdges({ span: wall.span, openingX: openingEl.object3D.position.x, portal });
   state.cornersOf.set(openingEl, openingCorners(wall.wallEl, edges));
-  // A window gets a hidden pane, so room-collision stops the player at it; a door gets none.
-  if (portal.floorHeight > 0) applyHiddenMesh(openingEl, windowPaneGeometry(openingEl, edges));
-  else removeMesh(openingEl);
   return holePath(edges);
 };
 
