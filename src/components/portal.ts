@@ -1,10 +1,12 @@
 import type { Component } from '../types/aframe';
 import type { PortalData, PortalEl } from '../types/elements';
 import { nameOf } from '../builders/helpers/structure';
+import { isMaterialRemoval } from './helpers/material';
 import { isTransformChange } from './helpers/transforms';
 
 interface PortalComponent extends Component<PortalData, PortalEl> {
   _onTransformChanged: (event: Event) => void;
+  _onMaterialRemoved: (event: Event) => void;
   _misplaced: boolean;
   rebuild(): void;
 }
@@ -27,6 +29,11 @@ AFRAME.registerComponent<PortalComponent>('portal', {
       if (isTransformChange(event)) this.rebuild();
     };
     this.el.addEventListener('componentchanged', this._onTransformChanged);
+    // Surfaces without a material of their own still hold the removed one until the portal rebuilds.
+    this._onMaterialRemoved = (event) => {
+      if (isMaterialRemoval(event)) this.rebuild();
+    };
+    this.el.addEventListener('componentremoved', this._onMaterialRemoved);
   },
   update: function (oldData) {
     if (this._misplaced) return;
@@ -45,6 +52,7 @@ AFRAME.registerComponent<PortalComponent>('portal', {
   },
   remove: function () {
     this.el.removeEventListener('componentchanged', this._onTransformChanged);
+    this.el.removeEventListener('componentremoved', this._onMaterialRemoved);
     this.el.sceneEl.systems['room-building']?.removePortal(this.el);
   }
 });

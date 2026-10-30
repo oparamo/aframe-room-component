@@ -243,13 +243,14 @@ addToggle({
     byId('yellowFloor').setAttribute('floor', 'uvScale', uvScale);
   }
 });
-// The wall starts without a material of its own and takes the room's; setting one hands its mesh a new one.
+// The wall starts without a material of its own and takes the room's. Painting gives it one; removing
+// that one should bring the room's back.
 addToggle({
   position: '-5.4 1.6 -4.5',
   label: 'Paint the left wall orange',
   action: (on) => {
-    const color = on ? '#F77F00' : '#FFE680';
-    byId('yellowLeftWall').setAttribute('material', 'color', color);
+    if (on) byId('yellowLeftWall').setAttribute('material', 'color', '#F77F00');
+    else byId('yellowLeftWall').removeAttribute('material');
   }
 });
 addToggle({

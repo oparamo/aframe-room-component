@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fireComponentChanged, makeSceneEl, makeWallComp, registeredComponent } from '../utils/mocks';
+import { fireComponentChanged, fireComponentRemoved, makeSceneEl, makeWallComp, registeredComponent } from '../utils/mocks';
 import '../../src/components/wall';
 
 afterEach(() => vi.restoreAllMocks());
@@ -69,6 +69,24 @@ describe('wall', () => {
     });
   });
 
+  describe('componentremoved listener', () => {
+    it.each([
+      { removed: 'material', rebuilds: 1 },
+      { removed: 'shadow', rebuilds: 0 }
+    ])('rebuilds its room $rebuilds times when $removed is removed', ({ removed, rebuilds }) => {
+      // Arrange
+      const rebuild = vi.fn();
+      const comp = makeWallComp({ parentComponents: { room: { rebuild } } });
+      registeredComponent('wall').init.call(comp);
+
+      // Act
+      fireComponentRemoved(comp.el, removed);
+
+      // Assert
+      expect(rebuild).toHaveBeenCalledTimes(rebuilds);
+    });
+  });
+
   describe('tick', () => {
     it.each([
       { moved: true, rebuilds: 1 },
@@ -90,7 +108,7 @@ describe('wall', () => {
   });
 
   describe('remove', () => {
-    it('removes the componentchanged listener', () => {
+    it('removes its listeners', () => {
       // Arrange
       const comp = makeWallComp();
       registeredComponent('wall').init.call(comp);
@@ -101,6 +119,7 @@ describe('wall', () => {
 
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);
+      expect(removeSpy).toHaveBeenCalledWith('componentremoved', comp._onMaterialRemoved);
     });
 
     it('frees its mesh and rebuilds its room', () => {

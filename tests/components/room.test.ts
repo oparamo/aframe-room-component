@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { fireComponentChanged, makeRoomComp, makeSceneEl, makeWallChild, registeredComponent } from '../utils/mocks';
+import { fireComponentChanged, fireComponentRemoved, makeRoomComp, makeSceneEl, makeWallChild, registeredComponent } from '../utils/mocks';
 import '../../src/components/room';
 
 afterEach(() => vi.restoreAllMocks());
@@ -122,6 +122,25 @@ describe('room', () => {
     });
   });
 
+  describe('componentremoved listener', () => {
+    it.each([
+      { removed: 'material', builds: 1 },
+      { removed: 'shadow', builds: 0 }
+    ])('queues the room $builds times when $removed is removed', ({ removed, builds }) => {
+      // Arrange
+      const buildRoom = vi.fn();
+      const sceneEl = makeSceneEl({ building: { buildRoom } });
+      const comp = makeRoomComp({ data: {}, sceneEl });
+      registeredComponent('room').init.call(comp);
+
+      // Act
+      fireComponentRemoved(comp.el, removed);
+
+      // Assert
+      expect(buildRoom).toHaveBeenCalledTimes(builds);
+    });
+  });
+
   describe('update', () => {
     it('calls building.buildRoom with el', () => {
       // Arrange
@@ -175,7 +194,7 @@ describe('room', () => {
   });
 
   describe('remove', () => {
-    it('removes componentchanged listener', () => {
+    it('removes its listeners', () => {
       // Arrange
       const comp = makeRoomComp({ data: {} });
       registeredComponent('room').init.call(comp);
@@ -186,6 +205,7 @@ describe('room', () => {
 
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('componentchanged', comp._onTransformChanged);
+      expect(removeSpy).toHaveBeenCalledWith('componentremoved', comp._onMaterialRemoved);
     });
 
     it('tells the building system the room is gone', () => {

@@ -91,7 +91,7 @@ Markup that breaks these rules doesn't stop the scene. The element is skipped an
 
 ### Shorthands
 
-If an `a-wall` has no `material` component, it inherits from its parent `a-room`. If an `a-floor`, `a-ceiling`, or `a-sides` has no `material`, it inherits in order from: its parent `a-portal`, then the `from` opening's wall, then the `from` opening's room. A `material` set on an element at runtime, including one that inherited until then, applies to its mesh right away.
+If an `a-wall` has no `material` component, it inherits from its parent `a-room`. If an `a-floor`, `a-ceiling`, or `a-sides` has no `material`, it inherits in order from: its parent `a-portal`, then the `from` opening's wall, then the `from` opening's room. A `material` set on an element at runtime, including one that inherited until then, applies to its mesh right away. Removing an element's `material` brings back the one it inherits.
 
 If an `a-wall` has no `height` attribute, it inherits from its parent `a-room`'s `height`. The default room height is `2.4m`.
 

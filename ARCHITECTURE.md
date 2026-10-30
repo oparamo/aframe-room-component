@@ -40,6 +40,8 @@ Components never throw. An element under the wrong parent, a room with the wrong
 
 A-Frame calls a component's `remove` when its element leaves the document. Walls, floors, ceilings and sides free their mesh's geometry (materials belong to the material component) and rebuild their parent. An opening frees its blocker, tells the system to forget its corners and rebuild its portal, and rebuilds its room. A removed room asks for a pass, whose `room-building-complete` lets `room-collision` drop its meshes. A portal's update releases the openings it no longer joins and rebuilds their rooms, so the old holes fill in.
 
+Removing an element's `material` component swaps a plain default material onto its `mesh` and disposes the old one, which surfaces inheriting it still point at. So rooms, walls, portals and surfaces listen for `componentremoved` on themselves and queue a rebuild when it names `material`, and the build hands each mesh the material it inherits.
+
 ### What triggers a rebuild
 
 - `update`, whenever a component's attributes change.

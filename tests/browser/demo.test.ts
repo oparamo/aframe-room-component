@@ -347,26 +347,30 @@ test.describe('the yellow room', () => {
     expect(restored).toEqual(before);
   });
 
-  test('paints its left wall orange and back, through the wall\'s material', async ({ page }) => {
+  test('paints its left wall orange, and takes the room\'s material back when the paint is removed', async ({ page }) => {
     const label = 'Paint the left wall orange';
-    const wallColor = () => page.evaluate(() => {
+    // Whose material the wall's mesh shows, and its color.
+    const wallMaterial = () => page.evaluate(() => {
       const wallEl = document.getElementById('yellowLeftWall') as Entity;
-      const mesh = wallEl.getObject3D('mesh') as Mesh;
-      const material = mesh.material as MeshStandardMaterial;
-      return { color: material.color.getHexString(), fromWall: material === wallEl.components.material?.material };
+      const roomEl = document.getElementById('yellowRoom') as Entity;
+      const material = (wallEl.getObject3D('mesh') as Mesh).material as MeshStandardMaterial;
+      const owner = [[wallEl, 'wall'], [roomEl, 'room']] as const;
+      return {
+        color: material.color.getHexString(),
+        from: owner.find(([el]) => el.components.material?.material === material)?.[1] ?? null
+      };
     });
     await openDemo(page);
 
-    const before = await wallColor();
+    const before = await wallMaterial();
     await clickCheck(page, label);
-    const painted = await wallColor();
-    await clickCheck(page, label);
-    const restored = await wallColor();
+    const painted = await wallMaterial();
+    await clickCheckAndRebuild(page, label);
+    const removed = await wallMaterial();
 
-    // Until painted, the wall shows the room's material.
-    expect(before).toEqual({ color: 'ffe680', fromWall: false });
-    expect(painted).toEqual({ color: 'f77f00', fromWall: true });
-    expect(restored).toEqual({ color: 'ffe680', fromWall: true });
+    expect(before).toEqual({ color: 'ffe680', from: 'room' });
+    expect(painted).toEqual({ color: 'f77f00', from: 'wall' });
+    expect(removed).toEqual({ color: 'ffe680', from: 'room' });
   });
 });
 

@@ -330,10 +330,18 @@ const immediateAnimationFrame = () => vi.fn((callback: FrameRequestCallback) => 
 });
 
 // Fires the componentchanged listener the component registered, as A-Frame would.
+const fireComponentEvent = (el: ListenerLog, type: 'componentchanged' | 'componentremoved', name: string) => {
+  const listener = el._listeners[type];
+  if (!listener) throw new Error(`No ${type} listener registered.`);
+  listener(new CustomEvent(type, { detail: { name } }));
+};
+
 const fireComponentChanged = (el: ListenerLog, name: string) => {
-  const listener = el._listeners.componentchanged;
-  if (!listener) throw new Error('No componentchanged listener registered.');
-  listener(new CustomEvent('componentchanged', { detail: { name } }));
+  fireComponentEvent(el, 'componentchanged', name);
+};
+
+const fireComponentRemoved = (el: ListenerLog, name: string) => {
+  fireComponentEvent(el, 'componentremoved', name);
 };
 
 interface CollisionElOptions {
@@ -402,11 +410,12 @@ const makeCollisionComponent = (el: Entity, data = { radius: 0.4 }) => {
 interface CompOptions extends ElOptions { data?: object }
 
 // A component instance as A-Frame builds it: the definition's methods plus el and data. init stores
-// handlers such as _onTransformChanged on it.
+// handlers such as _onTransformChanged and _onMaterialRemoved on it.
 type MockComp<El> = Hooks & {
   el: El & ListenerLog;
   data: object;
   _onTransformChanged?: EventListener;
+  _onMaterialRemoved?: EventListener;
 };
 
 interface CompTarget { name: string; tag: string; parentTag: string }
@@ -436,6 +445,7 @@ const makePortalComp = (opts?: CompOptions) =>
 export {
   fake,
   fireComponentChanged,
+  fireComponentRemoved,
   immediateAnimationFrame,
   installAframeMock,
   loadScene,
