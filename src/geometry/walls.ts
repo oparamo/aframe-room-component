@@ -90,7 +90,7 @@ const holePath = ({ left, right }: OpeningEdges) => {
 };
 
 // A quad filling an opening, in the wall's local space.
-const blockerGeometry = ({ left, right }: OpeningEdges) => {
+const openingQuad = ({ left, right }: OpeningEdges) => {
   const geom = new THREE.BufferGeometry();
   geom.setIndex(QUAD);
   geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array([
@@ -119,10 +119,10 @@ const wallGeometry = ({ span, holes, uvScale }: WallOptions) => {
 };
 
 export {
-  blockerGeometry,
   holePath,
   isClockwise,
   openingEdges,
+  openingQuad,
   openingPlacement,
   rectangleCorners,
   wallAngle,

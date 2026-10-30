@@ -169,6 +169,36 @@ const playerPosition = (page: Page) => page.evaluate(
   () => (document.getElementById('player') as Entity).object3D.position.toArray()
 );
 
+// From 1m outside each cyan wall to 1m inside it: the collidable front, the hidden west, the hidden
+// east that isn't collidable, and the back that isn't either.
+const CYAN_WALKS: { from: Point; to: Point }[] = [
+  { from: [6, 1.6, 8], to: [6, 1.6, 6] },
+  { from: [3, 1.6, 5.5], to: [5, 1.6, 5.5] },
+  { from: [9, 1.6, 5.5], to: [7, 1.6, 5.5] },
+  { from: [6, 1.6, 3], to: [6, 1.6, 5] }
+];
+
+// Puts the player at the point without room-collision judging the jump: re-adding the component
+// starts it from where the player stands.
+const placePlayer = async (page: Page, at: Point) => {
+  await page.evaluate((point) => {
+    const playerEl = document.getElementById('player') as Entity;
+    playerEl.removeAttribute('room-collision');
+    playerEl.object3D.position.set(...point);
+    playerEl.setAttribute('room-collision', '');
+  }, at);
+  await nextFrames(page, 2);
+};
+
+// Places the player at `from`, then tries to step to `to`, and says whether a wall stopped them.
+const walkInto = async (page: Page, from: Point, to: Point) => {
+  await placePlayer(page, from);
+  await movePlayer(page, to);
+  const [x, , z] = await playerPosition(page);
+  if (Math.hypot(x - to[0], z - to[2]) < 0.01) return 'through';
+  return 'stopped';
+};
+
 test('loads with only the console errors the demo makes on purpose', async ({ page }) => {
   const errors: string[] = [];
   const pageErrors: Error[] = [];
@@ -408,6 +438,33 @@ test('grows the navy building 1.5x with its door still open', async ({ page }) =
 });
 
 test.describe('room-collision', () => {
+  test('stops the player at the cyan room\'s collidable walls from outside, hidden or not, and lets them through the others', async ({ page }) => {
+    await openDemo(page);
+
+    const ends = [];
+    for (const { from, to } of CYAN_WALKS) ends.push(await walkInto(page, from, to));
+
+    expect(ends).toEqual(['stopped', 'stopped', 'through', 'through']);
+  });
+
+  test('lets the player through every cyan wall while the room is not collidable', async ({ page }) => {
+    const label = 'Turn off collision for the cyan room';
+    const walkAll = async () => {
+      const ends = [];
+      for (const { from, to } of CYAN_WALKS) ends.push(await walkInto(page, from, to));
+      return ends;
+    };
+    await openDemo(page);
+
+    await clickCheckAndRebuild(page, label);
+    const off = await walkAll();
+    await clickCheckAndRebuild(page, label);
+    const on = await walkAll();
+
+    expect(off).toEqual(['through', 'through', 'through', 'through']);
+    expect(on).toEqual(['stopped', 'stopped', 'through', 'through']);
+  });
+
   test('stops the player at a wall', async ({ page }) => {
     await openDemo(page);
     await movePlayer(page, [0, 1.6, 2]);
@@ -428,15 +485,17 @@ test.describe('room-collision', () => {
 
   test('turns off and on with its toggle', async ({ page }) => {
     const intoWall = async () => {
-      await movePlayer(page, [0, 1.6, 2]);
       await movePlayer(page, [0, 1.6, -1]);
       return (await playerPosition(page))[2];
     };
     await openDemo(page);
 
     await clickCheck(page, 'Disable wall collision');
+    await movePlayer(page, [0, 1.6, 2]);
     const whileOff = await intoWall();
     await clickCheck(page, 'Enable wall collision');
+    // Back out through the wall, which walls now block from inside too.
+    await placePlayer(page, [0, 1.6, 2]);
     const whileOn = await intoWall();
 
     expect([whileOff, whileOn]).toEqual([-1, 2]);

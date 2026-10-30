@@ -154,4 +154,12 @@ describe('two rooms joined by a door and a window', () => {
     // Assert
     expect(end.x).toBeLessThan(4);
   });
+
+  it('stops the player at a wall from outside, where its back faces them', () => {
+    // Act: from west of the near room, walking east into its x = 0 wall
+    const end = walk({ start: [-2, 0, 2], step: [0.1, 0, 0], ticks: 40 });
+
+    // Assert
+    expect(end.x).toBeLessThan(0);
+  });
 });

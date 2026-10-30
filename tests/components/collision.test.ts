@@ -11,8 +11,9 @@ const wallAt = (x: number) => ({ object3DMap: { mesh: makePlaneMesh({ position: 
 // A level floor at height y, facing up.
 const floorAt = (y: number) => ({ object3DMap: { mesh: makePlaneMesh({ position: [0, y, 0], rotationX: -Math.PI / 2 }) } });
 
-// Elements with the class but nothing collision can use: no objects, or an object that isn't a mesh.
-const meshless = () => [{ object3DMap: {} }, { object3DMap: { light: new THREE.Object3D() } }];
+// Elements with the class but nothing collision can use: no objects, or a mesh key that isn't a
+// mesh, as a loaded model's group is.
+const meshless = () => [{ object3DMap: {} }, { object3DMap: { mesh: new THREE.Group() } }];
 
 describe('room-collision', () => {
   describe('init', () => {
@@ -72,6 +73,20 @@ describe('room-collision', () => {
 
       // Assert
       expect(comp.floorMeshes).toEqual([floor.object3DMap.mesh]);
+    });
+
+    it('takes a built element\'s collider in place of its mesh', () => {
+      // Arrange
+      const collider = makePlaneMesh({ position: [1, 0, 0], rotationY: -Math.PI / 2 });
+      const wall = { object3DMap: { ...wallAt(1).object3DMap, collider } };
+      const el = makeCollisionEl({ wallCollidables: [wall] });
+      const comp = makeCollisionComponent(el);
+
+      // Act
+      loadScene(el);
+
+      // Assert
+      expect(comp.wallMeshes).toEqual([collider]);
     });
   });
 

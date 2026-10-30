@@ -1,6 +1,6 @@
 import type { Matrix3, Object3D, Raycaster, Vector3 } from 'three';
 import type { Component, Entity } from '../types/aframe';
-import { isMesh } from '../builders/helpers/mesh';
+import { COLLIDER, isMesh, MESH } from '../builders/helpers/mesh';
 import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
 
 interface CollisionComponent extends Component<{ radius: number }> {
@@ -32,9 +32,14 @@ const MIN_MOVE_SQ = 0.000001;
 const MIN_SLIDE_SQ = 0.0001;
 const TORSO_OFFSET = 0.6;
 
-// The meshes the builds set on the scene's elements with the class.
+// What each of the scene's elements with the class collides with: the collider a build gave it, or
+// its own mesh, as on a consumer's entity.
 const meshesWithClass = (el: Entity, className: string) =>
-  [...el.sceneEl.querySelectorAll<Entity>(`.${className}`)].flatMap(classedEl => Object.values(classedEl.object3DMap).filter(isMesh));
+  [...el.sceneEl.querySelectorAll<Entity>(`.${className}`)].flatMap((classedEl) => {
+    const surface = classedEl.object3DMap[COLLIDER] ?? classedEl.object3DMap[MESH];
+    if (!isMesh(surface)) return [];
+    return [surface];
+  });
 
 AFRAME.registerComponent<CollisionComponent>('room-collision', {
   schema: {

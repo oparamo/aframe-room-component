@@ -13,7 +13,8 @@ interface WallComponent extends Component<WallData, WallEl> {
 AFRAME.registerComponent<WallComponent>('wall', {
   schema: {
     height: { type: 'number' },
-    uvScale: { type: 'number', default: 1 }
+    uvScale: { type: 'number', default: 1 },
+    collidable: { type: 'boolean', default: true }
   },
   init: function () {
     checkParent(this.el, 'a-room');
