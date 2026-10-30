@@ -7,13 +7,13 @@ interface RoomData {
   height: number;
   width: number;
   length: number;
-  passable: boolean;
+  collidable: boolean;
 }
 
 interface WallData {
   height: number;
   uvScale: number;
-  passable: boolean;
+  collidable: boolean;
 }
 
 // from and to are whatever their selectors matched; the builders check for an a-opening.

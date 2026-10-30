@@ -5,7 +5,7 @@ import { assertDefined } from '../../src/utils/assert';
 // Rounded so float noise doesn't fail an exact comparison; adding 0 turns -0 into 0.
 const round = (n: number) => Math.round(n * 1e4) / 1e4 + 0;
 
-// The visible mesh a build put on the element. Window blockers are invisible, so they don't count.
+// The visible mesh a build put on the element. Colliders are invisible, so they don't count.
 const meshOf = (el: Entity): Mesh => assertDefined(
   el.object3D.children.find((child): child is Mesh => child instanceof THREE.Mesh && child.visible),
   'built mesh'

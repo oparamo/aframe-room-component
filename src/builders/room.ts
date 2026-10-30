@@ -3,13 +3,13 @@ import type { BuildingEl, BuildState, OpeningEl, PortalEl, RoomEl, WallEl } from
 import type { OpeningCorners, OpeningEdges, WallSpan } from '../types/geometry';
 import { capGeometry } from '../geometry/caps';
 import {
-  blockerGeometry, holePath, isClockwise, openingEdges, openingPlacement, rectangleCorners, wallAngle, wallGeometry,
+  holePath, isClockwise, openingEdges, openingPlacement, openingQuad, rectangleCorners, wallAngle, wallGeometry,
   wallSpan
 } from '../geometry/walls';
 import { assertDefined } from '../utils/assert';
 import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
-import { addBlocker, applyMesh, disableCollision, enableCollision, removeBlocker } from './helpers/mesh';
-import { capOf, dataOf, isPassable, openingsOf, wallHeight, wallsOf } from './helpers/structure';
+import { applyMesh, disableCollision, enableCollision } from './helpers/mesh';
+import { capOf, dataOf, isCollidable, openingsOf, wallHeight, wallsOf } from './helpers/structure';
 
 interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
 
@@ -64,20 +64,33 @@ const openingCorners = (wallEl: WallEl, { left, right }: OpeningEdges): OpeningC
   return [corner(left.ptX, left.bottomY), corner(left.ptX, left.topY), corner(right.ptX, right.bottomY), corner(right.ptX, right.topY)];
 };
 
+// The quad is in the wall's local space, and the opening sits on the wall unrotated, so moving it back
+// by the opening's position puts it in the opening's space.
+const openingColliderGeometry = (openingEl: OpeningEl, edges: OpeningEdges) => {
+  const { x, y, z } = openingEl.object3D.position;
+  return openingQuad(edges).translate(-x, -y, -z);
+};
+
 // Positions the opening and records its world corners; returns the hole to cut, if it has a portal.
 const cutOpening = (wall: WallBuild, openingEl: OpeningEl): Path | null => {
   const { state } = wall;
   const portalEl = state.portalOf.get(openingEl);
   state.cornersOf.delete(openingEl);
-  removeBlocker(openingEl);
-  if (!portalEl) return null;
+  if (!portalEl) {
+    disableCollision(openingEl, COLLIDABLE);
+    return null;
+  }
 
   positionOpening(wall, openingEl, portalEl);
   const portal = dataOf(portalEl, 'portal');
   const edges = openingEdges({ span: wall.span, openingX: openingEl.object3D.position.x, portal });
   state.cornersOf.set(openingEl, openingCorners(wall.wallEl, edges));
-  // A window blocks like its wall, so a passable wall's windows let the player through too.
-  if (portal.floorHeight > 0 && !isPassable(wall.wallEl)) addBlocker(openingEl, blockerGeometry(edges));
+  // A window is collidable when its wall is. Toggled on every build, like the wall.
+  if (portal.floorHeight > 0 && isCollidable(wall.wallEl)) {
+    enableCollision(openingEl, COLLIDABLE, openingColliderGeometry(openingEl, edges));
+  } else {
+    disableCollision(openingEl, COLLIDABLE);
+  }
   return holePath(edges);
 };
 
@@ -89,9 +102,9 @@ const buildWall = (wallEl: WallEl, nextWallEl: WallEl, state: BuildState) => {
   const holes = openingsOf(wallEl).flatMap(openingEl => cutOpening({ wallEl, span, state }, openingEl) ?? []);
   const { uvScale } = dataOf(wallEl, 'wall');
   applyMesh({ el: wallEl, geom: wallGeometry({ span, holes, uvScale }) });
-  // Toggled on every build, since passable can change at runtime.
-  if (isPassable(wallEl)) disableCollision(wallEl, COLLIDABLE);
-  else enableCollision(wallEl, COLLIDABLE);
+  // Toggled on every build, since collidable can change at runtime.
+  if (isCollidable(wallEl)) enableCollision(wallEl, COLLIDABLE);
+  else disableCollision(wallEl, COLLIDABLE);
 };
 
 const buildRoom = (roomEl: RoomEl, state: BuildState) => {

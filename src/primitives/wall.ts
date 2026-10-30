@@ -3,6 +3,6 @@ AFRAME.registerPrimitive('a-wall', {
   mappings: {
     height: 'wall.height',
     'uv-scale': 'wall.uvScale',
-    passable: 'wall.passable'
+    collidable: 'wall.collidable'
   }
 });

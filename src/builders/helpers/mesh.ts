@@ -1,7 +1,6 @@
 import type { BufferGeometry, Material, Mesh, Object3D } from 'three';
 import type { Entity } from '../../types/aframe';
-import type { BuildingEl, OpeningEl } from '../../types/elements';
-import { COLLIDABLE } from '../../utils/surfaceClasses';
+import type { BuildingEl } from '../../types/elements';
 
 interface MeshOptions { el: BuildingEl; geom: BufferGeometry; fallbackMaterial?: Material }
 
@@ -45,25 +44,33 @@ const applyMesh = ({ el, geom, fallbackMaterial }: MeshOptions) => {
   }
 };
 
-// Gives the element a collider on its mesh's geometry, so it blocks from both sides without another
-// buffer. A rebuild points the existing collider at the new geometry. The builds call it right after
-// applyMesh, so the mesh is there.
-const applyCollider = (el: Entity) => {
-  const mesh = el.getObject3D(MESH) as Mesh;
+// A surface's collider shares its mesh's geometry, so it blocks without another buffer, and the mesh
+// frees it. An element with no mesh, such as an opening, owns its collider's geometry.
+const ownsColliderGeometry = (el: Entity) => !el.getObject3D(MESH);
+
+// A rebuild points the existing collider at the new geometry.
+const applyCollider = (el: Entity, geom: BufferGeometry) => {
   const collider = el.getObject3D(COLLIDER);
-  if (isMesh(collider)) collider.geometry = mesh.geometry;
-  else el.setObject3D(COLLIDER, makeCollider(mesh.geometry));
+  if (!isMesh(collider)) {
+    el.setObject3D(COLLIDER, makeCollider(geom));
+    return;
+  }
+  if (ownsColliderGeometry(el)) collider.geometry.dispose();
+  collider.geometry = geom;
 };
 
-// Its geometry is the mesh's, so it's left for the mesh to free.
 const removeCollider = (el: Entity) => {
-  if (el.getObject3D(COLLIDER)) el.removeObject3D(COLLIDER);
+  const collider = el.getObject3D(COLLIDER);
+  if (!isMesh(collider)) return;
+  el.removeObject3D(COLLIDER);
+  if (ownsColliderGeometry(el)) collider.geometry.dispose();
 };
 
-// Classes the element's surface for room-collision and gives it a collider.
-const enableCollision = (el: Entity, className: string) => {
+// Classes the element's surface for room-collision and gives it a collider, on its mesh's geometry
+// unless given its own. The builds call it right after applyMesh, so a surface's mesh is there.
+const enableCollision = (el: Entity, className: string, geom = (el.getObject3D(MESH) as Mesh).geometry) => {
   el.classList.add(className);
-  applyCollider(el);
+  applyCollider(el, geom);
 };
 
 const disableCollision = (el: Entity, className: string) => {
@@ -81,26 +88,4 @@ const removeMesh = (el: Entity) => {
   mesh.geometry.dispose();
 };
 
-// An invisible collidable quad across an opening, so the player cannot walk through it. The
-// geometry is in the wall's local space, and the opening sits on the wall unrotated, so moving the
-// collider back by the opening's position puts it where the geometry says.
-const addBlocker = (openingEl: OpeningEl, geom: BufferGeometry) => {
-  const blocker = makeCollider(geom);
-  blocker.position.copy(openingEl.object3D.position).negate();
-  openingEl.setObject3D(COLLIDER, blocker);
-  openingEl.classList.add(COLLIDABLE);
-};
-
-// Removes the blocker left by a previous build. Its geometry is its own, so it's freed here.
-const removeBlocker = (openingEl: OpeningEl) => {
-  openingEl.classList.remove(COLLIDABLE);
-  const blocker = openingEl.getObject3D(COLLIDER);
-  if (!isMesh(blocker)) return;
-  openingEl.removeObject3D(COLLIDER);
-  blocker.geometry.dispose();
-};
-
-export {
-  addBlocker, applyMesh, COLLIDER, disableCollision, enableCollision, getMaterial, isMesh, MESH, removeBlocker,
-  removeMesh
-};
+export { applyMesh, COLLIDER, disableCollision, enableCollision, getMaterial, isMesh, MESH, removeMesh };

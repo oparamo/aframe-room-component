@@ -25,7 +25,7 @@ const makeWindowRoom = () => {
   return { room, openingEl, state: makeBuildState({ links: [[openingEl, portalEl]] }) };
 };
 
-const blockerOf = (openingEl: ReturnType<typeof makeOpening>) => openingEl.getObject3D('collider') as Mesh | undefined;
+const openingColliderOf = (openingEl: ReturnType<typeof makeOpening>) => openingEl.getObject3D('collider') as Mesh | undefined;
 
 describe('buildRoom', () => {
   describe('with implicit wall positions', () => {
@@ -182,7 +182,7 @@ describe('buildRoom', () => {
     });
   });
 
-  describe('blocker', () => {
+  describe('opening collider', () => {
     it('creates an invisible collidable mesh for openings with floorHeight > 0', () => {
       // Arrange
       const { room, openingEl, state } = makeWindowRoom();
@@ -191,7 +191,7 @@ describe('buildRoom', () => {
       buildRoom(room, state);
 
       // Assert
-      expect(blockerOf(openingEl)?.visible).toBe(false);
+      expect(openingColliderOf(openingEl)?.visible).toBe(false);
       expect(openingEl.classList.contains(COLLIDABLE)).toBe(true);
     });
 
@@ -203,43 +203,44 @@ describe('buildRoom', () => {
       buildRoom(room, state);
 
       // Assert
-      const blocker = assertDefined(blockerOf(openingEl), 'blocker');
-      blocker.updateWorldMatrix(true, false);
-      const box = new THREE.Box3().setFromObject(blocker);
+      const collider = assertDefined(openingColliderOf(openingEl), 'opening collider');
+      collider.updateWorldMatrix(true, false);
+      const box = new THREE.Box3().setFromObject(collider);
       expect([box.min.toArray(), box.max.toArray()]).toEqual([[2, 0.5, 0], [3, 1.5, 0]]);
     });
 
-    it('replaces the blocker on rebuild, freeing the old geometry but not the shared material', () => {
+    it('keeps the collider on rebuild, freeing the old geometry but not the shared material', () => {
       // Arrange
       const { room, openingEl, state } = makeWindowRoom();
       buildRoom(room, state);
-      const stale = assertDefined(blockerOf(openingEl), 'blocker');
+      const collider = assertDefined(openingColliderOf(openingEl), 'opening collider');
+      const oldGeometry = collider.geometry;
       const geometryDisposed = vi.fn();
       const materialDisposed = vi.fn();
-      stale.geometry.addEventListener('dispose', geometryDisposed);
-      [stale.material].flat()[0]?.addEventListener('dispose', materialDisposed);
+      oldGeometry.addEventListener('dispose', geometryDisposed);
+      [collider.material].flat()[0]?.addEventListener('dispose', materialDisposed);
 
       // Act
       buildRoom(room, state);
 
       // Assert
-      expect(blockerOf(openingEl)).not.toBe(stale);
-      expect(stale.parent).toBeNull();
+      expect(openingColliderOf(openingEl)).toBe(collider);
+      expect(collider.geometry).not.toBe(oldGeometry);
       expect(geometryDisposed).toHaveBeenCalledOnce();
       expect(materialDisposed).not.toHaveBeenCalled();
     });
 
-    it('leaves no blocker or class on an opening in a passable wall', () => {
+    it('leaves no collider or class on an opening in a wall that is not collidable', () => {
       // Arrange
       const { room, openingEl, state } = makeWindowRoom();
       buildRoom(room, state);
-      assertDefined(openingEl.parentEl.getAttribute('wall'), 'wall data').passable = true;
+      assertDefined(openingEl.parentEl.getAttribute('wall'), 'wall data').collidable = false;
 
       // Act
       buildRoom(room, state);
 
       // Assert
-      expect(blockerOf(openingEl)).toBeUndefined();
+      expect(openingColliderOf(openingEl)).toBeUndefined();
       expect(openingEl.classList.contains(COLLIDABLE)).toBe(false);
     });
   });
@@ -288,9 +289,9 @@ describe('buildRoom', () => {
     });
 
     it.each([
-      { passable: 'the wall', wall: { passable: true }, room: {} },
-      { passable: 'its room', wall: {}, room: { passable: true } }
-    ])('leaves a wall unclassed and without a collider when $passable is passable', ({ wall, room: roomOptions }) => {
+      { owner: 'the wall', wall: { collidable: false }, room: {} },
+      { owner: 'its room', wall: {}, room: { collidable: false } }
+    ])('leaves a wall unclassed and without a collider when $owner is not collidable', ({ wall, room: roomOptions }) => {
       // Arrange
       const room = makeRoom([makeWall(wall), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 })], roomOptions);
 
@@ -298,18 +299,18 @@ describe('buildRoom', () => {
       buildRoom(room, makeBuildState());
 
       // Assert
-      const passable = firstWallOf(room);
-      expect(passable.classList.contains(COLLIDABLE)).toBe(false);
-      expect(passable.getObject3D('collider')).toBeUndefined();
-      expect(meshOf(passable)).toBeDefined();
+      const uncollidable = firstWallOf(room);
+      expect(uncollidable.classList.contains(COLLIDABLE)).toBe(false);
+      expect(uncollidable.getObject3D('collider')).toBeUndefined();
+      expect(meshOf(uncollidable)).toBeDefined();
     });
 
-    it('classes a wall again and gives it a collider when it stops being passable', () => {
+    it('classes a wall again and gives it a collider when it becomes collidable', () => {
       // Arrange
-      const room = makeRoom([makeWall({ passable: true }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 })]);
+      const room = makeRoom([makeWall({ collidable: false }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 })]);
       buildRoom(room, makeBuildState());
       const wall = firstWallOf(room);
-      assertDefined(wall.getAttribute('wall'), 'wall data').passable = false;
+      assertDefined(wall.getAttribute('wall'), 'wall data').collidable = true;
 
       // Act
       buildRoom(room, makeBuildState());

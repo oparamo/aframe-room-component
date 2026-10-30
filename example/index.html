@@ -156,11 +156,11 @@
       <a-ceiling material="color:#C5E1A5"></a-ceiling>
     </a-room>
 
-    <!-- Cyan room: an inside room with no shell, one wall for each mix of visible and passable. Its
+    <!-- Cyan room: an inside room with no shell, one wall for each mix of visible and collidable. Its
          material is double-sided only so the walls show from outside; collision ignores the side. -->
     <a-room id="cyanRoom" height="2.2" material="color:#4DD0E1; side:double">
-      <a-wall id="cyanBack" position="4 0 4" passable="true"></a-wall>
-      <a-wall id="cyanEast" position="8 0 4" visible="false" passable="true"></a-wall>
+      <a-wall id="cyanBack" position="4 0 4" collidable="false"></a-wall>
+      <a-wall id="cyanEast" position="8 0 4" visible="false" collidable="false"></a-wall>
       <a-wall id="cyanFront" position="8 0 7"></a-wall>
       <a-wall id="cyanWest" position="4 0 7" visible="false"></a-wall>
       <a-floor material="color:#E0F7FA"></a-floor>

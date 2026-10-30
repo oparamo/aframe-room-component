@@ -131,15 +131,15 @@ interface WallOptions {
   y?: number;
   z?: number;
   height?: number;
-  passable?: boolean;
+  collidable?: boolean;
   openings?: OpeningEl[];
   // Other children, such as a portal or a nested room.
   others?: BuildingEl[];
 }
 
-const makeWall = ({ x = 0, y = 0, z = 0, height = 3, passable = false, openings = [], others = [] }: WallOptions = {}) =>
+const makeWall = ({ x = 0, y = 0, z = 0, height = 3, collidable = true, openings = [], others = [] }: WallOptions = {}) =>
   makeBuildingEl({
-    localName: 'a-wall', data: { wall: { height, uvScale: 1, passable } }, children: [...openings, ...others], at: { x, y, z }
+    localName: 'a-wall', data: { wall: { height, uvScale: 1, collidable } }, children: [...openings, ...others], at: { x, y, z }
   }) as WallEl;
 
 interface RoomOptions {
@@ -149,14 +149,14 @@ interface RoomOptions {
   height?: number;
   caps?: ('floor' | 'ceiling')[];
   material?: Material;
-  passable?: boolean;
+  collidable?: boolean;
 }
 
 const makeRoom = (walls: WallEl[], {
-  outside = false, width = null, length = null, height = 2.4, caps = ['floor', 'ceiling'], material, passable = false
+  outside = false, width = null, length = null, height = 2.4, caps = ['floor', 'ceiling'], material, collidable = true
 }: RoomOptions = {}) => makeBuildingEl({
   localName: 'a-room',
-  data: { room: { outside, width, length, height, passable } },
+  data: { room: { outside, width, length, height, collidable } },
   components: { room: { rebuild: vi.fn() }, ...(material && { material: { material } }) },
   children: [...walls, ...caps.map(kind => makeCap({ kind }))]
 });

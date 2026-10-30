@@ -67,8 +67,8 @@ A set of primitives for laying out rooms connected by doors in A-Frame. Attribut
 
 | Primitive | Purpose | Attributes |
 | - | - | - |
-| `a-room` | Contains a set of walls and other objects. | `position`, `outside`, `height`, `width`, `length`, `passable`, *`material`* |
-| `a-wall` | Marks one corner of the room; the wall runs from it to a neighboring corner. | `position`, `height`, `uv-scale`, `passable`, *`material`* |
+| `a-room` | Contains a set of walls and other objects. | `position`, `outside`, `height`, `width`, `length`, `collidable`, *`material`* |
+| `a-wall` | Marks one corner of the room; the wall runs from it to a neighboring corner. | `position`, `height`, `uv-scale`, `collidable`, *`material`* |
 | `a-opening` | Marks a wall so a portal can connect to it. | (none) |
 | `a-portal` | Connects two openings and positions them along their walls. | `from`, `to`, `position`, `width`, `height`, `floor-height` |
 | `a-floor`, `a-ceiling`, `a-sides` | Attach materials to room/portal surfaces. | `uv-scale`, *`material`* |
@@ -95,7 +95,7 @@ If an `a-wall` has no `material` component, it inherits from its parent `a-room`
 
 If an `a-wall` has no `height` attribute, it inherits from its parent `a-room`'s `height`. The default room height is `2.4m`.
 
-`passable="true"` on an `a-wall` lets the player walk through it, and on an `a-room` lets them through all its walls. A wall in a passable room is passable even without the attribute. Windows in a passable wall let the player through too.
+`collidable="false"` on an `a-wall` lets the player walk through it, and on an `a-room` lets them through all its walls. A wall is collidable only when both it and its room are, so `collidable="true"` on a wall doesn't override `collidable="false"` on its room. Windows in a wall that isn't collidable let the player through too.
 
 If an `a-room` has both a `width` and a `length` attribute, it must contain exactly four `a-wall`s, and it places them itself to form a rectangle from `(0,0)` to `(width, length)`. Wall `position`s are ignored, and a `console.warn` points out any that are set.
 
@@ -137,7 +137,7 @@ Set `floor-height` on `a-portal` to raise the opening above the wall baseline. T
 
 A window still requires two `a-opening` elements and a connecting `a-portal`, one opening on each side of the wall. For a solid window with no tunnel, omit the `a-floor`, `a-ceiling`, and `a-sides` children from the portal so no geometry is generated for the passage itself.
 
-Window portals (any portal with `floor-height > 0`) automatically block player movement, because `room-collision` treats the opening as a solid surface. Door portals (`floor-height="0"`, the default) remain passable.
+Window portals (any portal with `floor-height > 0`) automatically block player movement, because `room-collision` treats the opening as a solid surface. Door portals (`floor-height="0"`, the default) let the player through.
 
 ### Rebuilding at runtime
 
@@ -178,7 +178,7 @@ sceneEl.addEventListener('room-building-complete', ({ detail }) => {
 
 Add `room-collision` to any entity that has a locomotion control to prevent the player from walking through walls. It stops the player at walls, slides them along a wall they walk into at an angle, and keeps them on the floor, including through doorways and between floors at different heights. Because it reads the entity's position change each tick rather than intercepting key events, it works alongside any control that moves the entity: `wasd-controls`, gamepad controls, mobile joystick controls, VR thumbstick locomotion, and others.
 
-Walls stop the player from both sides, whichever way they face, so an inside room with no shell around it can't be walked into from outside. Hiding an element with `visible="false"` doesn't change that: a hidden wall still stops the player. To let the player through a wall, visible or not, set `passable="true"` on it or on its room.
+Walls stop the player from both sides, whichever way they face, so an inside room with no shell around it can't be walked into from outside. Hiding an element with `visible="false"` doesn't change that: a hidden wall still stops the player. To let the player through a wall, visible or not, set `collidable="false"` on it or on its room.
 
 **Direct pattern:** `room-collision` on the camera entity itself.
 

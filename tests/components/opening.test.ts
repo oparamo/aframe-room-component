@@ -32,17 +32,17 @@ describe('opening', () => {
   });
 
   describe('remove', () => {
-    it('frees its blocker, tells the building system and rebuilds the room', () => {
+    it('frees its collider, tells the building system and rebuilds the room', () => {
       // Arrange
       const removeOpening = vi.fn();
       const sceneEl = makeSceneEl({ building: { removeOpening } });
       const rebuild = vi.fn();
       const comp = makeOpeningComp({ sceneEl });
       Object.assign(comp.el.parentEl, { parentEl: { components: { room: { rebuild } } } });
-      const blocker = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
-      comp.el.setObject3D('collider', blocker);
+      const collider = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
+      comp.el.setObject3D('collider', collider);
       const disposed = vi.fn();
-      blocker.geometry.addEventListener('dispose', disposed);
+      collider.geometry.addEventListener('dispose', disposed);
 
       // Act
       registeredComponent('opening').remove.call(comp);

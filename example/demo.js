@@ -309,17 +309,17 @@ addInfo({
 });
 addInfo({
   position: '8.6 1.6 5.5',
-  label: '<a-wall visible="false" passable="true"> is hidden, and you walk through it.'
+  label: '<a-wall visible="false" collidable="false"> is hidden, and you walk through it.'
 });
 addInfo({
   position: '6 1.6 3.4',
-  label: '<a-wall passable="true"> shows, and you walk through it.'
+  label: '<a-wall collidable="false"> shows, and you walk through it.'
 });
 addToggle({
   position: '6 1.2 8.2',
-  label: 'Make the cyan room passable',
+  label: 'Turn off collision for the cyan room',
   action: (on) => {
-    byId('cyanRoom').setAttribute('passable', on);
+    byId('cyanRoom').setAttribute('collidable', !on);
   }
 });
 addInfo({

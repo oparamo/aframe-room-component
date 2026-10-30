@@ -14,7 +14,7 @@ AFRAME.registerComponent<WallComponent>('wall', {
   schema: {
     height: { type: 'number' },
     uvScale: { type: 'number', default: 1 },
-    passable: { type: 'boolean' }
+    collidable: { type: 'boolean', default: true }
   },
   init: function () {
     checkParent(this.el, 'a-room');

@@ -169,8 +169,8 @@ const playerPosition = (page: Page) => page.evaluate(
   () => (document.getElementById('player') as Entity).object3D.position.toArray()
 );
 
-// From 1m outside each cyan wall to 1m inside it: the solid front, the hidden west, the hidden and
-// passable east, and the passable back.
+// From 1m outside each cyan wall to 1m inside it: the collidable front, the hidden west, the hidden
+// east that isn't collidable, and the back that isn't either.
 const CYAN_WALKS: { from: Point; to: Point }[] = [
   { from: [6, 1.6, 8], to: [6, 1.6, 6] },
   { from: [3, 1.6, 5.5], to: [5, 1.6, 5.5] },
@@ -438,7 +438,7 @@ test('grows the navy building 1.5x with its door still open', async ({ page }) =
 });
 
 test.describe('room-collision', () => {
-  test('stops the player at the cyan room\'s solid walls from outside, hidden or not, and lets them through its passable ones', async ({ page }) => {
+  test('stops the player at the cyan room\'s collidable walls from outside, hidden or not, and lets them through the others', async ({ page }) => {
     await openDemo(page);
 
     const ends = [];
@@ -447,8 +447,8 @@ test.describe('room-collision', () => {
     expect(ends).toEqual(['stopped', 'stopped', 'through', 'through']);
   });
 
-  test('lets the player through every cyan wall while the room is passable', async ({ page }) => {
-    const label = 'Make the cyan room passable';
+  test('lets the player through every cyan wall while the room is not collidable', async ({ page }) => {
+    const label = 'Turn off collision for the cyan room';
     const walkAll = async () => {
       const ends = [];
       for (const { from, to } of CYAN_WALKS) ends.push(await walkInto(page, from, to));
@@ -457,12 +457,12 @@ test.describe('room-collision', () => {
     await openDemo(page);
 
     await clickCheckAndRebuild(page, label);
-    const passable = await walkAll();
+    const off = await walkAll();
     await clickCheckAndRebuild(page, label);
-    const solid = await walkAll();
+    const on = await walkAll();
 
-    expect(passable).toEqual(['through', 'through', 'through', 'through']);
-    expect(solid).toEqual(['stopped', 'stopped', 'through', 'through']);
+    expect(off).toEqual(['through', 'through', 'through', 'through']);
+    expect(on).toEqual(['stopped', 'stopped', 'through', 'through']);
   });
 
   test('stops the player at a wall', async ({ page }) => {
