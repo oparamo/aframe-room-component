@@ -96,7 +96,7 @@ AFRAME.registerSystem<BuildingSystem>('room-building', {
     this.dirtyPortals.delete(portalEl);
     this.requestBuild();
   },
-  // The pass that follows emits room-building-complete, so room-collision drops the room's meshes.
+  // The pass that follows emits room-building-complete, so listeners see the scene without the room.
   removeRoom: function (roomEl) {
     this.dirtyRooms.delete(roomEl);
     this.requestBuild();

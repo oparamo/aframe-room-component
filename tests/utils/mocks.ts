@@ -2,11 +2,11 @@ import { vi } from 'vitest';
 import type { Material, Object3D, Vector3 } from 'three';
 import type { AFrame, Entity } from '../../src/types/aframe';
 import type { CollisionComponent } from '../../src/components/collision';
+import type { CollisionScene, CollisionSystem } from '../../src/types/collision';
 import type {
   BuildingEl, BuildingScene, BuildingSystem, BuildState, OpeningEl, PortalEl, RoomEl, WallEl
 } from '../../src/types/elements';
 import type { OpeningCorners } from '../../src/types/geometry';
-import { COLLIDABLE } from '../../src/utils/surfaceClasses';
 
 // Data shapes are checked a few levels down; deeper than that (and for functions) anything goes,
 // which keeps DOM-sized types such as HTMLElement from blowing the compiler's depth limit.
@@ -55,7 +55,7 @@ interface Hooks {
 const registeredComponent = (name: string) => lookup('components', name) as Hooks;
 const registeredPrimitive = (name: string) => lookup('primitives', name);
 const registeredSystem = (name: string) =>
-  lookup('systems', name) as Partial<BuildingSystem> & { init(): void };
+  lookup('systems', name) as Partial<BuildingSystem & CollisionSystem> & { init(): void };
 
 // --- Geometry fixtures ---
 
@@ -77,16 +77,6 @@ interface ElementOptions {
 }
 
 // An element as the builders see it. Its object3D is real, with its children's beneath it, and
-// The part of DOMTokenList the builds use.
-const makeClassList = () => {
-  const names = new Set<string>();
-  return {
-    add: (name: string) => names.add(name),
-    remove: (name: string) => names.delete(name),
-    contains: (name: string) => names.has(name)
-  } as unknown as DOMTokenList;
-};
-
 // setObject3D, getObject3D and removeObject3D keep object3DMap as A-Frame does.
 const makeBuildingEl = ({ localName, data = {}, components = {}, children = [], at = {} }: ElementOptions) => {
   const object3D = makeObject3D(at);
@@ -100,7 +90,6 @@ const makeBuildingEl = ({ localName, data = {}, components = {}, children = [], 
     components,
     children,
     parentEl: null,
-    classList: makeClassList(),
     hasAttribute: () => false,
     getAttribute: (name: string) => data[name] ?? null,
     getObject3D: (type: string) => object3DMap[type],
@@ -131,15 +120,14 @@ interface WallOptions {
   y?: number;
   z?: number;
   height?: number;
-  collidable?: boolean;
   openings?: OpeningEl[];
   // Other children, such as a portal or a nested room.
   others?: BuildingEl[];
 }
 
-const makeWall = ({ x = 0, y = 0, z = 0, height = 3, collidable = true, openings = [], others = [] }: WallOptions = {}) =>
+const makeWall = ({ x = 0, y = 0, z = 0, height = 3, openings = [], others = [] }: WallOptions = {}) =>
   makeBuildingEl({
-    localName: 'a-wall', data: { wall: { height, uvScale: 1, collidable } }, children: [...openings, ...others], at: { x, y, z }
+    localName: 'a-wall', data: { wall: { height, uvScale: 1 } }, children: [...openings, ...others], at: { x, y, z }
   }) as WallEl;
 
 interface RoomOptions {
@@ -149,14 +137,13 @@ interface RoomOptions {
   height?: number;
   caps?: ('floor' | 'ceiling')[];
   material?: Material;
-  collidable?: boolean;
 }
 
 const makeRoom = (walls: WallEl[], {
-  outside = false, width = null, length = null, height = 2.4, caps = ['floor', 'ceiling'], material, collidable = true
+  outside = false, width = null, length = null, height = 2.4, caps = ['floor', 'ceiling'], material
 }: RoomOptions = {}) => makeBuildingEl({
   localName: 'a-room',
-  data: { room: { outside, width, length, height, collidable } },
+  data: { room: { outside, width, length, height } },
   components: { room: { rebuild: vi.fn() }, ...(material && { material: { material } }) },
   children: [...walls, ...caps.map(kind => makeCap({ kind }))]
 });
@@ -249,6 +236,8 @@ const descendantsOf = (el: BuildingEl): BuildingEl[] =>
 
 const SQUARE_CORNERS: [number, number][] = [[0, 0], [4, 0], [4, 4], [0, 4]];
 
+const COLLIDABLE_TAGS = ['a-wall', 'a-floor', 'a-sides', 'a-opening'];
+
 // Two 4 m square rooms with a 2 m gap between them, along z, joined by a door at x = 1 and a
 // window at x = 3. Everything is a real Object3D, parented as A-Frame would.
 const makeTwoRooms = () => {
@@ -266,11 +255,10 @@ const makeTwoRooms = () => {
 
   const elements = [near, far, door, window].flatMap(descendantsOf);
 
-  // The elements the builds gave a class, as a querySelectorAll for it would find them.
-  const withClass = (className: string) =>
-    elements.filter(el => el.classList.contains(className));
+  // The elements whose primitives carry room-collidable.
+  const collidables = elements.filter(el => COLLIDABLE_TAGS.includes(el.localName));
 
-  return { near, far, door, window, state, withClass };
+  return { near, far, door, window, state, collidables };
 };
 
 const makeSystem = () => {
@@ -287,6 +275,8 @@ const makeSystem = () => {
 interface SceneOptions {
   // Methods of the building system a test wants to see called or to answer for.
   building?: DeepPartial<BuildingSystem>;
+  // The collision system's methods, for a test of what calls them.
+  collision?: DeepPartial<CollisionSystem>;
 }
 
 const BUILDING_METHODS = [
@@ -295,9 +285,11 @@ const BUILDING_METHODS = [
 ] as const;
 
 // A scene whose building system is all stubs, apart from those the test passes.
-const makeSceneEl = ({ building = {} }: SceneOptions = {}) => {
+const makeSceneEl = ({ building = {}, collision = {} }: SceneOptions = {}) => {
   const stubs = Object.fromEntries(BUILDING_METHODS.map(name => [name, vi.fn()]));
-  return { systems: { 'room-building': { ...stubs, ...building } } } as unknown as BuildingScene;
+  return {
+    systems: { 'room-building': { ...stubs, ...building }, 'room-collision': collision }
+  } as unknown as BuildingScene & CollisionScene;
 };
 
 // Listeners the element mock captured, keyed by event name.
@@ -357,11 +349,33 @@ const fireComponentRemoved = (el: ListenerLog, name: string) => {
   fireComponentEvent(el, 'componentremoved', name);
 };
 
+interface SurfaceElOptions {
+  mesh?: Object3D;
+  // room-collidable's value; leave it out for an element without the component, such as a plain parent.
+  collidable?: boolean;
+  parentEl?: BuildingEl | null;
+}
+
+// An element with room-collidable, as the collision system reads it.
+const makeSurfaceEl = ({ mesh, collidable, parentEl = null }: SurfaceElOptions = {}) => {
+  const el = makeBuildingEl({ localName: 'a-entity' });
+  if (mesh) el.object3DMap.mesh = mesh;
+  if (collidable !== undefined) el.components['room-collidable'] = { data: collidable };
+  return Object.assign(el, { parentEl });
+};
+
+// The real room-collision system, with the surfaces registered as their components would.
+const makeCollisionSystem = ({ surfaces = [] }: { surfaces?: Entity[] } = {}) => {
+  const system = { ...registeredSystem('room-collision') } as unknown as CollisionSystem & { init(): void };
+  system.init();
+  for (const el of surfaces) system.updateSurface(el);
+  return system;
+};
+
 interface CollisionElOptions {
   position?: Vector3;
   cameraY?: number;
-  wallCollidables?: DeepPartial<BuildingEl>[];
-  floorCollidables?: DeepPartial<BuildingEl>[];
+  surfaces?: Entity[];
   childCamera?: boolean;
   // The scene finished loading before room-collision was added, so its loaded event never fires.
   sceneLoaded?: boolean;
@@ -370,7 +384,7 @@ interface CollisionElOptions {
 interface PlaneMeshOptions { position?: [number, number, number]; rotationX?: number; rotationY?: number }
 
 // A 10 m square for collision to raycast against. Unrotated, it stands in the xy plane facing +z,
-// and only its front face is hit.
+// and its material draws only that face.
 const makePlaneMesh = ({ position = [0, 0, 0], rotationX = 0, rotationY = 0 }: PlaneMeshOptions = {}) => {
   const mesh = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), new THREE.MeshBasicMaterial());
   mesh.position.set(...position);
@@ -383,8 +397,7 @@ const makePlaneMesh = ({ position = [0, 0, 0], rotationX = 0, rotationY = 0 }: P
 const makeCollisionEl = ({
   position = new THREE.Vector3(),
   cameraY = 1.6,
-  wallCollidables = [],
-  floorCollidables = [],
+  surfaces = [],
   childCamera = false,
   sceneLoaded = false
 }: CollisionElOptions = {}) => {
@@ -402,9 +415,9 @@ const makeCollisionEl = ({
       _listeners: {} as ListenerLog['_listeners'],
       addEventListener (event: string, cb: EventListener) { this._listeners[event] = cb; },
       removeEventListener () {},
-      querySelectorAll: (sel: string) => sel === `.${COLLIDABLE}` ? wallCollidables : floorCollidables
+      systems: { 'room-collision': makeCollisionSystem({ surfaces }) }
     }
-  } as unknown as Entity & { sceneEl: ListenerLog };
+  } as unknown as Entity & { sceneEl: ListenerLog & { systems: { 'room-collision': CollisionSystem } } };
 };
 
 // Fires the scene's loaded event, which A-Frame sends once every entity has initialized.
@@ -414,8 +427,10 @@ const loadScene = (el: { sceneEl: ListenerLog }) => {
   listener(new Event('loaded'));
 };
 
-const makeCollisionComponent = (el: Entity, data = { radius: 0.4 }) => {
-  const comp = { ...registeredComponent('room-collision'), el, data } as unknown as CollisionComponent & Hooks;
+// A-Frame hands the component the system of the same name.
+const makeCollisionComponent = (el: ReturnType<typeof makeCollisionEl>, data = { radius: 0.4 }) => {
+  const system = el.sceneEl.systems['room-collision'];
+  const comp = { ...registeredComponent('room-collision'), el, data, system } as unknown as CollisionComponent & Hooks;
   comp.init.call(comp);
   return comp;
 };
@@ -466,6 +481,7 @@ export {
   makeCap,
   makeCollisionComponent,
   makeCollisionEl,
+  makeCollisionSystem,
   makeEl,
   makeObject3D,
   makeOpening,
@@ -480,6 +496,7 @@ export {
   makeRoomWithOpening,
   makeSceneEl,
   makeSquareRoom,
+  makeSurfaceEl,
   makeSystem,
   makeTransformedRoom,
   makeTwoRooms,

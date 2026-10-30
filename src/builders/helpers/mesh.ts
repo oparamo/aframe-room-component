@@ -6,23 +6,6 @@ interface MeshOptions { el: BuildingEl; geom: BufferGeometry; fallbackMaterial?:
 
 // A-Frame's own key for an entity's mesh, where its material component looks for it.
 const MESH = 'mesh';
-// The invisible, double-sided copy of a surface that room-collision raycasts.
-const COLLIDER = 'collider';
-
-let colliderMaterial: Material | undefined;
-
-// Shared by every collider and never disposed. Mesh.raycast skips a mesh without a material, and
-// DoubleSide makes the surface block from both of its faces, whatever the render material's side.
-const sharedColliderMaterial = () => {
-  colliderMaterial ??= new THREE.MeshBasicMaterial({ side: THREE.DoubleSide });
-  return colliderMaterial;
-};
-
-const makeCollider = (geom: BufferGeometry) => {
-  const collider = new THREE.Mesh(geom, sharedColliderMaterial());
-  collider.visible = false;
-  return collider;
-};
 
 const getMaterial = (el: Entity | null | undefined) => el?.components.material?.material;
 
@@ -44,48 +27,19 @@ const applyMesh = ({ el, geom, fallbackMaterial }: MeshOptions) => {
   }
 };
 
-// A surface's collider shares its mesh's geometry, so it blocks without another buffer, and the mesh
-// frees it. An element with no mesh, such as an opening, owns its collider's geometry.
-const ownsColliderGeometry = (el: Entity) => !el.getObject3D(MESH);
-
-// A rebuild points the existing collider at the new geometry.
-const applyCollider = (el: Entity, geom: BufferGeometry) => {
-  const collider = el.getObject3D(COLLIDER);
-  if (!isMesh(collider)) {
-    el.setObject3D(COLLIDER, makeCollider(geom));
-    return;
-  }
-  if (ownsColliderGeometry(el)) collider.geometry.dispose();
-  collider.geometry = geom;
+// A mesh nothing renders, for collision alone, such as the pane across a window.
+const applyHiddenMesh = (el: BuildingEl, geom: BufferGeometry) => {
+  applyMesh({ el, geom });
+  (el.getObject3D(MESH) as Mesh).visible = false;
 };
 
-const removeCollider = (el: Entity) => {
-  const collider = el.getObject3D(COLLIDER);
-  if (!isMesh(collider)) return;
-  el.removeObject3D(COLLIDER);
-  if (ownsColliderGeometry(el)) collider.geometry.dispose();
-};
-
-// Classes the element's surface for room-collision and gives it a collider, on its mesh's geometry
-// unless given its own. The builds call it right after applyMesh, so a surface's mesh is there.
-const enableCollision = (el: Entity, className: string, geom = (el.getObject3D(MESH) as Mesh).geometry) => {
-  el.classList.add(className);
-  applyCollider(el, geom);
-};
-
-const disableCollision = (el: Entity, className: string) => {
-  el.classList.remove(className);
-  removeCollider(el);
-};
-
-// Takes the element's mesh and collider off it and frees the geometry. The material is left alone,
-// since it belongs to the element's material component, or to whoever assigned it.
+// Takes the element's mesh off it and frees the geometry. The material is left alone, since it
+// belongs to the element's material component, or to whoever assigned it.
 const removeMesh = (el: Entity) => {
-  removeCollider(el);
   const mesh = el.getObject3D(MESH);
   if (!isMesh(mesh)) return;
   el.removeObject3D(MESH);
   mesh.geometry.dispose();
 };
 
-export { applyMesh, COLLIDER, disableCollision, enableCollision, getMaterial, isMesh, MESH, removeMesh };
+export { applyHiddenMesh, applyMesh, getMaterial, isMesh, MESH, removeMesh };

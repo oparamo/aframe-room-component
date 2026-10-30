@@ -24,9 +24,6 @@ const capOf = (roomEl: RoomEl, kind: 'floor' | 'ceiling') => childrenNamed(roomE
 // A wall's own height, or its room's when it has none.
 const wallHeight = (wallEl: WallEl) => dataOf(wallEl, 'wall').height || dataOf(wallEl.parentEl, 'room').height;
 
-// Whether the wall stops the player: it does when both it and its room are collidable.
-const isCollidable = (wallEl: WallEl) => dataOf(wallEl, 'wall').collidable && dataOf(wallEl.parentEl, 'room').collidable;
-
 // A-Frame elements in a portal's children: what its floor, ceiling and sides are made of.
 const isEntity = (el: Element): el is BuildingEl => 'object3D' in el;
 
@@ -39,4 +36,4 @@ const portalEnds = ({ from, to }: Partial<PortalData>) => ({
   to: isOpening(to) ? to : null
 });
 
-export { capOf, dataOf, isCollidable, isEntity, isOpening, nameOf, openingsOf, portalEnds, wallHeight, wallsOf };
+export { capOf, dataOf, isEntity, isOpening, nameOf, openingsOf, portalEnds, wallHeight, wallsOf };

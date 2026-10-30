@@ -33,8 +33,7 @@ AFRAME.registerComponent<RoomComponent>('room', {
     outside: { type: 'boolean' },
     height: { type: 'number', default: 2.4 },
     width: { type: 'number' },
-    length: { type: 'number' },
-    collidable: { type: 'boolean', default: true }
+    length: { type: 'number' }
   },
   init: function () {
     this._shapeError = roomShapeError(this.data, wallsOf(this.el).length);

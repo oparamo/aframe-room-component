@@ -1,4 +1,5 @@
 import './ceiling';
+import './collidable';
 import './collision';
 import './floor';
 import './opening';

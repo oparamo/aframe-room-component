@@ -32,23 +32,23 @@ describe('opening', () => {
   });
 
   describe('remove', () => {
-    it('frees its collider, tells the building system and rebuilds the room', () => {
+    it('frees its window pane, tells the building system and rebuilds the room', () => {
       // Arrange
       const removeOpening = vi.fn();
       const sceneEl = makeSceneEl({ building: { removeOpening } });
       const rebuild = vi.fn();
       const comp = makeOpeningComp({ sceneEl });
       Object.assign(comp.el.parentEl, { parentEl: { components: { room: { rebuild } } } });
-      const collider = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
-      comp.el.setObject3D('collider', collider);
+      const pane = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial());
+      comp.el.setObject3D('mesh', pane);
       const disposed = vi.fn();
-      collider.geometry.addEventListener('dispose', disposed);
+      pane.geometry.addEventListener('dispose', disposed);
 
       // Act
       registeredComponent('opening').remove.call(comp);
 
       // Assert
-      expect(comp.el.getObject3D('collider')).toBeUndefined();
+      expect(comp.el.getObject3D('mesh')).toBeUndefined();
       expect(disposed).toHaveBeenCalledOnce();
       expect(removeOpening).toHaveBeenCalledExactlyOnceWith(comp.el);
       expect(rebuild).toHaveBeenCalledOnce();

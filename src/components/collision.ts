@@ -1,11 +1,10 @@
-import type { Matrix3, Object3D, Raycaster, Vector3 } from 'three';
+import type { Matrix3, Raycaster, Vector3 } from 'three';
 import type { Component, Entity } from '../types/aframe';
-import { COLLIDER, isMesh, MESH } from '../builders/helpers/mesh';
-import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
+import type { CollisionSystem } from '../types/collision';
 
 interface CollisionComponent extends Component<{ radius: number }> {
-  wallMeshes: Object3D[];
-  floorMeshes: Object3D[];
+  // A-Frame hands every room-collision component the system of the same name.
+  system: CollisionSystem;
   _cameraEl: Entity;
   _eyeHeight: number;
   _raycaster: Raycaster;
@@ -20,8 +19,6 @@ interface CollisionComponent extends Component<{ radius: number }> {
   _normalMatrix: Matrix3;
   _floorOrigin: Vector3;
   _onLoaded: () => void;
-  _onBuildComplete: () => void;
-  _refreshMeshes(): void;
   _snapToFloor(position: Vector3): void;
   _tryMove(moveVector: Vector3, position: Vector3): boolean;
 }
@@ -32,24 +29,12 @@ const MIN_MOVE_SQ = 0.000001;
 const MIN_SLIDE_SQ = 0.0001;
 const TORSO_OFFSET = 0.6;
 
-// What each of the scene's elements with the class collides with: the collider a build gave it, or
-// its own mesh, as on a consumer's entity.
-const meshesWithClass = (el: Entity, className: string) =>
-  [...el.sceneEl.querySelectorAll<Entity>(`.${className}`)].flatMap((classedEl) => {
-    const surface = classedEl.object3DMap[COLLIDER] ?? classedEl.object3DMap[MESH];
-    if (!isMesh(surface)) return [];
-    return [surface];
-  });
-
 AFRAME.registerComponent<CollisionComponent>('room-collision', {
   schema: {
     radius: { type: 'number', default: 0.4 }
   },
 
   init: function () {
-    this.wallMeshes = [];
-    this.floorMeshes = [];
-
     // Supports rig pattern (room-collision on parent, camera is a child)
     // and direct pattern (room-collision on the camera entity itself).
     this._cameraEl = this.el.querySelector<Entity>('[camera]') ?? this.el;
@@ -71,23 +56,14 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
       // In rig mode the rig sits at floor level so no eye-height offset is needed.
       // In direct camera mode snapshot the camera's actual Y as eye height above floor.
       this._eyeHeight = this._cameraEl !== this.el ? 0 : this._cameraEl.object3D.position.y;
-      this._refreshMeshes();
     };
-    this._onBuildComplete = () => this._refreshMeshes();
 
     this.el.sceneEl.addEventListener('loaded', this._onLoaded);
-    this.el.sceneEl.addEventListener('room-building-complete', this._onBuildComplete);
     if (this.el.sceneEl.hasLoaded) this._onLoaded();
   },
 
   remove: function () {
     this.el.sceneEl.removeEventListener('loaded', this._onLoaded);
-    this.el.sceneEl.removeEventListener('room-building-complete', this._onBuildComplete);
-  },
-
-  _refreshMeshes: function () {
-    this.wallMeshes = meshesWithClass(this.el, COLLIDABLE);
-    this.floorMeshes = meshesWithClass(this.el, WALKABLE);
   },
 
   tick: function () {
@@ -122,14 +98,14 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
   _snapToFloor: function (position) {
     this._floorOrigin.set(position.x, position.y + FLOOR_SEARCH_HEIGHT, position.z);
     this._floorRaycaster.set(this._floorOrigin, DOWN);
-    const [hit] = this._floorRaycaster.intersectObjects(this.floorMeshes);
+    const [hit] = this.system.intersect(this._floorRaycaster);
     if (!hit) return;
     position.y = hit.point.y + this._eyeHeight;
   },
 
   _tryMove: function (moveVector, position) {
     this._raycaster.set(this._origin, this._direction.copy(moveVector).normalize());
-    const [hit] = this._raycaster.intersectObjects(this.wallMeshes);
+    const [hit] = this.system.intersect(this._raycaster);
 
     // Mesh hits always carry a face; the check only narrows the type.
     if (hit?.face && hit.distance < this.data.radius + moveVector.length()) {

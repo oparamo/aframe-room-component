@@ -1,1 +1,2 @@
 import './building';
+import './collision';

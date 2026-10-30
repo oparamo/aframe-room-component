@@ -10,10 +10,10 @@ const SPHERE_GAP = 0.2;
 const WALL_MARGIN = 0.05;
 const SMALL = 0.4;
 
-// Wall meshes the labels must stay in front of; refreshed after every build.
+// Collidable meshes the labels must stay in front of; refreshed after every build.
 let walls = [];
 scene.addEventListener('room-building-complete', () => {
-  walls = [...document.querySelectorAll('.room-collidable')].flatMap(el => Object.values(el.object3DMap).filter(o => o.isMesh));
+  walls = scene.systems['room-collision'].meshes();
 });
 
 // Faces the camera and keeps its label on whichever side of the sphere has room before the nearest wall,
