@@ -38,7 +38,10 @@ interface System<El extends Scene = Scene> {
   el: El;
 }
 
-type Schema = Record<string, { type: string; default?: unknown }>;
+interface PropertySchema { type: string; default?: unknown }
+
+// A single-property schema makes the component's data that one value.
+type Schema = PropertySchema | Record<string, PropertySchema>;
 
 // update receives the data from before the change, which is empty on the first update.
 interface ComponentLifecycle<Data = unknown> {
@@ -61,7 +64,8 @@ type SystemDefinition<T extends System>
   = SystemLifecycle & Partial<Omit<T, keyof System>> & ThisType<T>;
 
 interface PrimitiveDefinition {
-  defaultComponents: Record<string, object>;
+  // An object for a component with several properties, the value itself for a single-property one.
+  defaultComponents: Record<string, unknown>;
   mappings?: Record<string, string>;
 }
 

@@ -95,7 +95,7 @@ If an `a-wall` has no `material` component, it inherits from its parent `a-room`
 
 If an `a-wall` has no `height` attribute, it inherits from its parent `a-room`'s `height`. The default room height is `2.4m`.
 
-`collidable="false"` on an `a-wall` lets the player walk through it, and on an `a-room` lets them through all its walls. A wall is collidable only when both it and its room are, so `collidable="true"` on a wall doesn't override `collidable="false"` on its room. Windows in a wall that isn't collidable let the player through too.
+`collidable="false"` on an `a-wall` lets the player walk through it and its windows. On an `a-room` it switches off collision for everything inside the room: its walls, its windows, its floor and any portal within it, so the player passes through the walls and the floor no longer holds them up. For walls the player can walk through over a floor they still stand on, set `collidable="false"` on the walls instead. `collidable="true"` on a wall doesn't override `collidable="false"` on its room.
 
 If an `a-room` has both a `width` and a `length` attribute, it must contain exactly four `a-wall`s, and it places them itself to form a rectangle from `(0,0)` to `(width, length)`. Wall `position`s are ignored, and a `console.warn` points out any that are set.
 
@@ -180,6 +180,8 @@ Add `room-collision` to any entity that has a locomotion control to prevent the 
 
 Walls stop the player from both sides, whichever way they face, so an inside room with no shell around it can't be walked into from outside. Hiding an element with `visible="false"` doesn't change that: a hidden wall still stops the player. To let the player through a wall, visible or not, set `collidable="false"` on it or on its room.
 
+The player collides with every element that has the `room-collidable` component: the walls, floors, portal floors and sides, and window openings a build makes, plus any entity of yours you add it to, such as `<a-box room-collidable>`. Collision uses the element's `mesh` from both sides, stops the player when they walk into it, and holds them up when they stand on it, so boxes can serve as steps. The player steps up onto anything up to 1.5 m above their feet. `room-collidable="false"` switches collision off for the element and everything inside it.
+
 **Direct pattern:** `room-collision` on the camera entity itself.
 
 ```html
@@ -208,7 +210,7 @@ These are the parts a release only changes in a major version:
 - `rebuild()` on `roomEl.components.room` and `portalEl.components.portal`.
 - The `room-building-complete` event and its `detail.rooms` and `detail.portals`.
 - `room-collision` and its properties.
-- The `room-collidable` and `room-walkable` classes. Builds put `room-collidable` on walls, portal sides and window openings, and `room-walkable` on the floors of rooms and portals. `room-collision` blocks on every element with `room-collidable` and stands the player on those with `room-walkable`, so your own entities can take part too. It uses the hidden two-sided `collider` a build makes, and an element's own `mesh` when it has none, which blocks only from the side its material renders. It looks for them when the scene loads and after each build pass.
+- The `room-collidable` component: a boolean, `true` by default, that makes an element's `mesh` stop the player and hold them up, from both sides. `a-wall`, `a-floor`, `a-sides` and `a-opening` carry it, and `collidable` on `a-wall` and `a-room` sets it. `false` switches it off for the element and everything inside it.
 - The `mesh` key: each wall, floor, ceiling and sides element keeps its mesh at `el.getObject3D('mesh')`, where A-Frame's `material` component and other components look for it.
 
 Anything else, such as the components' names, their internal state and the system that schedules builds, can change in any release.

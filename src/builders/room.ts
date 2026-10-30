@@ -7,9 +7,8 @@ import {
   wallSpan
 } from '../geometry/walls';
 import { assertDefined } from '../utils/assert';
-import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
-import { applyMesh, disableCollision, enableCollision } from './helpers/mesh';
-import { capOf, dataOf, isCollidable, openingsOf, wallHeight, wallsOf } from './helpers/structure';
+import { applyHiddenMesh, applyMesh, removeMesh } from './helpers/mesh';
+import { capOf, dataOf, openingsOf, wallHeight, wallsOf } from './helpers/structure';
 
 interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
 
@@ -66,7 +65,7 @@ const openingCorners = (wallEl: WallEl, { left, right }: OpeningEdges): OpeningC
 
 // The quad is in the wall's local space, and the opening sits on the wall unrotated, so moving it back
 // by the opening's position puts it in the opening's space.
-const openingColliderGeometry = (openingEl: OpeningEl, edges: OpeningEdges) => {
+const windowPaneGeometry = (openingEl: OpeningEl, edges: OpeningEdges) => {
   const { x, y, z } = openingEl.object3D.position;
   return openingQuad(edges).translate(-x, -y, -z);
 };
@@ -77,7 +76,7 @@ const cutOpening = (wall: WallBuild, openingEl: OpeningEl): Path | null => {
   const portalEl = state.portalOf.get(openingEl);
   state.cornersOf.delete(openingEl);
   if (!portalEl) {
-    disableCollision(openingEl, COLLIDABLE);
+    removeMesh(openingEl);
     return null;
   }
 
@@ -85,12 +84,9 @@ const cutOpening = (wall: WallBuild, openingEl: OpeningEl): Path | null => {
   const portal = dataOf(portalEl, 'portal');
   const edges = openingEdges({ span: wall.span, openingX: openingEl.object3D.position.x, portal });
   state.cornersOf.set(openingEl, openingCorners(wall.wallEl, edges));
-  // A window is collidable when its wall is. Toggled on every build, like the wall.
-  if (portal.floorHeight > 0 && isCollidable(wall.wallEl)) {
-    enableCollision(openingEl, COLLIDABLE, openingColliderGeometry(openingEl, edges));
-  } else {
-    disableCollision(openingEl, COLLIDABLE);
-  }
+  // A window gets a hidden pane, so room-collision stops the player at it; a door gets none.
+  if (portal.floorHeight > 0) applyHiddenMesh(openingEl, windowPaneGeometry(openingEl, edges));
+  else removeMesh(openingEl);
   return holePath(edges);
 };
 
@@ -102,9 +98,6 @@ const buildWall = (wallEl: WallEl, nextWallEl: WallEl, state: BuildState) => {
   const holes = openingsOf(wallEl).flatMap(openingEl => cutOpening({ wallEl, span, state }, openingEl) ?? []);
   const { uvScale } = dataOf(wallEl, 'wall');
   applyMesh({ el: wallEl, geom: wallGeometry({ span, holes, uvScale }) });
-  // Toggled on every build, since collidable can change at runtime.
-  if (isCollidable(wallEl)) enableCollision(wallEl, COLLIDABLE);
-  else disableCollision(wallEl, COLLIDABLE);
 };
 
 const buildRoom = (roomEl: RoomEl, state: BuildState) => {
@@ -119,10 +112,7 @@ const buildRoom = (roomEl: RoomEl, state: BuildState) => {
   }
 
   const floorEl = capOf(roomEl, 'floor');
-  if (floorEl) {
-    buildCap({ walls, capEl: floorEl, kind: 'floor', isOutside: outside });
-    enableCollision(floorEl, WALKABLE);
-  }
+  if (floorEl) buildCap({ walls, capEl: floorEl, kind: 'floor', isOutside: outside });
   const ceilingEl = capOf(roomEl, 'ceiling');
   if (ceilingEl) buildCap({ walls, capEl: ceilingEl, kind: 'ceiling', isOutside: outside });
 };

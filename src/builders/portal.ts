@@ -3,16 +3,12 @@ import type { Entity } from '../types/aframe';
 import type { BuildingEl, BuildState, PortalEl } from '../types/elements';
 import type { OpeningCorners, SurfaceType } from '../types/geometry';
 import { surfaceCorners, surfaceGeometry } from '../geometry/surfaces';
-import { COLLIDABLE, WALKABLE } from '../utils/surfaceClasses';
-import { applyMesh, enableCollision, getMaterial, removeMesh } from './helpers/mesh';
+import { applyMesh, getMaterial, removeMesh } from './helpers/mesh';
 import { dataOf, isEntity, isOpening, nameOf } from './helpers/structure';
 
 interface PortalSurfaceContext { from: OpeningCorners; to: OpeningCorners; fallbackMaterial: Material | undefined }
 
 const CHILD_TYPES: SurfaceType[] = ['sides', 'floor', 'ceiling'];
-
-// The player walks on a portal's floor and is stopped by its sides.
-const SURFACE_CLASSES: Partial<Record<SurfaceType, string>> = { floor: WALKABLE, sides: COLLIDABLE };
 
 const toChildLocal = (vertex: Vector3, childEl: Entity) => {
   const point = vertex.clone();
@@ -32,9 +28,6 @@ const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, { from, to, 
   const positions = corners.flatMap(vertex => toChildLocal(vertex, childEl));
   const { uvScale } = dataOf(childEl, type);
   applyMesh({ el: childEl, geom: surfaceGeometry({ type, corners, positions, uvScale }), fallbackMaterial });
-
-  const className = SURFACE_CLASSES[type];
-  if (className) enableCollision(childEl, className);
 };
 
 interface PortalEnd { end: 'from' | 'to'; el: Entity | null }

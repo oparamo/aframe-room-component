@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import type { Page } from '@playwright/test';
 import type { Mesh, MeshStandardMaterial, PlaneGeometry } from 'three';
 import type { Entity } from '../../src/types/aframe';
-import { COLLIDABLE } from '../../src/utils/surfaceClasses';
+import type { CollisionScene } from '../../src/types/collision';
 import { serveCdnLocally } from './cdn';
 
 // Loads example/index.html in headless Chromium and checks the demo the way a person walking it would,
@@ -86,9 +86,13 @@ const firstHit = (page: Page, { from, toward, selector }: Ray & { selector: stri
   { origin: from, direction: toward, elSelector: selector }
 );
 
-// How far a ray travels before it meets a wall, or null if it meets none.
-const wallDistance = async (page: Page, ray: Ray) =>
-  (await firstHit(page, { ...ray, selector: `.${COLLIDABLE}` }))?.distance ?? null;
+// How far a ray travels before it meets something room-collision collides with, or null if it meets
+// nothing. The demo's level rays run parallel to every floor, so what they meet is a wall.
+const wallDistance = (page: Page, { from, toward }: Ray) => page.evaluate(({ origin, direction }) => {
+  const ray = new THREE.Raycaster(new THREE.Vector3(...origin), new THREE.Vector3(...direction).normalize());
+  const [hit] = document.querySelector<CollisionScene>('a-scene')?.systems['room-collision']?.intersect(ray) ?? [];
+  return hit?.distance ?? null;
+}, { origin: from, direction: toward });
 
 // How far the element's mesh's texture coordinates reach in U and V. With uv-scale 1 that's its size in meters.
 const uvSpan = (page: Page, selector: string) => page.evaluate((elSelector) => {
@@ -456,9 +460,10 @@ test.describe('room-collision', () => {
     };
     await openDemo(page);
 
-    await clickCheckAndRebuild(page, label);
+    // Switching collision rebuilds nothing; the next ray sees it.
+    await clickCheck(page, label);
     const off = await walkAll();
-    await clickCheckAndRebuild(page, label);
+    await clickCheck(page, label);
     const on = await walkAll();
 
     expect(off).toEqual(['through', 'through', 'through', 'through']);

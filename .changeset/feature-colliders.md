@@ -2,6 +2,8 @@
 "@oparamo/aframe-room-component": minor
 ---
 
-New `collidable` attribute on `a-wall` and `a-room`, true by default: with `collidable="false"` the player walks through the wall, or through every wall of the room, whether it is visible or not. A hidden wall still stops the player, as before.
+New `room-collidable` component: the player collides with the `mesh` of every element that has it, stopped when they walk into it and held up when they stand on it. Built walls, floors, portal floors and sides, and window openings carry it, and you can add it to your own entities, such as `<a-box room-collidable>`. `room-collidable="false"` switches collision off for the element and everything inside it.
 
-Walls now stop the player from both sides, so an inside room with no shell around it can't be entered from outside. Each built wall, floor and portal surface gets a hidden, double-sided `collider` that `room-collision` uses in place of its `mesh`. One side effect: an outside room's floor, which faces down, is now walkable from above.
+New `collidable` attribute on `a-wall` and `a-room`, true by default, which sets `room-collidable`. `collidable="false"` on a wall lets the player walk through it and its windows, whether it is visible or not; on a room it covers everything inside, floor and portals included. A hidden wall still stops the player, as before.
+
+Every collidable surface stops the player from both sides, so an inside room with no shell around it can't be entered from outside. One side effect: an outside room's floor, which faces down, is now walkable from above.

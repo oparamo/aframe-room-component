@@ -4,10 +4,10 @@ import { capOf, isEntity, wallsOf } from '../../src/builders/helpers/structure';
 import { buildPortal } from '../../src/builders/portal';
 import { buildRoom } from '../../src/builders/room';
 import { assertDefined } from '../../src/utils/assert';
-import { COLLIDABLE, WALKABLE } from '../../src/utils/surfaceClasses';
 import { meshOf, worldCenter, worldNormals, worldPositions } from '../utils/meshes';
 import { loadScene, makeCollisionComponent, makeCollisionEl, makeTwoRooms } from '../utils/mocks';
 import '../../src/components/collision';
+import '../../src/systems/collision';
 
 // The golden test: two real rooms joined by a door and a window, built the way the system builds
 // them, rooms first. Refactors must leave it passing unchanged.
@@ -38,8 +38,7 @@ const walk = ({ start, step, ticks }: Walk) => {
   const el = makeCollisionEl({
     position: new THREE.Vector3(...start),
     childCamera: true,
-    wallCollidables: scene.withClass(COLLIDABLE),
-    floorCollidables: scene.withClass(WALKABLE)
+    surfaces: scene.collidables
   });
   const comp = makeCollisionComponent(el);
   loadScene(el);

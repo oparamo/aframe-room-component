@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import type { Mesh } from 'three';
 import type { BuildingEl, BuildState } from '../../src/types/elements';
 import { buildPortal } from '../../src/builders/portal';
 import { assertDefined } from '../../src/utils/assert';
@@ -127,24 +126,6 @@ describe('buildPortal', () => {
 
     // Assert
     expect(floorChild.getObject3D('mesh')).toBeUndefined();
-    expect(floorChild.getObject3D('collider')).toBeUndefined();
-  });
-
-  it('gives its floor and sides a collider on their own geometry, and its ceiling none', () => {
-    // Arrange
-    const floor = makePortalChild({ type: 'floor' });
-    const sides = makePortalChild({ type: 'sides' });
-    const ceiling = makePortalChild({ type: 'ceiling' });
-    const { portal, state } = makeBuiltPortal({ children: [floor, sides, ceiling] });
-
-    // Act
-    buildPortal(portal, state);
-
-    // Assert
-    const colliderGeometry = (el: BuildingEl) => (el.getObject3D('collider') as Mesh | undefined)?.geometry;
-    expect(colliderGeometry(floor)).toBe(meshOf(floor).geometry);
-    expect(colliderGeometry(sides)).toBe(meshOf(sides).geometry);
-    expect(colliderGeometry(ceiling)).toBeUndefined();
   });
 
   it('skips children with no matching type component', () => {

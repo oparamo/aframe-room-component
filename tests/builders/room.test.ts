@@ -1,11 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import type { Material, Mesh } from 'three';
-import type { Entity } from '../../src/types/aframe';
+import type { Mesh } from 'three';
 import type { WallEl } from '../../src/types/elements';
 import { capOf, wallsOf } from '../../src/builders/helpers/structure';
 import { buildRoom } from '../../src/builders/room';
 import { assertDefined } from '../../src/utils/assert';
-import { COLLIDABLE } from '../../src/utils/surfaceClasses';
 import { meshOf, worldCenter, worldNormals } from '../utils/meshes';
 import {
   makeBuildState, makeOpening, makePortal, makeRoom, makeSquareRoom, makeTransformedRoom, makeWall
@@ -15,17 +13,16 @@ afterEach(() => vi.restoreAllMocks());
 
 const floorOf = (room: Parameters<typeof capOf>[0]) => assertDefined(capOf(room, 'floor'), 'floor');
 const firstWallOf = (room: Parameters<typeof wallsOf>[0]) => assertDefined(wallsOf(room)[0], 'first wall');
-const colliderOf = (el: Entity) => assertDefined(el.getObject3D('collider') as Mesh | undefined, 'collider');
 
 // A square room whose first wall holds an opening for a window 1 m wide, with its sill at 0.5 m.
 const makeWindowRoom = () => {
   const openingEl = makeOpening();
   const portalEl = makePortal({ at: { x: 2.5 }, height: 1, floorHeight: 0.5 });
   const room = makeRoom([makeWall({ openings: [openingEl] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
-  return { room, openingEl, state: makeBuildState({ links: [[openingEl, portalEl]] }) };
+  return { room, openingEl, portalEl, state: makeBuildState({ links: [[openingEl, portalEl]] }) };
 };
 
-const openingColliderOf = (openingEl: ReturnType<typeof makeOpening>) => openingEl.getObject3D('collider') as Mesh | undefined;
+const paneOf = (openingEl: ReturnType<typeof makeOpening>) => openingEl.getObject3D('mesh') as Mesh | undefined;
 
 describe('buildRoom', () => {
   describe('with implicit wall positions', () => {
@@ -182,8 +179,8 @@ describe('buildRoom', () => {
     });
   });
 
-  describe('opening collider', () => {
-    it('creates an invisible collidable mesh for openings with floorHeight > 0', () => {
+  describe('window pane', () => {
+    it('gives a window\'s opening an invisible mesh', () => {
       // Arrange
       const { room, openingEl, state } = makeWindowRoom();
 
@@ -191,8 +188,7 @@ describe('buildRoom', () => {
       buildRoom(room, state);
 
       // Assert
-      expect(openingColliderOf(openingEl)?.visible).toBe(false);
-      expect(openingEl.classList.contains(COLLIDABLE)).toBe(true);
+      expect(paneOf(openingEl)?.visible).toBe(false);
     });
 
     it('spans the opening in world space', () => {
@@ -203,121 +199,41 @@ describe('buildRoom', () => {
       buildRoom(room, state);
 
       // Assert
-      const collider = assertDefined(openingColliderOf(openingEl), 'opening collider');
-      collider.updateWorldMatrix(true, false);
-      const box = new THREE.Box3().setFromObject(collider);
+      const pane = assertDefined(paneOf(openingEl), 'window pane');
+      pane.updateWorldMatrix(true, false);
+      const box = new THREE.Box3().setFromObject(pane);
       expect([box.min.toArray(), box.max.toArray()]).toEqual([[2, 0.5, 0], [3, 1.5, 0]]);
     });
 
-    it('keeps the collider on rebuild, freeing the old geometry but not the shared material', () => {
+    it('keeps the pane on rebuild, freeing the old geometry', () => {
       // Arrange
       const { room, openingEl, state } = makeWindowRoom();
       buildRoom(room, state);
-      const collider = assertDefined(openingColliderOf(openingEl), 'opening collider');
-      const oldGeometry = collider.geometry;
-      const geometryDisposed = vi.fn();
-      const materialDisposed = vi.fn();
-      oldGeometry.addEventListener('dispose', geometryDisposed);
-      [collider.material].flat()[0]?.addEventListener('dispose', materialDisposed);
+      const pane = assertDefined(paneOf(openingEl), 'window pane');
+      const oldGeometry = pane.geometry;
+      const disposed = vi.fn();
+      oldGeometry.addEventListener('dispose', disposed);
 
       // Act
       buildRoom(room, state);
 
       // Assert
-      expect(openingColliderOf(openingEl)).toBe(collider);
-      expect(collider.geometry).not.toBe(oldGeometry);
-      expect(geometryDisposed).toHaveBeenCalledOnce();
-      expect(materialDisposed).not.toHaveBeenCalled();
+      expect(paneOf(openingEl)).toBe(pane);
+      expect(pane.geometry).not.toBe(oldGeometry);
+      expect(disposed).toHaveBeenCalledOnce();
     });
 
-    it('leaves no collider or class on an opening in a wall that is not collidable', () => {
+    it('takes the pane away when the window becomes a door', () => {
       // Arrange
-      const { room, openingEl, state } = makeWindowRoom();
+      const { room, openingEl, portalEl, state } = makeWindowRoom();
       buildRoom(room, state);
-      assertDefined(openingEl.parentEl.getAttribute('wall'), 'wall data').collidable = false;
+      assertDefined(portalEl.getAttribute('portal'), 'portal data').floorHeight = 0;
 
       // Act
       buildRoom(room, state);
 
       // Assert
-      expect(openingColliderOf(openingEl)).toBeUndefined();
-      expect(openingEl.classList.contains(COLLIDABLE)).toBe(false);
-    });
-  });
-
-  describe('colliders', () => {
-    it('gives each wall and the floor an invisible, double-sided collider on its own geometry', () => {
-      // Arrange
-      const room = makeSquareRoom();
-
-      // Act
-      buildRoom(room, makeBuildState());
-
-      // Assert
-      for (const el of [...wallsOf(room), floorOf(room)]) {
-        const collider = colliderOf(el);
-        expect(collider.geometry).toBe(meshOf(el).geometry);
-        expect(collider.visible).toBe(false);
-        expect((collider.material as Material).side).toBe(THREE.DoubleSide);
-      }
-    });
-
-    it('gives the ceiling none, since nothing collides with it', () => {
-      // Arrange
-      const room = makeSquareRoom();
-
-      // Act
-      buildRoom(room, makeBuildState());
-
-      // Assert
-      expect(assertDefined(capOf(room, 'ceiling'), 'ceiling').getObject3D('collider')).toBeUndefined();
-    });
-
-    it('keeps the collider on the new geometry across a rebuild', () => {
-      // Arrange
-      const room = makeSquareRoom();
-      buildRoom(room, makeBuildState());
-      const wall = firstWallOf(room);
-      const collider = colliderOf(wall);
-
-      // Act
-      buildRoom(room, makeBuildState());
-
-      // Assert
-      expect(colliderOf(wall)).toBe(collider);
-      expect(collider.geometry).toBe(meshOf(wall).geometry);
-    });
-
-    it.each([
-      { owner: 'the wall', wall: { collidable: false }, room: {} },
-      { owner: 'its room', wall: {}, room: { collidable: false } }
-    ])('leaves a wall unclassed and without a collider when $owner is not collidable', ({ wall, room: roomOptions }) => {
-      // Arrange
-      const room = makeRoom([makeWall(wall), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 })], roomOptions);
-
-      // Act
-      buildRoom(room, makeBuildState());
-
-      // Assert
-      const uncollidable = firstWallOf(room);
-      expect(uncollidable.classList.contains(COLLIDABLE)).toBe(false);
-      expect(uncollidable.getObject3D('collider')).toBeUndefined();
-      expect(meshOf(uncollidable)).toBeDefined();
-    });
-
-    it('classes a wall again and gives it a collider when it becomes collidable', () => {
-      // Arrange
-      const room = makeRoom([makeWall({ collidable: false }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 })]);
-      buildRoom(room, makeBuildState());
-      const wall = firstWallOf(room);
-      assertDefined(wall.getAttribute('wall'), 'wall data').collidable = true;
-
-      // Act
-      buildRoom(room, makeBuildState());
-
-      // Assert
-      expect(wall.classList.contains(COLLIDABLE)).toBe(true);
-      expect(colliderOf(wall).geometry).toBe(meshOf(wall).geometry);
+      expect(paneOf(openingEl)).toBeUndefined();
     });
   });
 

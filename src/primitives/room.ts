@@ -5,6 +5,6 @@ AFRAME.registerPrimitive('a-room', {
     height: 'room.height',
     width: 'room.width',
     length: 'room.length',
-    collidable: 'room.collidable'
+    collidable: 'room-collidable'
   }
 });
