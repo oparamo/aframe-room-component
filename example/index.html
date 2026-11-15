@@ -275,6 +275,19 @@
       </a-portal>
     </a-entity>
 
+    <!-- Olive room, north of the gold building: no door, so the only way in is a teleport. Double-sided only
+      so the walls show from outside. -->
+    <a-entity id="oliveLot" class="lot" position="48 0 -24">
+      <a-room id="oliveRoom" position="-2 0 -2" width="4" length="4" height="2.6"
+        material="color:#9E9D24; side:double">
+        <a-wall></a-wall>
+        <a-wall></a-wall>
+        <a-wall></a-wall>
+        <a-wall></a-wall>
+        <a-floor material="color:#F0F4C3"></a-floor>
+      </a-room>
+    </a-entity>
+
     <!-- Cyan room, southeast: an inside room with no shell, one wall for each mix of visible and collidable.
       Its material is double-sided only so the walls show from outside; collision ignores the side. -->
     <a-entity id="cyanLot" class="lot" position="24 0 24">

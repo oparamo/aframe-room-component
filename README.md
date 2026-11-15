@@ -180,7 +180,7 @@ Add `room-collision` to any entity that has a locomotion control to prevent the 
 
 Walls stop the player from both sides, whichever way they face, so an inside room with no shell around it can't be walked into from outside. Hiding an element with `visible="false"` doesn't change that: a hidden wall still stops the player. To let the player through a wall, visible or not, set `collidable="false"` on it or on its room.
 
-The player collides with every element that has the `room-collidable` component: the walls, floors, and portal floors and sides a build makes, plus any entity of yours you add it to, such as `<a-box room-collidable>`. Collision uses the element's `mesh` from both sides, stops the player when they walk into it, and holds them up when they stand on it. The player steps up onto anything no higher than `stepHeight` above their feet, so a low box is a step, and walls taller than that stop them even when they're below the waist. Where there's nothing below them, they go back to the height they started at; for ground that isn't flat, add `room-collidable` to it. `room-collidable="false"` switches collision off for the element and everything inside it.
+The player collides with every element that has the `room-collidable` component: the walls, floors, and portal floors and sides a build makes, plus any entity of yours you add it to, such as `<a-box room-collidable>`. Collision uses the element's `mesh` from both sides, stops the player when they walk into it, and holds them up when they stand on it. The player steps up onto anything no higher than `stepHeight` above their feet, so a low box is a step, and walls taller than that stop them even when they're below the waist. Where there's nothing below them, they go back to the height they started or last [teleported](#teleporting) at; for ground that isn't flat, add `room-collidable` to it. `room-collidable="false"` switches collision off for the element and everything inside it.
 
 The player keeps `radius` away from every wall, including in corners and when walking along a wall at a shallow angle.
 
@@ -202,6 +202,16 @@ The player keeps `radius` away from every wall, including in corners and when wa
 
 Collision works in world space, so the rig can sit inside a moved, turned or scaled entity.
 
+### Teleporting
+
+Moving the entity yourself counts as a walk, so a jump across a wall is stopped at the wall. To move the player without that check, call `teleport()` with the entity's new position, in the same space as its `position` attribute:
+
+```js
+rigEl.components['room-collision'].teleport({ x: 4, y: 0, z: -2 });
+```
+
+`room-collision` also accepts the jumps `aframe-teleport-controls` makes: it listens on the scene for that component's `teleported` event. Either way, the player lands on the floor below, or on one up to `stepHeight` above, and that floor's height becomes the ground they go back to where nothing is below. With no floor under the landing, they stay at the height they were put. This hasn't been tried with `aframe-teleport-controls` itself, only with the event it emits.
+
 ### Properties
 
 | Property | Default | Description |
@@ -217,6 +227,7 @@ These are the parts a release only changes in a major version:
 - `rebuild()` on `roomEl.components.room` and `portalEl.components.portal`.
 - The `room-building-complete` event and its `detail.rooms` and `detail.portals`.
 - `room-collision` and its properties, `radius` and `stepHeight`.
+- `teleport(position)` on `el.components['room-collision']`, and `room-collision` accepting the `teleported` event from `aframe-teleport-controls`.
 - The `room-collidable` component: a boolean, `true` by default, that makes an element's `mesh` stop the player and hold them up, from both sides. `a-wall`, `a-floor` and `a-sides` carry it, and `collidable` on `a-wall` and `a-room` sets it. `false` switches it off for the element and everything inside it.
 - The `mesh` key: each wall, floor, ceiling and sides element keeps its mesh at `el.getObject3D('mesh')`, where A-Frame's `material` component and other components look for it.
 

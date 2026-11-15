@@ -24,6 +24,7 @@ const LOTS = {
   navyLot: [24, 0, -24],
   brownLot: [24, 0, 0],
   goldLot: [48, 0, 0],
+  oliveLot: [48, 0, -24],
   cyanLot: [24, 0, 24],
   limeLot: [0, 0, 24],
   whiteLot: [-24, 0, 24],
@@ -631,6 +632,31 @@ test.describe('room-collision', () => {
     await movePlayer(page, inLot('redLot', [3, 1.6, 6]));
 
     expect((await playerPosition(page))[2]).toBeCloseTo(outside[2]);
+  });
+
+  // Both olive teleports aim 0.4m above standing height. A step after each shows collision starts from
+  // the landing.
+  test('teleports the player into the doorless olive room and onto its floor', async ({ page }) => {
+    await openDemo(page);
+    await placePlayer(page, inLot('oliveLot', [0, 1.6, 3.5]));
+
+    await clickCheck(page, 'teleport() into the olive room');
+    await nextFrames(page, 2);
+    const [x, y, z] = await walkSteps(page, { step: [0.1, 0, 0], count: 1 });
+
+    expect([x, y, z]).toEqual(inLot('oliveLot', [0.1, 1.6, 0]).map(value => expect.closeTo(value)));
+  });
+
+  test('accepts a teleported event out of the olive room, landing on the grass', async ({ page }) => {
+    await openDemo(page);
+    await placePlayer(page, inLot('oliveLot', [0, 1.6, 0]));
+
+    await clickCheck(page, 'Teleport out the way aframe-teleport-controls does: set the position, then emit teleported');
+    await nextFrames(page, 2);
+    const [x, y, z] = await walkSteps(page, { step: [0.1, 0, 0], count: 1 });
+
+    // The grass is 1cm below the floors.
+    expect([x, y, z]).toEqual(inLot('oliveLot', [0.1, 1.59, 4]).map(value => expect.closeTo(value)));
   });
 });
 
