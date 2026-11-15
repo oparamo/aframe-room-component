@@ -357,20 +357,39 @@ addInfo({
     + 'at a shallow angle.'
 });
 
-// Olive room. Both teleports aim 0.4m above standing height, so landing on the floor shows.
-const OLIVE_INSIDE = { x: 48, y: 2, z: -24 };
-const OLIVE_OUTSIDE = { x: 48, y: 2, z: -20 };
+// Olive room. Both teleports aim 2.5m above standing height, and a marker shows up where each one aimed, so
+// after landing you can look up and see how far you came down.
+const OLIVE_AIM_Y = 4.1;
+const OLIVE_INSIDE = { x: 48, y: OLIVE_AIM_Y, z: -24 };
+const OLIVE_OUTSIDE = { x: 48, y: OLIVE_AIM_Y, z: -20 };
+
+const addAimMarker = ({ x, y, z }) => {
+  const marker = document.createElement('a-sphere');
+  marker.setAttribute('radius', '0.25');
+  marker.setAttribute('material', { color: '#FFEB3B', opacity: 0.5, transparent: true });
+  marker.setAttribute('visible', false);
+  marker.setAttribute('position', { x, y, z });
+  scene.appendChild(marker);
+  return marker;
+};
+const insideAim = addAimMarker(OLIVE_INSIDE);
+const outsideAim = addAimMarker(OLIVE_OUTSIDE);
+
 addAction({
   lot: 'oliveLot',
   position: '0 1.2 3',
   label: 'teleport() into the olive room',
-  action: () => byId('player').components['room-collision'].teleport(OLIVE_INSIDE)
+  action: () => {
+    insideAim.setAttribute('visible', true);
+    byId('player').components['room-collision'].teleport(OLIVE_INSIDE);
+  }
 });
 addAction({
   lot: 'oliveLot',
   position: '0 1.2 -1',
   label: 'Teleport out the way aframe-teleport-controls does: set the position, then emit teleported',
   action: () => {
+    outsideAim.setAttribute('visible', true);
     byId('player').object3D.position.copy(OLIVE_OUTSIDE);
     byId('oliveLot').emit('teleported');
   }
@@ -378,8 +397,8 @@ addAction({
 addInfo({
   lot: 'oliveLot',
   position: '1.2 2 3',
-  label: 'The olive room has no door. A teleport crosses its wall without room-collision stopping it, '
-    + 'and you land on the floor.'
+  label: 'The olive room has no door. A teleport crosses its wall without room-collision stopping it. '
+    + 'It aims at the yellow marker, 2.5m up, and you land on the floor.'
 });
 
 // Cyan room.
