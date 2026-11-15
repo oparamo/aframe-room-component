@@ -39,6 +39,8 @@ interface BuildState {
   portalOf: WeakMap<OpeningEl, PortalEl>;
   // Each opening's world-space corners as of its room's last build, for its portal to join.
   cornersOf: WeakMap<OpeningEl, OpeningCorners>;
+  // Why an opening couldn't be cut as of its room's last build, such as not fitting its wall.
+  problemOf: WeakMap<OpeningEl, string>;
 }
 
 interface BuildingSystem extends System<BuildingScene> {

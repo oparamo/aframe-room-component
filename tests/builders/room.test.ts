@@ -176,6 +176,79 @@ describe('buildRoom', () => {
     });
   });
 
+  describe('openings that can\'t be cut', () => {
+    // A square room whose first wall, 5 m long, holds the openings.
+    const makeRoomWithOpenings = (openings: ReturnType<typeof makeOpening>[]) =>
+      makeRoom([makeWall({ openings }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 }), makeWall({ z: 5 })]);
+    const triangleCount = (room: Parameters<typeof wallsOf>[0]) =>
+      assertDefined(meshOf(firstWallOf(room)).geometry.getIndex(), 'wall index').count / 3;
+
+    it('leaves an opening wider than its wall solid and records why', () => {
+      // Arrange
+      const openingEl = makeOpening();
+      const room = makeRoomWithOpenings([openingEl]);
+      const state = makeBuildState({ links: [[openingEl, makePortal({ at: { x: 2.5 }, width: 6 })]] });
+
+      // Act
+      buildRoom(room, state);
+
+      // Assert: a solid wall is two triangles
+      expect(state.cornersOf.has(openingEl)).toBe(false);
+      expect(state.problemOf.get(openingEl)).toBe('is wider than its wall');
+      expect(triangleCount(room)).toBe(2);
+    });
+
+    it('skips the later of two overlapping openings in markup', () => {
+      // Arrange
+      const [first, second] = [makeOpening(), makeOpening()];
+      const room = makeRoomWithOpenings([first, second]);
+      const state = makeBuildState({
+        links: [[first, makePortal({ at: { x: 2.5 } })], [second, makePortal({ at: { x: 2.8 } })]]
+      });
+
+      // Act
+      buildRoom(room, state);
+
+      // Assert
+      expect(state.cornersOf.has(first)).toBe(true);
+      expect(state.problemOf.has(first)).toBe(false);
+      expect(state.cornersOf.has(second)).toBe(false);
+      expect(state.problemOf.get(second)).toBe('overlaps an earlier opening on its wall');
+    });
+
+    it('leaves an opening solid when the opening at its portal\'s other end couldn\'t be cut', () => {
+      // Arrange
+      const [openingEl, partnerEl] = [makeOpening(), makeOpening()];
+      const room = makeRoomWithOpenings([openingEl]);
+      const state = makeBuildState({ links: [[openingEl, makePortal({ from: openingEl, to: partnerEl, at: { x: 2.5 } })]] });
+      state.problemOf.set(partnerEl, 'is wider than its wall');
+
+      // Act
+      buildRoom(room, state);
+
+      // Assert
+      expect(state.cornersOf.has(openingEl)).toBe(false);
+      expect(state.problemOf.has(openingEl)).toBe(false);
+      expect(triangleCount(room)).toBe(2);
+    });
+
+    it('cuts the opening and forgets its problem once it fits', () => {
+      // Arrange
+      const openingEl = makeOpening();
+      const room = makeRoomWithOpenings([openingEl]);
+      const state = makeBuildState({ links: [[openingEl, makePortal({ at: { x: 2.5 }, width: 6 })]] });
+      buildRoom(room, state);
+      state.portalOf.set(openingEl, makePortal({ at: { x: 2.5 } }));
+
+      // Act
+      buildRoom(room, state);
+
+      // Assert
+      expect(state.cornersOf.has(openingEl)).toBe(true);
+      expect(state.problemOf.has(openingEl)).toBe(false);
+    });
+  });
+
   describe('rebuilding', () => {
     it('frees the previous wall geometry', () => {
       // Arrange

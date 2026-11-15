@@ -73,6 +73,42 @@
         <a-wall position="6 0 -2"></a-wall>
       </a-room>
       <a-portal id="typoPortal" from="#noSuchOpening" to="#noSuchOpeningEither" position="5 0 -1"></a-portal>
+
+      <!-- Two rooms whose facing walls hold three portals: one wider than the walls, a door, and one that
+        overlaps the door. The wide one comes first, so it can't be skipped for overlapping; it and the
+        overlapping one leave the walls solid. -->
+      <a-room id="tightNear" position="3 0 1" width="3" length="2" height="2.4" material="color:#BDBDBD">
+        <a-wall></a-wall>
+        <a-wall></a-wall>
+        <a-wall>
+          <a-opening id="tightNearWide"></a-opening>
+          <a-opening id="tightNearDoor"></a-opening>
+          <a-opening id="tightNearOverlap"></a-opening>
+        </a-wall>
+        <a-wall></a-wall>
+        <a-floor mixin="floorPaint"></a-floor>
+      </a-room>
+      <a-room id="tightFar" position="3 0 3.5" width="3" length="2" height="2.4" material="color:#BDBDBD">
+        <a-wall>
+          <a-opening id="tightFarWide"></a-opening>
+          <a-opening id="tightFarDoor"></a-opening>
+          <a-opening id="tightFarOverlap"></a-opening>
+        </a-wall>
+        <a-wall></a-wall>
+        <a-wall></a-wall>
+        <a-wall></a-wall>
+        <a-floor mixin="floorPaint"></a-floor>
+      </a-room>
+      <a-portal id="tightDoor" from="#tightNearDoor" to="#tightFarDoor" width="1" height="2" position="4 0 3.25">
+        <a-floor mixin="floorPaint"></a-floor>
+      </a-portal>
+      <a-portal id="overlapPortal" from="#tightNearOverlap" to="#tightFarOverlap" width="1" height="2"
+        position="4.3 0 3.25">
+        <a-floor mixin="floorPaint"></a-floor>
+      </a-portal>
+      <a-portal id="widePortal" from="#tightNearWide" to="#tightFarWide" width="4" height="2" position="4.5 0 3.25">
+        <a-floor mixin="floorPaint"></a-floor>
+      </a-portal>
     </a-entity>
 
     <!-- Red building, north. The yellow room's corners are listed so each wall runs from its corner to the
@@ -139,7 +175,7 @@
       </a-room>
 
       <a-portal from="#yellowFront" to="#redFront" width="1.2" height="2.2" position="-3 0 6">
-        <a-floor mixin="floorPaint"></a-floor>
+        <a-floor id="yellowDoorFloor" mixin="testTexture"></a-floor>
         <a-ceiling material="color:#D62828"></a-ceiling>
         <a-sides material="color:#D62828"></a-sides>
       </a-portal>

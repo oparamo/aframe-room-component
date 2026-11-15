@@ -220,6 +220,13 @@ addToggle({
   }
 });
 
+addInfo({
+  lot: 'centerLot',
+  position: '4.5 2.9 3.25',
+  label: 'Three portals join these grey walls. The first cuts a door; the second overlaps it and the third '
+    + 'is wider than the walls, so each logs an error and leaves the walls solid.'
+});
+
 // Red building, outside.
 addInfo({
   lot: 'redLot',
@@ -243,6 +250,12 @@ addInfo({
   lot: 'redLot',
   position: '-4.2 2.4 4.4',
   label: '<a-wall position>: each wall starts at its corner and runs to the next wall\'s corner.'
+});
+addInfo({
+  lot: 'redLot',
+  position: '-2 1.2 4.4',
+  label: 'The doorway\'s textured floor carries on the yellow floor\'s pattern: a portal\'s floor and '
+    + 'ceiling map their texture the way the from room\'s do.'
 });
 addToggle({
   lot: 'redLot',

@@ -25,18 +25,27 @@ const openingAt = (left: number, right: number, z: number): OpeningCorners => [
 const near = openingAt(-0.5, 0.5, 0);
 const far = openingAt(0.5, -0.5, -3);
 
+// The corners stand in for the from room's local space too, as if the room sat at the origin.
 const buildSurface = (type: SurfaceType, uvScale = 1) => {
   const corners = surfaceCorners(type, near, far);
-  return surfaceGeometry({ type, corners, positions: corners.flatMap(vertex => vertex.toArray()), uvScale });
+  return surfaceGeometry({ type, roomCorners: corners, positions: corners.flatMap(vertex => vertex.toArray()), uvScale });
 };
 
 describe('surfaceGeometry UVs', () => {
-  it('spans the floor in meters, across the width and along the depth', () => {
+  it('maps the floor from the room\'s x and z the way a room floor does, u along -x', () => {
     // Act
     const geom = buildSurface('floor');
 
-    // Assert
-    expect(uvPairs(geom)).toEqual([[1, 3], [0, 3], [1, 0], [0, 0]]);
+    // Assert: the corners' x runs 0.5, -0.5, 0.5, -0.5
+    expect(uvPairs(geom)).toEqual([[-0.5, -3], [0.5, -3], [-0.5, 0], [0.5, 0]]);
+  });
+
+  it('maps the ceiling from the room\'s x and z the way a room ceiling does, u along +x', () => {
+    // Act
+    const geom = buildSurface('ceiling');
+
+    // Assert: the corners' x runs -0.5, 0.5, -0.5, 0.5
+    expect(uvPairs(geom)).toEqual([[-0.5, -3], [0.5, -3], [-0.5, 0], [0.5, 0]]);
   });
 
   it('multiplies the UVs by uv-scale', () => {
@@ -44,7 +53,7 @@ describe('surfaceGeometry UVs', () => {
     const geom = buildSurface('floor', 2);
 
     // Assert
-    expect(uvPairs(geom)).toEqual([[2, 6], [0, 6], [2, 0], [0, 0]]);
+    expect(uvPairs(geom)).toEqual([[-1, -6], [1, -6], [-1, 0], [1, 0]]);
   });
 
   it('spans each side wall in meters, with V running up the wall', () => {

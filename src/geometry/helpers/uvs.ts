@@ -26,4 +26,8 @@ const makePlaneUvs = (geom: BufferGeometry, { uKey, vKey, uMult, vMult }: PlaneU
   makeGeometryUvs(geom, point => ([point[uKey] * uMult, point[vKey] * vMult]));
 };
 
-export { makePlaneUvs };
+// The way u runs along x on a floor (-x) or a ceiling (+x). A portal's floor and ceiling use it too, so
+// their pattern continues the room's.
+const capUSign = (isCeiling: boolean) => isCeiling ? 1 : -1;
+
+export { capUSign, makePlaneUvs };
