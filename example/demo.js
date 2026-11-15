@@ -357,6 +357,31 @@ addInfo({
     + 'at a shallow angle.'
 });
 
+// Olive room. Both teleports aim 0.4m above standing height, so landing on the floor shows.
+const OLIVE_INSIDE = { x: 48, y: 2, z: -24 };
+const OLIVE_OUTSIDE = { x: 48, y: 2, z: -20 };
+addAction({
+  lot: 'oliveLot',
+  position: '0 1.2 3',
+  label: 'teleport() into the olive room',
+  action: () => byId('player').components['room-collision'].teleport(OLIVE_INSIDE)
+});
+addAction({
+  lot: 'oliveLot',
+  position: '0 1.2 -1',
+  label: 'Teleport out the way aframe-teleport-controls does: set the position, then emit teleported',
+  action: () => {
+    byId('player').object3D.position.copy(OLIVE_OUTSIDE);
+    byId('oliveLot').emit('teleported');
+  }
+});
+addInfo({
+  lot: 'oliveLot',
+  position: '1.2 2 3',
+  label: 'The olive room has no door. A teleport crosses its wall without room-collision stopping it, '
+    + 'and you land on the floor.'
+});
+
 // Cyan room.
 addInfo({
   lot: 'cyanLot',

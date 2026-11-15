@@ -1,4 +1,4 @@
-import type { Intersection, Matrix3, Raycaster, Vector3 } from 'three';
+import type { Intersection, Matrix3, Raycaster, Vector3, Vector3Like } from 'three';
 import type { Component, Entity } from '../types/aframe';
 import type { CollisionSystem } from '../types/collision';
 import { assertDefined } from '../utils/assert';
@@ -10,7 +10,8 @@ interface CollisionComponent extends Component<CollisionData> {
   system: CollisionSystem;
   _cameraEl: Entity;
   _eyeHeight: number;
-  // The world height the feet started at, which they fall back to wherever there is no floor below.
+  // The world height the feet started or last landed at, which they fall back to wherever there is no
+  // floor below.
   _groundY: number;
   // The world heights the level rays run at this tick: the torso, and just above the step-height.
   _heights: [number, number];
@@ -25,8 +26,12 @@ interface CollisionComponent extends Component<CollisionData> {
   _direction: Vector3;
   _origin: Vector3;
   _normal: Vector3;
+  _correction: Vector3;
   _normalMatrix: Matrix3;
   _onLoaded: () => void;
+  _onTeleported: () => void;
+  teleport(position: Vector3Like): void;
+  _land(): void;
   _nearestHit(from: Vector3, direction: Vector3): Intersection | undefined;
   _sweep(from: Vector3, move: Vector3): boolean;
   _pushOut(position: Vector3): void;
@@ -72,6 +77,7 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
     this._direction = new THREE.Vector3();
     this._origin = new THREE.Vector3();
     this._normal = new THREE.Vector3();
+    this._correction = new THREE.Vector3();
     this._normalMatrix = new THREE.Matrix3();
 
     this._onLoaded = () => {
@@ -82,12 +88,34 @@ AFRAME.registerComponent<CollisionComponent>('room-collision', {
       this._groundY = this.el.object3D.getWorldPosition(this._entityPosition).y - this._eyeHeight;
     };
 
+    // aframe-teleport-controls moves the rig, then emits this from the controller; it bubbles up.
+    this._onTeleported = () => this._land();
+
     this.el.sceneEl.addEventListener('loaded', this._onLoaded);
+    this.el.sceneEl.addEventListener('teleported', this._onTeleported);
     if (this.el.sceneEl.hasLoaded) this._onLoaded();
   },
 
   remove: function () {
     this.el.sceneEl.removeEventListener('loaded', this._onLoaded);
+    this.el.sceneEl.removeEventListener('teleported', this._onTeleported);
+  },
+
+  // Moves the entity to a local position, as setAttribute('position') would, without judging the jump.
+  teleport: function (position) {
+    this.el.object3D.position.copy(position);
+    this._land();
+  },
+
+  // Accepts where the entity now stands as the start of the next move, on the floor below it if there
+  // is one; that height becomes the ground.
+  _land: function () {
+    const head = this._cameraEl.object3D.getWorldPosition(this._head);
+    const feetY = this.el.object3D.getWorldPosition(this._entityPosition).y - this._eyeHeight;
+    this._groundY = feetY;
+    const lift = this._floorLift(head, feetY);
+    this._groundY += lift;
+    this._apply(this._correction.set(0, lift, 0));
   },
 
   // Works in world space from the head, the camera's world position, which moves both when a control

@@ -85,6 +85,108 @@ describe('room-collision', () => {
       // Assert
       expect(removeSpy).toHaveBeenCalledWith('loaded', comp._onLoaded);
     });
+
+    it('removes its teleported listener', () => {
+      // Arrange
+      const el = makeCollisionEl();
+      const comp = makeCollisionComponent(el);
+      const removeSpy = vi.spyOn(el.sceneEl, 'removeEventListener');
+
+      // Act
+      comp.remove.call(comp);
+
+      // Assert
+      expect(removeSpy).toHaveBeenCalledWith('teleported', comp._onTeleported);
+    });
+  });
+
+  describe('teleport', () => {
+    it('moves through a wall, and the next step starts from where it landed', () => {
+      // Arrange: walking, the wall at 0.6 would stop the rig short of 2
+      const rig = makeRig({ surfaces: [wallAt(0.6), floorAt(0)] });
+
+      // Act
+      rig.comp.teleport({ x: 2, y: 0, z: 0 });
+      stepBy(rig, [0.1, 0]);
+
+      // Assert
+      expect(rig.el.object3D.position.toArray()).toEqual([expect.closeTo(2.1), 0, 0]);
+    });
+
+    it('lands on a floor below, and keeps its height as the ground past the floor\'s edge', () => {
+      // Arrange: the floor spans x from -5 to 5
+      const rig = makeRig({ surfaces: [floorAt(0.2)] });
+
+      // Act
+      rig.comp.teleport({ x: 4.95, y: 1, z: 0 });
+      stepBy(rig, [0.1, 0]);
+
+      // Assert
+      expect(rig.el.object3D.position.y).toBeCloseTo(0.2);
+    });
+
+    it('steps up onto a floor within stepHeight', () => {
+      // Arrange
+      const rig = makeRig({ surfaces: [floorAt(0.2)] });
+
+      // Act
+      rig.comp.teleport({ x: 1, y: 0, z: 0 });
+
+      // Assert
+      expect(rig.el.object3D.position.y).toBeCloseTo(0.2);
+    });
+
+    it('stays where it was put with no floor below, and keeps that height as the ground', () => {
+      // Arrange: the floor spans x from -5 to 5
+      const rig = makeRig({ surfaces: [floorAt(0)] });
+
+      // Act
+      rig.comp.teleport({ x: 10, y: 2, z: 0 });
+      stepBy(rig, [0.1, 0]);
+
+      // Assert
+      expect(rig.el.object3D.position.toArray()).toEqual([expect.closeTo(10.1), 2, 0]);
+    });
+
+    it('keeps the camera its eye height above the floor in the direct pattern', () => {
+      // Arrange: the camera starts at y=1.6, which becomes the eye height on load
+      const el = makeCollisionEl({ position: new THREE.Vector3(0, 1.6, 0), surfaces: [floorAt(0.2)] });
+      const comp = makeCollisionComponent(el);
+      loadScene(el);
+
+      // Act
+      comp.teleport({ x: 3, y: 2, z: 0 });
+
+      // Assert
+      expect(el.object3D.position.toArray()).toEqual([3, expect.closeTo(0.2 + 1.6), 0]);
+    });
+
+    it('takes a position local to a moved and turned parent', () => {
+      // Arrange: turned a quarter turn, the parent's +x points along world -z
+      const parent = new THREE.Object3D();
+      parent.position.set(10, 0, 0);
+      parent.rotation.y = Math.PI / 2;
+      const rig = makeRig({ parent, surfaces: [floorAt(0.2, { x: 10 })] });
+
+      // Act
+      rig.comp.teleport({ x: 1, y: 0, z: 0 });
+
+      // Assert
+      expect(rig.el.object3D.position.toArray()).toEqual([expect.closeTo(1), expect.closeTo(0.2), expect.closeTo(0)]);
+    });
+
+    it('accepts a teleported event as a jump, not a walk', () => {
+      // Arrange: teleport-controls moves the rig past the wall at 0.6, then emits teleported
+      const rig = makeRig({ surfaces: [wallAt(0.6), floorAt(0)] });
+      rig.el.object3D.position.x = 2;
+
+      // Act
+      rig.el.sceneEl._listeners.teleported?.(new Event('teleported'));
+      stepBy(rig, [0.1, 0]);
+
+      // Assert
+      expect(rig.el.object3D.position.x).toBeCloseTo(2.1);
+    });
   });
 
   describe('walls', () => {
