@@ -6,7 +6,13 @@ import { surfaceCorners, surfaceGeometry } from '../geometry/surfaces';
 import { applyMesh, getMaterial, removeMesh } from './helpers/mesh';
 import { dataOf, isEntity, isOpening, nameOf } from './helpers/structure';
 
-interface PortalSurfaceContext { from: OpeningCorners; to: OpeningCorners; fallbackMaterial: Material | undefined }
+interface PortalSurfaceContext {
+  from: OpeningCorners;
+  to: OpeningCorners;
+  // The room the from opening is in, whose floor and ceiling pattern the portal's continue.
+  fromRoomEl: Entity;
+  fallbackMaterial: Material | undefined;
+}
 
 const CHILD_TYPES: SurfaceType[] = ['sides', 'floor', 'ceiling'];
 
@@ -23,11 +29,13 @@ const surfacesOf = (portalEl: PortalEl) => [...portalEl.children].filter(isEntit
   return [{ childEl, type }];
 });
 
-const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, { from, to, fallbackMaterial }: PortalSurfaceContext) => {
-  const corners = surfaceCorners(type, from, to);
+const buildPortalSurface = (childEl: BuildingEl, type: SurfaceType, context: PortalSurfaceContext) => {
+  const corners = surfaceCorners(type, context.from, context.to);
   const positions = corners.flatMap(vertex => toChildLocal(vertex, childEl));
+  const roomCorners = corners.map(vertex => context.fromRoomEl.object3D.worldToLocal(vertex.clone()));
   const { uvScale } = dataOf(childEl, type);
-  applyMesh({ el: childEl, geom: surfaceGeometry({ type, corners, positions, uvScale }), fallbackMaterial });
+  const geom = surfaceGeometry({ type, roomCorners, positions, uvScale });
+  applyMesh({ el: childEl, geom, fallbackMaterial: context.fallbackMaterial });
 };
 
 interface PortalEnd { end: 'from' | 'to'; el: Entity | null }
@@ -48,19 +56,43 @@ const endCorners = (portalEl: PortalEl, portalEnd: PortalEnd, state: BuildState)
   return state.cornersOf.get(portalEnd.el) ?? null;
 };
 
+// Logs each end whose opening its room couldn't cut, and says whether there was one. Both rooms then
+// keep a solid wall, so the other end's missing corners need no message of their own.
+const reportOpeningProblems = (portalEl: PortalEl, ends: PortalEnd[], { problemOf }: BuildState) => {
+  const problems = ends.flatMap(({ end, el }) => {
+    const problem = isOpening(el) && problemOf.get(el);
+    if (!problem) return [];
+    return [`the ${end} opening ${problem}`];
+  });
+  for (const problem of problems) console.error(`${nameOf(portalEl)} was not built: ${problem}.`, portalEl);
+  return problems.length > 0;
+};
+
+const removeSurfaces = (portalEl: PortalEl) => {
+  for (const { childEl } of surfacesOf(portalEl)) removeMesh(childEl);
+};
+
 const buildPortal = (portalEl: PortalEl, state: BuildState) => {
   const data = dataOf(portalEl, 'portal');
-  const from = endCorners(portalEl, { end: 'from', el: data.from }, state);
-  const to = endCorners(portalEl, { end: 'to', el: data.to }, state);
+  const fromEnd: PortalEnd = { end: 'from', el: data.from };
+  const toEnd: PortalEnd = { end: 'to', el: data.to };
+  if (reportOpeningProblems(portalEl, [fromEnd, toEnd], state)) {
+    removeSurfaces(portalEl);
+    return;
+  }
+
+  const from = endCorners(portalEl, fromEnd, state);
+  const to = endCorners(portalEl, toEnd, state);
   if (!from || !to || !isOpening(data.from)) {
-    for (const { childEl } of surfacesOf(portalEl)) removeMesh(childEl);
+    removeSurfaces(portalEl);
     return;
   }
 
   const fromWallEl = data.from.parentEl;
   const fallbackMaterial = getMaterial(fromWallEl) ?? getMaterial(fromWallEl.parentEl);
+  const context = { from, to, fromRoomEl: fromWallEl.parentEl, fallbackMaterial };
 
-  for (const { childEl, type } of surfacesOf(portalEl)) buildPortalSurface(childEl, type, { from, to, fallbackMaterial });
+  for (const { childEl, type } of surfacesOf(portalEl)) buildPortalSurface(childEl, type, context);
 };
 
 export { buildPortal };

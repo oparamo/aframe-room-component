@@ -76,6 +76,31 @@ const openingEdge = ({ span, openingX, portal }: OpeningCut, side: -1 | 1): Open
 
 const openingEdges = (cut: OpeningCut): OpeningEdges => ({ left: openingEdge(cut, -1), right: openingEdge(cut, 1) });
 
+// Why an opening this wide can't go on the wall, or null when it fits. Checked before placing it,
+// which divides by the wall's length.
+const openingFitProblem = (span: WallSpan, width: number) => {
+  if (span.length < HAIR) return 'is on a wall with no length';
+  if (width + 2 * HAIR > span.length) return 'is wider than its wall';
+  return null;
+};
+
+// The opening's extent on its wall, from its lower bottom corner to its higher top one.
+const openingBounds = ({ left, right }: OpeningEdges) => ({
+  minX: left.ptX,
+  maxX: right.ptX,
+  minY: Math.min(left.bottomY, right.bottomY),
+  maxY: Math.max(left.topY, right.topY)
+});
+
+// Whether two openings on one wall overlap or come within a HAIR of each other, which would leave
+// their holes touching. They must meet along the wall and up it, so a high window over a door doesn't.
+const openingsOverlap = (a: OpeningEdges, b: OpeningEdges) => {
+  const boundsA = openingBounds(a);
+  const boundsB = openingBounds(b);
+  return boundsA.minX < boundsB.maxX + HAIR && boundsB.minX < boundsA.maxX + HAIR
+    && boundsA.minY < boundsB.maxY + HAIR && boundsB.minY < boundsA.maxY + HAIR;
+};
+
 // Cutting the opening as a Shape hole handles both doors (floorHeight=0) and windows
 // (floorHeight>0) without leaving gaps in the wall mesh.
 const holePath = ({ left, right }: OpeningEdges) => {
@@ -108,7 +133,9 @@ export {
   holePath,
   isClockwise,
   openingEdges,
+  openingFitProblem,
   openingPlacement,
+  openingsOverlap,
   rectangleCorners,
   wallAngle,
   wallGeometry,

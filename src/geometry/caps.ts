@@ -1,6 +1,6 @@
 import type { BufferGeometry, Vector3 } from 'three';
 import { assertDefined } from '../utils/assert';
-import { makePlaneUvs } from './helpers/uvs';
+import { capUSign, makePlaneUvs } from './helpers/uvs';
 
 interface CapOptions { corners: Vector3[]; isCeiling: boolean; isOutside: boolean; uvScale: number }
 
@@ -34,8 +34,7 @@ const capGeometry = ({ corners, isCeiling, isOutside, uvScale }: CapOptions) => 
   // outside one (roof up, floor down), so flip an inside floor and an outside ceiling.
   if (isCeiling === isOutside) flipGeometry(geom);
 
-  const uSign = isCeiling ? 1 : -1;
-  makePlaneUvs(geom, { uKey: 'x', vKey: 'z', uMult: uSign * uvScale, vMult: uvScale });
+  makePlaneUvs(geom, { uKey: 'x', vKey: 'z', uMult: capUSign(isCeiling) * uvScale, vMult: uvScale });
   geom.computeVertexNormals();
   return geom;
 };

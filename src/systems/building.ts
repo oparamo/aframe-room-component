@@ -1,6 +1,6 @@
 import type { Matrix4 } from 'three';
 import type { Entity } from '../types/aframe';
-import type { BuildingSystem, OpeningEl, PortalEl } from '../types/elements';
+import type { BuildingSystem, BuildState, OpeningEl, PortalEl, RoomEl } from '../types/elements';
 import { nameOf, openingsOf, portalEnds, wallsOf } from '../builders/helpers/structure';
 import { buildPortal } from '../builders/portal';
 import { buildRoom } from '../builders/room';
@@ -25,6 +25,18 @@ const snapshotMatrix = (el: Entity, matrixOf: WeakMap<Entity, Matrix4>) => {
 // Whether the element is still in the document with the component that queued it.
 const isLive = (el: Entity, component: 'room' | 'portal') => el.isConnected && component in el.components;
 
+// The rooms holding a portal's opening that disagrees with the other end: an opening should have
+// corners exactly when neither end has a problem. A room built before its partner found a problem
+// still has its hole, and a room that wasn't rebuilt still lacks one after its partner's was fixed.
+const roomsOutOfStep = (portals: PortalEl[], { cornersOf, problemOf }: BuildState) => {
+  const endsOutOfStep = (portalEl: PortalEl) => {
+    const ends = openingsJoinedBy(portalEl);
+    const blocked = ends.some(openingEl => problemOf.has(openingEl));
+    return ends.filter(openingEl => !problemOf.has(openingEl) && cornersOf.has(openingEl) === blocked);
+  };
+  return [...new Set(portals.flatMap(endsOutOfStep).map(roomOf))];
+};
+
 // Builds the element, or logs the error and returns false, so one bad element never stops the rest.
 const buildSafely = (el: Entity, build: () => void) => {
   try {
@@ -41,7 +53,7 @@ AFRAME.registerSystem<BuildingSystem>('room-building', {
     this.buildPending = false;
     this.dirtyPortals = new Set();
     this.dirtyRooms = new Set();
-    this.state = { portalOf: new WeakMap(), cornersOf: new WeakMap() };
+    this.state = { portalOf: new WeakMap(), cornersOf: new WeakMap(), problemOf: new WeakMap() };
     this.builtMatrixOf = new WeakMap();
     this.builtPositionOf = new WeakMap();
     this.hiddenRooms = new WeakSet();
@@ -120,15 +132,18 @@ AFRAME.registerSystem<BuildingSystem>('room-building', {
     this.buildPending = false;
 
     // Copied and cleared first, so a build that queues more work queues it for the next pass.
-    const rooms = [...this.dirtyRooms].filter(roomEl => isLive(roomEl, 'room'));
+    const rooms = [...this.dirtyRooms];
     const portals = [...this.dirtyPortals].filter(portalEl => isLive(portalEl, 'portal'));
     this.dirtyRooms.clear();
     this.dirtyPortals.clear();
 
     // Rooms must always build before portals, because room builds record the opening corners that portals join.
-    const builtRooms = rooms.filter(roomEl => buildSafely(roomEl, () => {
+    const buildLiveRoom = (roomEl: RoomEl) => isLive(roomEl, 'room') && buildSafely(roomEl, () => {
       buildRoom(roomEl, this.state);
-    }));
+    });
+    const firstBuilt = rooms.filter(buildLiveRoom);
+    const rebuilt = roomsOutOfStep(portals, this.state).filter(buildLiveRoom);
+    const builtRooms = [...new Set([...firstBuilt, ...rebuilt])];
     for (const roomEl of builtRooms) this._show(roomEl);
     const builtPortals = portals.filter(portalEl => buildSafely(portalEl, () => {
       buildPortal(portalEl, this.state);

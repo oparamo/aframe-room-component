@@ -13,11 +13,11 @@ afterEach(() => vi.restoreAllMocks());
 const makeBuiltPortal = ({ children = [] as BuildingEl[], recorded = { from: true, to: true } } = {}) => {
   const from = makeOpening();
   const to = makeOpening();
-  makeRoom([makeWall({ openings: [from] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 })]);
+  const fromRoom = makeRoom([makeWall({ openings: [from] }), makeWall({ x: 5 }), makeWall({ x: 5, z: 5 })]);
   const state: BuildState = makeBuildState();
   if (recorded.from) state.cornersOf.set(from, makeOpeningCorners({ x: 0, width: 2, height: 2.5 }));
   if (recorded.to) state.cornersOf.set(to, makeOpeningCorners({ x: 0, width: 2, height: 2.5 }));
-  return { portal: makePortal({ from, to, children }), state };
+  return { portal: makePortal({ from, to, children }), state, from, fromRoom };
 };
 
 describe('buildPortal', () => {
@@ -111,6 +111,51 @@ describe('buildPortal', () => {
     // Assert
     expect(errorSpy).toHaveBeenNthCalledWith(1, '#my-portal was not built: the from opening\'s room hasn\'t been built.', portal);
     expect(errorSpy).toHaveBeenNthCalledWith(2, '#my-portal was not built: the to opening\'s room hasn\'t been built.', portal);
+  });
+
+  it('logs only the end whose opening its room couldn\'t cut', () => {
+    // Arrange: neither end has corners, since both rooms left their walls solid
+    const { portal, state, from } = makeBuiltPortal({ recorded: { from: false, to: false } });
+    portal.id = 'my-portal';
+    state.problemOf.set(from, 'is wider than its wall');
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Act
+    buildPortal(portal, state);
+
+    // Assert
+    expect(errorSpy).toHaveBeenCalledExactlyOnceWith('#my-portal was not built: the from opening is wider than its wall.', portal);
+  });
+
+  it('takes down its surfaces when an opening couldn\'t be cut', () => {
+    // Arrange
+    const floorChild = makePortalChild({ type: 'floor' });
+    const { portal, state, from } = makeBuiltPortal({ children: [floorChild] });
+    buildPortal(portal, state);
+    state.problemOf.set(from, 'overlaps an earlier opening on its wall');
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    // Act
+    buildPortal(portal, state);
+
+    // Assert
+    expect(floorChild.getObject3D('mesh')).toBeUndefined();
+  });
+
+  it('measures its floor\'s UVs in the from room\'s own space', () => {
+    // Arrange: the doorway spans world x -1 to 1, which is 9 to 11 in a room moved to x = -10
+    const floorChild = makePortalChild({ type: 'floor' });
+    const { portal, state, fromRoom } = makeBuiltPortal({ children: [floorChild] });
+    fromRoom.object3D.position.x = -10;
+    fromRoom.object3D.updateMatrixWorld();
+
+    // Act
+    buildPortal(portal, state);
+
+    // Assert: a floor's u runs along -x
+    const uv = meshOf(floorChild).geometry.getAttribute('uv');
+    const us = Array.from({ length: uv.count }, (_, i) => uv.getX(i));
+    expect([Math.min(...us), Math.max(...us)]).toEqual([-11, -9]);
   });
 
   it('takes down its surfaces when a rebuild cannot join the openings', () => {

@@ -518,6 +518,71 @@ describe('room-building system', () => {
     });
   });
 
+  describe('openings out of step with their portal', () => {
+    // Fakes buildRoom the way the real one treats a pair: the far opening has a problem while farFits is
+    // false, and the near one is cut only while the far one has none.
+    const fakeRoomBuilds = ({ system, near, far }: ReturnType<typeof makeLinkedPair>, farFits: () => boolean) => {
+      const { cornersOf, problemOf } = system.state;
+      vi.mocked(mockBuildRoom).mockImplementation((roomEl) => {
+        if (roomEl === far.roomEl) {
+          if (farFits()) problemOf.delete(far.openingEl);
+          else problemOf.set(far.openingEl, 'is wider than its wall');
+          return;
+        }
+        if (problemOf.has(far.openingEl)) cornersOf.delete(near.openingEl);
+        else cornersOf.set(near.openingEl, makeOpeningCorners({ x: 0, width: 1, height: 2 }));
+      });
+    };
+    const buildsOf = (roomEl: unknown) => vi.mocked(mockBuildRoom).mock.calls.filter(([built]) => built === roomEl).length;
+
+    it('rebuilds a room that cut its hole before the other end found a problem', () => {
+      // Arrange
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
+      const pair = makeLinkedPair();
+      fakeRoomBuilds(pair, () => false);
+
+      // Act: near builds first, so it cuts its hole before far records its problem
+      pair.system.buildPortal(pair.portal);
+
+      // Assert
+      expect(buildsOf(pair.near.roomEl)).toBe(2);
+      expect(pair.system.state.cornersOf.has(pair.near.openingEl)).toBe(false);
+    });
+
+    it('rebuilds a room left solid once the other end\'s problem is fixed', () => {
+      // Arrange
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
+      const pair = makeLinkedPair();
+      let farFits = false;
+      fakeRoomBuilds(pair, () => farFits);
+      pair.system.buildPortal(pair.portal);
+      vi.mocked(mockBuildRoom).mockClear();
+      farFits = true;
+
+      // Act: only far is dirty
+      pair.system.buildRoom(pair.far.roomEl);
+
+      // Assert
+      expect(buildsOf(pair.near.roomEl)).toBe(1);
+      expect(pair.system.state.cornersOf.has(pair.near.openingEl)).toBe(true);
+    });
+
+    it('builds each room once when its openings are in step', () => {
+      // Arrange
+      globalThis.requestAnimationFrame = immediateAnimationFrame();
+      const pair = makeLinkedPair();
+      fakeRoomBuilds(pair, () => true);
+      // Far's opening already has its corners, as after an earlier build.
+      pair.system.state.cornersOf.set(pair.far.openingEl, makeOpeningCorners({ x: 0, width: 1, height: 2 }));
+
+      // Act
+      pair.system.buildPortal(pair.portal);
+
+      // Assert
+      expect(mockBuildRoom).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe('hasMoved', () => {
     it('is false before the first build', () => {
       // Arrange

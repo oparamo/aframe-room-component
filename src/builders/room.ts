@@ -3,11 +3,12 @@ import type { BuildingEl, BuildState, OpeningEl, PortalEl, RoomEl, WallEl } from
 import type { OpeningCorners, OpeningEdges, WallSpan } from '../types/geometry';
 import { capGeometry } from '../geometry/caps';
 import {
-  holePath, isClockwise, openingEdges, openingPlacement, rectangleCorners, wallAngle, wallGeometry, wallSpan
+  holePath, isClockwise, openingEdges, openingFitProblem, openingPlacement, openingsOverlap, rectangleCorners,
+  wallAngle, wallGeometry, wallSpan
 } from '../geometry/walls';
 import { assertDefined } from '../utils/assert';
 import { applyMesh } from './helpers/mesh';
-import { capOf, dataOf, openingsOf, wallHeight, wallsOf } from './helpers/structure';
+import { capOf, dataOf, openingsOf, portalEnds, wallHeight, wallsOf } from './helpers/structure';
 
 interface CapOptions { walls: WallEl[]; capEl: BuildingEl; kind: 'floor' | 'ceiling'; isOutside: boolean }
 
@@ -62,18 +63,57 @@ const openingCorners = (wallEl: WallEl, { left, right }: OpeningEdges): OpeningC
   return [corner(left.ptX, left.bottomY), corner(left.ptX, left.topY), corner(right.ptX, right.bottomY), corner(right.ptX, right.topY)];
 };
 
-// Positions the opening and records its world corners; returns the hole to cut, if it has a portal.
-const cutOpening = (wall: WallBuild, openingEl: OpeningEl): Path | null => {
+const OVERLAP_PROBLEM = 'overlaps an earlier opening on its wall';
+
+// Whether the opening at the other end of the opening's portal couldn't be cut.
+const partnerHasProblem = (openingEl: OpeningEl, { portalOf, problemOf }: BuildState) => {
+  const portalEl = assertDefined(portalOf.get(openingEl), 'opening portal');
+  const { from, to } = portalEnds(dataOf(portalEl, 'portal'));
+  const partnerEl = from === openingEl ? to : from;
+  return partnerEl !== null && problemOf.has(partnerEl);
+};
+
+// Positions the opening and returns its edges, or returns null when it has no portal, or after
+// recording why it can't be cut. kept holds the edges of the wall's earlier openings, in markup order.
+const placeOpening = (wall: WallBuild, openingEl: OpeningEl, kept: OpeningEdges[]) => {
   const { state } = wall;
-  const portalEl = state.portalOf.get(openingEl);
   state.cornersOf.delete(openingEl);
+  state.problemOf.delete(openingEl);
+  const portalEl = state.portalOf.get(openingEl);
   if (!portalEl) return null;
 
-  positionOpening(wall, openingEl, portalEl);
   const portal = dataOf(portalEl, 'portal');
+  const fitProblem = openingFitProblem(wall.span, portal.width);
+  if (fitProblem) {
+    state.problemOf.set(openingEl, fitProblem);
+    return null;
+  }
+
+  positionOpening(wall, openingEl, portalEl);
   const edges = openingEdges({ span: wall.span, openingX: openingEl.object3D.position.x, portal });
-  state.cornersOf.set(openingEl, openingCorners(wall.wallEl, edges));
-  return holePath(edges);
+  if (kept.some(other => openingsOverlap(edges, other))) {
+    state.problemOf.set(openingEl, OVERLAP_PROBLEM);
+    return null;
+  }
+  return edges;
+};
+
+// The holes for the wall's openings, recording each one's world corners. An opening is left solid
+// when it can't be cut, or when the opening at its portal's other end can't, so neither room shows a
+// hole the portal doesn't fill.
+const cutOpenings = (wall: WallBuild): Path[] => {
+  const kept: OpeningEdges[] = [];
+  const holes: Path[] = [];
+  for (const openingEl of openingsOf(wall.wallEl)) {
+    const edges = placeOpening(wall, openingEl, kept);
+    if (!edges) continue;
+    kept.push(edges);
+    if (partnerHasProblem(openingEl, wall.state)) continue;
+
+    wall.state.cornersOf.set(openingEl, openingCorners(wall.wallEl, edges));
+    holes.push(holePath(edges));
+  }
+  return holes;
 };
 
 const buildWall = (wallEl: WallEl, nextWallEl: WallEl, state: BuildState) => {
@@ -81,7 +121,7 @@ const buildWall = (wallEl: WallEl, nextWallEl: WallEl, state: BuildState) => {
   const span = wallSpan(wallEl.object3D.position, nextWallEl.object3D.position, heights);
   wallEl.object3D.rotation.y = wallAngle(span);
 
-  const holes = openingsOf(wallEl).flatMap(openingEl => cutOpening({ wallEl, span, state }, openingEl) ?? []);
+  const holes = cutOpenings({ wallEl, span, state });
   const { uvScale } = dataOf(wallEl, 'wall');
   applyMesh({ el: wallEl, geom: wallGeometry({ span, holes, uvScale }) });
 };

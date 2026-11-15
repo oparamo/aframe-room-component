@@ -251,8 +251,45 @@ test('loads with only the console errors the demo makes on purpose', async ({ pa
   expect(errors).toEqual([
     expect.stringContaining('#brokenRoom was not built: it needs at least 3 walls.'),
     expect.stringContaining('#typoPortal was not built: from matches no element.'),
-    expect.stringContaining('#typoPortal was not built: to matches no element.')
+    expect.stringContaining('#typoPortal was not built: to matches no element.'),
+    expect.stringContaining('#overlapPortal was not built: the from opening overlaps an earlier opening on its wall.'),
+    expect.stringContaining('#overlapPortal was not built: the to opening overlaps an earlier opening on its wall.'),
+    expect.stringContaining('#widePortal was not built: the from opening is wider than its wall.'),
+    expect.stringContaining('#widePortal was not built: the to opening is wider than its wall.')
   ]);
+});
+
+test('leaves the grey walls solid where a portal overlaps another or is wider than them', async ({ page }) => {
+  await openDemo(page);
+
+  const floors = await page.evaluate(() => ['tightDoor', 'overlapPortal', 'widePortal'].map(
+    id => document.querySelector<Entity>(`#${id} a-floor`)?.getObject3D('mesh') !== undefined
+  ));
+  // The door spans x 3.5 to 4.5; the wide portal would have opened the whole wall.
+  const end = await walkInto(page, inLot('centerLot', [5.5, 1.6, 2.4]), inLot('centerLot', [5.5, 1.6, 4.1]));
+
+  expect(floors).toEqual([true, false, false]);
+  expect(end).toBe('stopped');
+});
+
+test('continues the yellow floor\'s texture through its doorway', async ({ page }) => {
+  await openDemo(page);
+
+  // How far any vertex's UV is from (-x, z) in the yellow room's space, the rule its own floor follows.
+  const offRule = await page.evaluate(() => {
+    const roomEl = document.getElementById('yellowRoom') as Entity;
+    return ['#yellowFloor', '#yellowDoorFloor'].map((selector) => {
+      const mesh = document.querySelector<Entity>(selector)?.getObject3D('mesh') as Mesh;
+      const position = mesh.geometry.getAttribute('position');
+      const uv = mesh.geometry.getAttribute('uv');
+      return Math.max(...Array.from({ length: position.count }, (_, i) => {
+        const point = roomEl.object3D.worldToLocal(mesh.localToWorld(new THREE.Vector3().fromBufferAttribute(position, i)));
+        return Math.max(Math.abs(uv.getX(i) + point.x), Math.abs(uv.getY(i) - point.z));
+      }));
+    });
+  });
+
+  expect(offRule.map(off => off < 0.001)).toEqual([true, true]);
 });
 
 test('builds every room but the broken one', async ({ page }) => {
@@ -263,13 +300,13 @@ test('builds every room but the broken one', async ({ page }) => {
   expect(rooms.filter(room => room.count === 0).map(room => room.id)).toEqual(['brokenRoom']);
 });
 
-test('builds every portal that has surfaces', async ({ page }) => {
+test('builds every portal that has surfaces but the two whose openings don\'t fit', async ({ page }) => {
   await openDemo(page);
 
   const portals = await meshCounts(page, 'a-portal:has(> *)');
 
-  expect(portals.length).toBeGreaterThan(0);
-  expect(portals.filter(portal => portal.count === 0)).toEqual([]);
+  expect(portals.length).toBeGreaterThan(2);
+  expect(portals.filter(portal => portal.count === 0).map(portal => portal.id)).toEqual(['overlapPortal', 'widePortal']);
 });
 
 test('puts each lot where the tests measure from', async ({ page }) => {

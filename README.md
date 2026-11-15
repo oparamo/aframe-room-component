@@ -87,7 +87,11 @@ An `a-portal` can be a child of any entity except an `a-opening`. Its world posi
 
 An `a-floor` and `a-ceiling` must be a child of either an `a-room` or an `a-portal`. An `a-sides` is only used inside `a-portal`s. All three carry a `material` component for their surface and can be omitted if you prefer to handle surfaces manually.
 
-Markup that breaks these rules doesn't stop the scene. The element is skipped and a `console.error` names it and says why: a room with too few walls, an element under the wrong parent, or a portal whose `from` or `to` matches nothing or something other than an `a-opening`. An error while building one room or portal is logged the same way, and the rest of the scene still builds.
+Markup that breaks these rules doesn't stop the scene. The element is skipped and a `console.error` names it and says why: a room with too few walls, an element under the wrong parent, or a portal whose `from` or `to` matches nothing or something other than an `a-opening`.
+
+Each opening must also fit its wall. A portal wider than its wall, an opening on a wall of no length, and an opening that overlaps an earlier one on the same wall in markup order are skipped the same way: the portal builds nothing and logs which end failed, and both walls stay solid. Openings can share a wall when they don't overlap, so a high window can sit above a door.
+
+An error while building one room or portal is logged the same way, and the rest of the scene still builds.
 
 ### Shorthands
 

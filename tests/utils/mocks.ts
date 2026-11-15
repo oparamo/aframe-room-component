@@ -194,7 +194,8 @@ const makePortalSurfaces = () => ['floor', 'ceiling', 'sides'].map(type => makeP
 // Build state as the system keeps it: links are the opening each portal uses.
 const makeBuildState = ({ links = [] }: { links?: [OpeningEl, PortalEl][] } = {}): BuildState => ({
   portalOf: new WeakMap(links),
-  cornersOf: new WeakMap()
+  cornersOf: new WeakMap(),
+  problemOf: new WeakMap()
 });
 
 interface OpeningCornersOptions { x: number; width: number; height: number }
