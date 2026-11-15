@@ -634,7 +634,7 @@ test.describe('room-collision', () => {
     expect((await playerPosition(page))[2]).toBeCloseTo(outside[2]);
   });
 
-  // Both olive teleports aim 2.5m above standing height. A step after each shows collision starts from
+  // Both olive teleports aim 0.4m above standing height. A step after each shows collision starts from
   // the landing.
   test('teleports the player into the doorless olive room and onto its floor', async ({ page }) => {
     await openDemo(page);
